@@ -9,22 +9,13 @@ RUN apt-get update && \
         bash && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-    
+ 
 VOLUME ["/var/spool/postfix", "/etc/postfix"]
 
 EXPOSE 25
 EXPOSE 587
 
-
-COPY conf/docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-
-RUN postconf -e "myhostname=localhost" && \
-    postconf -e "mydestination=localhost, localhost.localdomain" && \
-    postconf -e "inet_interfaces=all"
-
+COPY --chmod=0755 conf/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 RUN useradd -m testuser && \
     echo "testuser:testpassword" | chpasswd
