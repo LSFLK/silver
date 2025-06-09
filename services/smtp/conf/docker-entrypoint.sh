@@ -15,6 +15,7 @@ if ! postfix check; then
     echo "ERROR: 'postfix check' found errors. Exiting." >&2
     exit 1
 fi
+
 echo "INFO: 'postfix check' completed successfully."
 
 echo "INFO: Starting Postfix service..."
