@@ -1,34 +1,34 @@
 # Services 
-
 This folder contains all the services required for running your own mail server. 
 
-Each service is self-contained and are meant to be stateless. This allows for nicer seperation, better testing and allows for hotswapping services if they don't fit your needs.
+Each service is self-contained and meant to be stateless. This allows for nicer separation, better testing and allows for changing services if they don't fit your needs.
 
-Each service follows the following file structure but please refer to each service's readme for further clarification.
+Each service follows the following file structure but please refer to each service's readme for any deviations.
 
-## File Structure
+## Service File Structure
 
 ```
+
 services
 └───servicename1
 │   │   DockerFile
 │   │   README.Docker.md
-│   │
 │   └───conf
-│       │   configfile1.cf
-│       │   configfile2.cf
+│       │   config_file_1.cf
+│       │   ...
 │       │   ...
 │   ...
   compose.yaml
   services.md
+
 ```
 
 
 ## Software
-- Postfix - MTA handling sending and receiving mail
-- Dovecot - MDA handling the storing of mails
-- rspamd - Spam filtering system 
-- sqlite - database for handling users
+- Postfix - handles sending and receiving mail
+- Dovecot - handles the storing of mails
+- Rspamd -  spam filtering system 
+- Sqlite -  database for handling users
 
 
 
