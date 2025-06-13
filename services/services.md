@@ -25,10 +25,10 @@ services
 
 
 ## Software
-- Postfix - handles sending and receiving mail
-- Dovecot - handles the storing of mails
+- Postfix - handles sending and receiving mail (MTA)
+- Dovecot - handles the storing of mails (MDA)
 - Rspamd -  spam filtering system 
-- Sqlite -  database for handling users
+- Sqlite -  database for handling users and system data.
 
 
 
