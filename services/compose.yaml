@@ -1,5 +1,41 @@
+version: '0.1'
+
 services:
-  app:
+  swag:
+    image: lscr.io/linuxserver/swag:latest
+    container_name: swag
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - PUID=1000 
+      - PGID=1000 
+      - TZ=Etc/UTC
+      - URL= openmail.lk 
+      - SUBDOMAINS=www,
+      - VALIDATION=http # Or dns, if preferred/needed
+      # - DNSPLUGIN=cloudflare # If using DNS validation with Cloudflare, for example
+      # - EMAIL=your-email@example.com # For Let's Encrypt registration
+    volumes:
+      - ./swag_config:/config # SWAG's own configuration
+      - letsencrypt_certs:/etc/letsencrypt # Shared volume for certificates
+    ports:
+      - "80:80"  # For HTTP validation (if used) and redirect to HTTPS
+      - "443:443" # For HTTPS (if SWAG serves any web content)
+    restart: unless-stopped
+
+  postfix:
     build:
-      context: .
-      target: final
+      context: /smtp # Path to your Dockerfile
+    container_name: postfix_mail
+    volumes:
+      - ./postfix_config:/etc/postfix # Postfix config files
+      - ./postfix_spool:/var/spool/postfix # Mail queue
+      - letsencrypt_certs:/etc/letsencrypt:ro # Mount certs read-only
+    ports:
+      - "25:25"
+      - "587:587"
+      # - "465:465" # If you need SMTPS
+    depends_on:
+      - swag # Optional, but can help with startup order
+    restart: unless-stopped
+    # Your entrypoint and command are already in the Dockerfile
