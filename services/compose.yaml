@@ -25,7 +25,7 @@ services:
 
   postfix:
     build:
-      context: /smtp # Path to your Dockerfile
+      context: /services/smtp # Path to smtp Dockerfile
     container_name: postfix_mail
     volumes:
       - ./postfix_config:/etc/postfix # Postfix config files
@@ -36,6 +36,5 @@ services:
       - "587:587"
       # - "465:465" # If you need SMTPS
     depends_on:
-      - swag # Optional, but can help with startup order
+      - swag
     restart: unless-stopped
-    # Your entrypoint and command are already in the Dockerfile
