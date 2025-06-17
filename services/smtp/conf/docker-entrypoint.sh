@@ -4,10 +4,10 @@ set -e
 
 echo "INFO: Initializing Postfix configuration..."
 
-# TODO remove current defaults,  only for localhost setup
-postconf -e "myhostname=${MYHOSTNAME:-mail.local.com}"
-postconf -e "mydestination=${MYDESTINATION:-localhost.localdomain, localhost}"
-postconf -e "inet_interfaces=${INET_INTERFACES:-all}"
+# postfix config 
+postconf -e "myhostname=${MYHOSTNAME}"
+postconf -e "mydestination=${MYDESTINATION}"
+postconf -e "inet_interfaces=${INET_INTERFACES}"
 
 echo "INFO: Running 'postfix check'..."
 
