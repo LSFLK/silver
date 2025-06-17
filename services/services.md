@@ -10,10 +10,11 @@ Each service follows the following file structure but please refer to each servi
 ```
 
 services
-└───servicename1
+└───servicename
 │   │   DockerFile
 │   │   README.Docker.md
-│   └───conf
+|   └───scripts/
+│   └───conf/
 │       │   config_file_1.cf
 │       │   ...
 │       │   ...
