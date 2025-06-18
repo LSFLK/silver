@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# script to send mail to our postfix service. [Needs swaks on system]
+
 # --- init ---
 CONTAINER_NAME="smtp-test"
 SPOOL_FILE="/var/mail/testuser"
@@ -32,9 +34,9 @@ sleep 2
 echo "-> Verifying email receipt inside the container..."
 
 if docker exec "$CONTAINER_NAME" grep -q "$UNIQUE_ID" "$SPOOL_FILE"; then
-    echo "Test PASSED: Email successfully received."
+    echo "Test PASSED ✅: Email successfully received."
     exit 0
 else
-    echo "Test FAILED: Email with ID $UNIQUE_ID not found in $SPOOL_FILE."
+    echo "Test FAILED ❌: Email with ID $UNIQUE_ID not found in $SPOOL_FILE."
     exit 1
 fi

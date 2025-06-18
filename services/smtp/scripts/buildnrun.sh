@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Builds and runs a docker container [requires docker daemon running]
+
 CONTAINER_NAME="smtp-test"
 
 echo "--- Stopping and removing old container... ---"
