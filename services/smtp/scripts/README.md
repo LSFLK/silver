@@ -1,6 +1,6 @@
 # Test Scripts
 
-This directory contains a set of scripts designed to build, run, and test our local email functionality in a containerized environment using Docker.
+This directory contains a set of scripts designed to build, run, and test our local email functionality in a containerized environment.
 
 
 ## Dependencies
