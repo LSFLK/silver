@@ -7,20 +7,27 @@ services:
     cap_add:
       - NET_ADMIN
     environment:
-      - PUID=1000 
-      - PGID=1000 
+      - PUID=1000
+      - PGID=1000
       - TZ=Etc/UTC
-      - URL= openmail.lk 
-      - SUBDOMAINS=www,
-      - VALIDATION=http # Or dns, if preferred/needed
-      # - DNSPLUGIN=cloudflare # If using DNS validation with Cloudflare, for example
-      # - EMAIL=your-email@example.com # For Let's Encrypt registration
+      - URL=example.com
+      - VALIDATION=http
+      - SUBDOMAINS=www, #optional
+      - CERTPROVIDER= #optional
+      - DNSPLUGIN=cloudflare #optional
+      - PROPAGATION= #optional
+      - EMAIL= #optional
+      - ONLY_SUBDOMAINS=false #optional
+      - EXTRA_DOMAINS= #optional
+      - STAGING=false #optional
+      - DISABLE_F2B= #optional
+      - SWAG_AUTORELOAD= #optional
+      - SWAG_AUTORELOAD_WATCHLIST= #optional
     volumes:
-      - ./swag_config:/config # SWAG's own configuration
-      - letsencrypt_certs:/etc/letsencrypt # Shared volume for certificates
+      - /path/to/swag/config:/config
     ports:
-      - "80:80"  # For HTTP validation (if used) and redirect to HTTPS
-      - "443:443" # For HTTPS (if SWAG serves any web content)
+      - 443:443
+      - 80:80 #optional
     restart: unless-stopped
 
   postfix:
