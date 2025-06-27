@@ -1,47 +1,44 @@
-version: '0.1'
-
 services:
   swag:
     image: lscr.io/linuxserver/swag:latest
     container_name: swag
+    env_file: "test.env" # cycle between envs here
     cap_add:
       - NET_ADMIN
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=Etc/UTC
-      - URL=example.com
+      - URL=${URL}
       - VALIDATION=http
-      - SUBDOMAINS=www, #optional
-      - CERTPROVIDER= #optional
-      - DNSPLUGIN=cloudflare #optional
-      - PROPAGATION= #optional
-      - EMAIL= #optional
-      - ONLY_SUBDOMAINS=false #optional
-      - EXTRA_DOMAINS= #optional
-      - STAGING=false #optional
-      - DISABLE_F2B= #optional
-      - SWAG_AUTORELOAD= #optional
-      - SWAG_AUTORELOAD_WATCHLIST= #optional
+      #- SUBDOMAINS=www, #optional
+      #- CERTPROVIDER= # optional, default is Lets Encrypt
+      #- DNSPLUGIN=cloudflare #optional
+      #- PROPAGATION= #optional
+      #- EMAIL= #optional
+      #- ONLY_SUBDOMAINS=false #optional
+      #- EXTRA_DOMAINS= #optional
+      #- STAGING=false #optional
+      #- DISABLE_F2B= #optional
+      #- SWAG_AUTORELOAD= #optional
+      #- SWAG_AUTORELOAD_WATCHLIST= #optional
     volumes:
-      - /path/to/swag/config:/config
+      - ./conf/swag/conf:/config
     ports:
       - 443:443
       - 80:80 #optional
     restart: unless-stopped
 
-  postfix:
-    build:
-      context: /services/smtp # Path to smtp Dockerfile
-    container_name: postfix_mail
-    volumes:
-      - ./postfix_config:/etc/postfix # Postfix config files
-      - ./postfix_spool:/var/spool/postfix # Mail queue
-      - letsencrypt_certs:/etc/letsencrypt:ro # Mount certs read-only
-    ports:
-      - "25:25"
-      - "587:587"
-      # - "465:465" # If you need SMTPS
-    depends_on:
-      - swag
-    restart: unless-stopped
+  # postfix:
+  #   build:
+  #     context: /services/smtp # Path to smtp Dockerfile
+  #   container_name: postfix_mail
+  #   volumes:
+  #     - ./postfix_config:/etc/postfix # Postfix config files
+  #     - ./postfix_spool:/var/spool/postfix # Mail queue
+  #     - letsencrypt_certs:/etc/letsencrypt:ro # Mount certs read-only
+  #   ports:
+  #     - "25:25"
+  #     - "587:587"
+  #     # - "465:465" # If you need SMTPS
+  #   restart: unless-stopped
