@@ -2,7 +2,7 @@ services:
   swag:
     image: lscr.io/linuxserver/swag:latest
     container_name: swag
-    env_file: "test.env" # cycle between envs here
+    env_file: ".env"
     cap_add:
       - NET_ADMIN
     environment:
