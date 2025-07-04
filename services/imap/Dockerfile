@@ -13,8 +13,10 @@ RUN apt-get update && \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-COPY conf/dovecot/ /etc/dovecot/
+
+COPY conf/dovecot.conf /etc/dovecot/dovecot.conf
 COPY conf/users.conf /etc/dovecot/users.conf
+
 
 # Expose IMAP, IMAPS ports
 EXPOSE 110 143 
@@ -24,7 +26,7 @@ EXPOSE 110 143
 VOLUME ["/etc/dovecot", "/var/mail"]
 
 # Copy the entrypoint script
-COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY --chmod=0755 ./conf/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
