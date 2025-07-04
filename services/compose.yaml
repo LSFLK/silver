@@ -20,7 +20,7 @@ services:
       #- EXTRA_DOMAINS= #optional
       #- STAGING=false #optional
       #- DISABLE_F2B= #optional
-      #- SWAG_AUTORELOAD= #optional
+      #- SWAG_AUTORELOAD=true
       #- SWAG_AUTORELOAD_WATCHLIST= #optional
     volumes:
       - ./conf/swag/conf:/config
@@ -29,16 +29,16 @@ services:
       - 80:80 #optional
     restart: unless-stopped
 
-  # postfix:
-  #   build:
-  #     context: /services/smtp # Path to smtp Dockerfile
-  #   container_name: postfix_mail
-  #   volumes:
-  #     - ./postfix_config:/etc/postfix # Postfix config files
-  #     - ./postfix_spool:/var/spool/postfix # Mail queue
-  #     - letsencrypt_certs:/etc/letsencrypt:ro # Mount certs read-only
-  #   ports:
-  #     - "25:25"
-  #     - "587:587"
-  #     # - "465:465" # If you need SMTPS
-  #   restart: unless-stopped
+  postfix:
+    build:
+      context: /services/smtp # Path to smtp Dockerfile
+    container_name: postfix_mail
+    volumes:
+      - ./postfix_config:/etc/postfix # Postfix config files
+      - ./postfix_spool:/var/spool/postfix # Mail queue
+      - ./conf/swag/conf/etc/letsencrypt/live/${URL}:/etc/postfix/ssl:ro
+    ports:
+      - "25:25"
+      - "587:587"
+      # - "465:465" # If you need SMTPS
+    restart: unless-stopped

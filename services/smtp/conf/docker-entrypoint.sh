@@ -8,6 +8,8 @@ echo "INFO: Initializing Postfix configuration..."
 postconf -e "myhostname=${MYHOSTNAME}"
 postconf -e "mydestination=${MYDESTINATION}"
 postconf -e "inet_interfaces=${INET_INTERFACES}"
+postconf -e "smtpd_tls_cert_file=/etc/postfix/ssl/fullchain.pem"
+postconf -e "smtpd_tls_key_file=/etc/postfix/ssl/privkey.pem"
 
 echo "INFO: Running 'postfix check'..."
 
