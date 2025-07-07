@@ -61,7 +61,6 @@ services:
     container_name: dovecot-imap
     volumes:
       - ./conf/swag/conf/etc/letsencrypt/live/${URL}:/etc/dovecot/tls:ro
-      - ./conf/dovecot/conf/:/etc/dovecot/
       - mail_data:/var/mail
     ports:
       - "143:143"

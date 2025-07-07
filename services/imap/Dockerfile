@@ -17,7 +17,6 @@ RUN apt-get update && \
 COPY conf/dovecot.conf /etc/dovecot/dovecot.conf
 COPY conf/users.conf /etc/dovecot/users.conf
 
-
 # Expose IMAP, IMAPS ports
 EXPOSE 110 143 
 
