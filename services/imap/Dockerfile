@@ -21,10 +21,6 @@ COPY conf/users.conf /etc/dovecot/users.conf
 # Expose IMAP, IMAPS ports
 EXPOSE 110 143 
 
-# /etc/dovecot: for custom configuration
-# /var/mail: for mail storage
-VOLUME ["/etc/dovecot", "/var/mail"]
-
 # Copy the entrypoint script
 COPY --chmod=0755 ./conf/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
