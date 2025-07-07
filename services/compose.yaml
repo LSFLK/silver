@@ -43,7 +43,6 @@ services:
     container_name: postfix-smtp
     volumes:
       - ./conf/swag/conf/etc/letsencrypt/live/${URL}:/etc/postfix/tls:ro
-      - ./conf/postfix/conf/:/etc/postfix # Postfix config files
       - ./conf/postfix/spool:/var/spool/postfix # Mail queue
     ports:
       - "25:25"
