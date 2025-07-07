@@ -30,15 +30,33 @@ services:
     restart: unless-stopped
 
   postfix:
+    env_file:
+      - ".env"
     build:
-      context: /services/smtp # Path to smtp Dockerfile
-    container_name: postfix_mail
+      context: /services/smtp 
+    depends_on:
+      - swag
+    container_name: postfix-smtp
     volumes:
-      - ./postfix_config:/etc/postfix # Postfix config files
-      - ./postfix_spool:/var/spool/postfix # Mail queue
-      - ./conf/swag/conf/etc/letsencrypt/live/${URL}:/etc/postfix/ssl:ro
+      - ./conf/swag/conf/etc/letsencrypt/live/${URL}:/etc/postfix/tls:ro
+      - ./conf/postfix/conf/:/etc/postfix # Postfix config files
+      - ./conf/postfix/spool:/var/spool/postfix # Mail queue
     ports:
       - "25:25"
       - "587:587"
       # - "465:465" # If you need SMTPS
+    restart: unless-stopped
+
+  dovecot:
+    env_file:
+        - ".env"
+    build: 
+      context: /services/imap
+    container_name: dovecot-imap
+    volumes:
+      - ./conf/swag/conf/etc/letsencrypt/live/${URL}:/etc/dovecot/tls:ro
+      - ./conf/dovecot/conf/:/etc/dovecot/
+    ports:
+      - "143:143"
+      - "993:993"
     restart: unless-stopped
