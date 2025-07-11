@@ -36,32 +36,32 @@ services:
     #   timeout: 5s
     #   retries: 5
 
-  ubuntu-test:
-    image: ubuntu:22.04
-    depends_on: 
-      - swag
-    container_name: ubuntu_test_container
-    restart: unless-stopped
-    volumes:
-      - ./conf/swag/conf/etc/letsencrypt:/le-ssl:ro
-
-  # postfix:
-  #   env_file:
-  #     - ".env"
-  #   # networks:
-  #   #   - mail_network
-  #   build:
-  #     context: smtp/ 
-  #   depends_on:
-  #     swag:
-  #       condition: service_healthy
+  # ubuntu-test:
+  #   image: ubuntu:22.04
+  #   depends_on: 
+  #     - swag
+  #   container_name: ubuntu_test_container
+  #   restart: unless-stopped
   #   volumes:
   #     - ./conf/swag/conf/etc/letsencrypt:/le-ssl:ro
-  #     - ./conf/postfix/spool:/var/spool/postfix
-  #   ports:
-  #     - "25:25"
-  #     - "587:587"
-  #   restart: unless-stopped
+
+  postfix:
+    env_file:
+      - ".env"
+    # networks:
+    #   - mail_network
+    build:
+      context: smtp/ 
+    depends_on:
+      swag:
+        condition: service_healthy
+    volumes:
+      - ./conf/swag/conf/etc/letsencrypt:/le-ssl:ro
+      - ./conf/postfix/spool:/var/spool/postfix
+    ports:
+      - "25:25"
+      - "587:587"
+    restart: unless-stopped
 
 #   dovecot:
 #     env_file:
