@@ -1,8 +1,8 @@
 services:
   swag:
     image: lscr.io/linuxserver/swag:latest
-    networks:
-      - mail_network
+    # networks:
+    #   - mail_network
     container_name: swag
     env_file: ".env"
     cap_add:
@@ -25,51 +25,68 @@ services:
       #- SWAG_AUTORELOAD=true
       #- SWAG_AUTORELOAD_WATCHLIST= #optional
     volumes:
-      - ./conf/swag/conf:/config
+      - ./conf/swag/config:/config
     ports:
       - 443:443
-      - 80:80 #optional
+      - 80:80
     restart: unless-stopped
+    # healthcheck:
+    #   test: ["CMD", "test", "-f", "/config/etc/letsencrypt/live/${URL}/privkey.pem"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 5
 
-  postfix:
-    env_file:
-      - ".env"
-    networks:
-      - mail_network
-    build:
-      context: smtp/ 
-    depends_on:
+  ubuntu-test:
+    image: ubuntu:22.04
+    depends_on: 
       - swag
-    container_name: postfix-smtp
-    volumes:
-      - ./conf/swag/conf/etc/letsencrypt/live/${URL}:/etc/postfix/tls:ro
-      - ./conf/postfix/spool:/var/spool/postfix # Mail queue
-    ports:
-      - "25:25"
-      - "587:587"
-      # - "465:465" # If you need SMTPS
+    container_name: ubuntu_test_container
     restart: unless-stopped
+    volumes:
+      - ./conf/swag/conf/etc/letsencrypt:/le-ssl:ro
 
-  dovecot:
-    env_file:
-        - ".env"
-    networks:
-      - mail_network
-    build: 
-      context: imap/
-    container_name: dovecot-imap
-    volumes:
-      - ./conf/swag/conf/etc/letsencrypt/live/${URL}:/etc/dovecot/tls:ro
-      - mail_data:/var/mail
-    ports:
-      - "143:143"
-      - "993:993"
-    restart: unless-stopped
+  # postfix:
+  #   env_file:
+  #     - ".env"
+  #   # networks:
+  #   #   - mail_network
+  #   build:
+  #     context: smtp/ 
+  #   depends_on:
+  #     swag:
+  #       condition: service_healthy
+  #   volumes:
+  #     - ./conf/swag/conf/etc/letsencrypt:/le-ssl:ro
+  #     - ./conf/postfix/spool:/var/spool/postfix
+  #   ports:
+  #     - "25:25"
+  #     - "587:587"
+  #   restart: unless-stopped
+
+#   dovecot:
+#     env_file:
+#         - ".env"
+#     networks:
+#       - mail_network
+#     build: 
+#       context: imap/
+#     depends_on:
+#       swag:
+#         condition: service_healthy
+#     container_name: dovecot-imap
+#     volumes:
+#       # CORRECTED: Mount the entire letsencrypt directory
+#       - ./conf/swag/conf/etc/letsencrypt:/etc/letsencrypt:ro
+#       - mail_data:/var/mail
+#     ports:
+#       - "143:143"
+#       - "993:993"
+#     restart: unless-stopped
     
-volumes:
-  mail_data:
+# volumes:
+#  ./conf/swag/conf:
+  #mail_data:
 
-networks:
-  mail_network:
-    driver: bridge
-
+# networks:
+#   mail_network:
+#     driver: bridge

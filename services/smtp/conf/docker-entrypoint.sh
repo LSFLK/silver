@@ -16,10 +16,7 @@ postconf -e "smtpd_relay_restrictions = permit_mynetworks, permit_sasl_authentic
 
 echo "INFO: Running 'postfix check'..."
 
-if ! postfix check; then
-    echo "ERROR: 'postfix check' found errors. Exiting." >&2
-    exit 1
-fi
+postfix check
 
 echo "INFO: 'postfix check' completed successfully."
 

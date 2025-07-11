@@ -1,2 +1,4 @@
 services/conf/
 services/test.env
+logs/
+services/.env
