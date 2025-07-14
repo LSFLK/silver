@@ -26,25 +26,25 @@ services:
       #- SWAG_AUTORELOAD_WATCHLIST= #optional
     volumes:
       - ./conf/swag/config:/config
-    restart: unless_stopped
+    restart: unless-stopped
     ports:
       - 443:443
       - 80:80
-  #   healthcheck:
-  #     test: ["CMD", "test", "-f", "/config/etc/letsencrypt/live/{URL}/fullchain.pem"]
-  #     interval: 10s   
-  #     timeout: 5s    
-  #     retries: 15 
+    healthcheck:
+      test: ["CMD", "test", "-f", "/config/etc/letsencrypt/live/{URL}/fullchain.pem"]
+      interval: 10s   
+      timeout: 5s    
+      retries: 15 
 
-  # ubuntu-test:
-  #   image: ubuntu:22.04
-  #   container_name: ubuntu_test_container
-  #   volumes:
-  #     - ./conf/swag/config/etc/letsencrypt:/le-ssl:ro
-  #   depends_on:
-  #     swag:
-  #       condition: service_healthy
-  #   restart: unless-stopped
+  ubuntu-test:
+    image: ubuntu:22.04
+    container_name: ubuntu_test_container
+    volumes:
+      - ./conf/swag/config/etc/letsencrypt:/le-ssl:ro
+    depends_on:
+      swag:
+        condition: service_healthy
+    restart: unless-stopped
     
 
   # postfix:
