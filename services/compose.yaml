@@ -20,48 +20,51 @@ services:
       #- EMAIL= #optional
       #- ONLY_SUBDOMAINS=false #optional
       #- EXTRA_DOMAINS= #optional
-      #- STAGING=false #optional
+      - STAGING=true #optional
       #- DISABLE_F2B= #optional
-      #- SWAG_AUTORELOAD=true
+      - SWAG_AUTORELOAD=true
       #- SWAG_AUTORELOAD_WATCHLIST= #optional
     volumes:
       - ./conf/swag/config:/config
+    restart: unless_stopped
     ports:
       - 443:443
       - 80:80
-    restart: unless-stopped
-    # healthcheck:
-    #   test: ["CMD", "test", "-f", "/config/etc/letsencrypt/live/${URL}/privkey.pem"]
-    #   interval: 10s
-    #   timeout: 5s
-    #   retries: 5
+  #   healthcheck:
+  #     test: ["CMD", "test", "-f", "/config/etc/letsencrypt/live/{URL}/fullchain.pem"]
+  #     interval: 10s   
+  #     timeout: 5s    
+  #     retries: 15 
 
   # ubuntu-test:
   #   image: ubuntu:22.04
-  #   depends_on: 
-  #     - swag
   #   container_name: ubuntu_test_container
-  #   restart: unless-stopped
   #   volumes:
-  #     - ./conf/swag/conf/etc/letsencrypt:/le-ssl:ro
+  #     - ./conf/swag/config/etc/letsencrypt:/le-ssl:ro
+  #   depends_on:
+  #     swag:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+    
 
-  postfix:
-    env_file:
-      - ".env"
-    # networks:
-    #   - mail_network
-    build:
-      context: smtp/ 
-    depends_on:
-      swag:
-        condition: service_healthy
-    volumes:
-      - ./conf/swag/conf/etc/letsencrypt:/le-ssl:ro
-      - ./conf/postfix/spool:/var/spool/postfix
-    ports:
-      - "25:25"
-      - "587:587"
-    restart: unless-stopped
+  # postfix:
+  #   container_name: "postfix-smtp"
+  #   env_file:
+  #     - "smtp/conf/config.env"
+  #   # networks:
+  #   #   - mail_network
+  #   build:
+  #     context: smtp/ 
+  #   depends_on:
+  #     swag:
+  #       condition: service_healthy
+  #   volumes:
+  #     - ./conf/swag/config/etc/letsencrypt:/le-ssl:ro
+  #     - ./conf/postfix/spool:/var/spool/postfix
+  #   ports:
+  #     - "25:25"
+  #     - "587:587"
+  #   restart: unless-stopped
 
 #   dovecot:
 #     env_file:
