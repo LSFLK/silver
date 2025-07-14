@@ -31,40 +31,40 @@ services:
       - 443:443
       - 80:80
     healthcheck:
-      test: ["CMD", "test", "-f", "/config/etc/letsencrypt/live/{URL}/fullchain.pem"]
-      interval: 10s   
-      timeout: 5s    
-      retries: 15 
+      test: ["CMD-SHELL", "test -f /config/etc/letsencrypt/live/${URL}/privkey.pem"]
+      interval: 10s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
 
-  ubuntu-test:
-    image: ubuntu:22.04
-    container_name: ubuntu_test_container
-    volumes:
-      - ./conf/swag/config/etc/letsencrypt:/le-ssl:ro
+  # ubuntu-test:
+  #   image: ubuntu:22.04
+  #   container_name: ubuntu_test
+  #   tty: true
+  #   stdin_open: true
+  #   volumes:
+  #     - ./config/swag/config/etc/:/le-ssl:ro
+  #   depends_on:
+  #     - swag
+  #   restart: unless-stopped
+    
+  postfix:
+    container_name: "postfix-smtp"
+    env_file:
+      - "smtp/conf/config.env"
+    build:
+      context: smtp/ 
     depends_on:
       swag:
-        condition: service_healthy
+          condition: service_healthy
+          restart: true
+    volumes:
+      - ./conf/swag/config/etc/:/le-ssl:ro
+      - ./conf/postfix/spool:/var/spool/postfix
+    ports:
+      - "25:25"
+      - "587:587"
     restart: unless-stopped
-    
-
-  # postfix:
-  #   container_name: "postfix-smtp"
-  #   env_file:
-  #     - "smtp/conf/config.env"
-  #   # networks:
-  #   #   - mail_network
-  #   build:
-  #     context: smtp/ 
-  #   depends_on:
-  #     swag:
-  #       condition: service_healthy
-  #   volumes:
-  #     - ./conf/swag/config/etc/letsencrypt:/le-ssl:ro
-  #     - ./conf/postfix/spool:/var/spool/postfix
-  #   ports:
-  #     - "25:25"
-  #     - "587:587"
-  #   restart: unless-stopped
 
 #   dovecot:
 #     env_file:
