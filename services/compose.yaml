@@ -22,7 +22,7 @@ services:
       #- EXTRA_DOMAINS= #optional
       - STAGING=true #optional
       #- DISABLE_F2B= #optional
-      - SWAG_AUTORELOAD=true
+      #- SWAG_AUTORELOAD=true
       #- SWAG_AUTORELOAD_WATCHLIST= #optional
     volumes:
       - ./conf/swag/config:/config
