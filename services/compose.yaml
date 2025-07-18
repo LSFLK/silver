@@ -51,7 +51,7 @@ services:
   postfix:
     container_name: "postfix-smtp"
     env_file:
-      - "smtp/conf/config.env"
+      - ".env"
     build:
       context: smtp/ 
     depends_on:
