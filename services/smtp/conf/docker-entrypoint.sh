@@ -11,8 +11,8 @@ postconf -e "inet_interfaces = ${INET_INTERFACES}"
 # TLS
 postconf -e "smtpd_tls_security_level = may"
 postconf -e "smtp_tls_loglevel = 1"
-postconf -e "smtpd_tls_cert_file = ${TLSPATH}/${URL}/fullchain.pem"
-postconf -e "smtpd_tls_key_file = ${TLSPATH}/${URL}/privkey.pem"
+postconf -e "smtpd_tls_cert_file = /le-ssl/letsencrypt/live/maneesha.dev/fullchain.pem"
+postconf -e "smtpd_tls_key_file = /le-ssl/letsencrypt/live/maneesha.dev/privkey.pem"
 # SASL
 postconf -e "smtpd_sasl_type = dovecot"
 postconf -e "smtpd_sasl_path = private/auth"

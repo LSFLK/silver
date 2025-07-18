@@ -61,6 +61,7 @@ services:
     volumes:
       - ./conf/swag/config/etc/:/le-ssl:ro
       - ./conf/postfix/spool:/var/spool/postfix
+      - ./conf/postfix/config/:/etc/postfix
     ports:
       - "25:25"
       - "587:587"
