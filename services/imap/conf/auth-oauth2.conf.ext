@@ -1,0 +1,7 @@
+introspection_mode = local
+local_validation_key_dict = fs:posix:prefix=/etc/dovecot/keys/
+issuers = thunder
+username_attribute = email
+active_attribute = active
+active_value     = true
+tls_ca_cert_file = /etc/ssl/certs/ca-certificates.crt
