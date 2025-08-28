@@ -37,3 +37,61 @@ services:
       retries: 5
       start_period: 10s
       timeout: 10s
+
+  # MAIL SERVER COMPONENTS
+  postfix:
+    container_name: "postfix-smtp"
+    env_file:
+      - ".env"
+    build:
+      context: smtp/
+    depends_on:
+      swag:
+        condition: service_healthy
+        restart: true
+    volumes:
+      - ./conf/swag/config/etc/:/le-ssl:ro
+      - ./smtp/conf/master.cf:/etc/postfix/master.cf
+      - ./conf/postfix/spool:/var/spool/postfix
+    ports:
+      - "25:25"
+      - "587:587"
+    restart: unless-stopped
+    networks:
+      - mail_network
+
+
+# MILTER
+  rspamd:
+    image: rspamd/rspamd:3.9
+    container_name: rspamd
+    ports:
+      - "11332:11332"  # Proxy worker
+      - "11334:11334"  # Web interface
+    volumes:
+      - ./spam/conf/local.d:/etc/rspamd/local.d
+      - ./spam/conf/data:/var/lib/rspamd
+      - ./spam/conf/logs:/var/log/rspamd
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - mail_network
+
+  redis:
+    image: redis:alpine
+    container_name: rspamd-redis
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - mail_network
+
+  clamav:
+    image: clamav/clamav:1.3
+    container_name: clamav
+    networks:
+      - mail_network
+    restart: unless-stopped
+    volumes:
+      - ./antivirus/conf/data:/var/lib/clamav
