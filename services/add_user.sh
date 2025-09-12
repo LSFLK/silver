@@ -7,9 +7,6 @@
 # -------------------------------
 # Configuration
 # -------------------------------
-THUNDER_HOST="localhost"
-THUNDER_PORT="8090"
-
 # Colors
 CYAN="\033[0;36m"
 GREEN="\033[0;32m"
@@ -63,6 +60,11 @@ fi
 
 echo -e "${GREEN}✓ Domain name is valid: $MAIL_DOMAIN${NC}"
 
+## Set Thunder Host
+
+THUNDER_HOST= "$MAIL_DOMAIN"
+THUNDER_PORT=8090
+
 # -------------------------------
 # Step 2: Collect user info
 # -------------------------------
@@ -76,7 +78,37 @@ USER_EMAIL=${USER_EMAIL:-"${USER_USERNAME}@${MAIL_DOMAIN}"}
 echo -e "${GREEN}✓ User input collected${NC}"
 
 # -------------------------------
-# Step 3: Update SMTP virtual-users
+# Step 3: Create user via Thunder API
+# -------------------------------
+echo -e "\n${YELLOW}Step 4/5: Creating user in Thunder...${NC}"
+
+USER_RESPONSE=$(curl -w "\n%{http_code}" -X POST \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  https://maneesha.dev:8090/users \
+  -d "{
+    \"organizationUnit\": \"456e8400-e29b-41d4-a716-446655440001\",
+    \"type\": \"emailuser\",
+    \"attributes\": {
+      \"username\": \"$USER_USERNAME\",
+      \"password\": \"$USER_PASSWORD\",
+      \"email\": \"$USER_EMAIL\"
+    }
+  }")
+
+USER_BODY=$(echo "$USER_RESPONSE" | head -n -1)
+USER_STATUS=$(echo "$USER_RESPONSE" | tail -n1)
+
+if [ "$USER_STATUS" -eq 201 ] || [ "$USER_STATUS" -eq 200 ]; then
+    echo -e "${GREEN}✓ User created successfully (HTTP $USER_STATUS)${NC}"
+else
+    echo -e "${RED}✗ Failed to create user (HTTP $USER_STATUS)${NC}"
+    echo "Response: $USER_BODY"
+    exit 1
+fi
+
+# -------------------------------
+# Step 4: Update SMTP virtual-users
 # -------------------------------
 echo -e "\n${YELLOW}Step 3/5: Updating SMTP configuration...${NC}"
 mkdir -p "$(dirname "$VIRTUAL_USERS_FILE")"
@@ -95,36 +127,6 @@ sort -u -o "$VIRTUAL_USERS_FILE" "$VIRTUAL_USERS_FILE"
 sed -i -e '$a\' "$VIRTUAL_USERS_FILE" 2>/dev/null || sed -i '' -e '$a\' "$VIRTUAL_USERS_FILE"
 
 echo -e "${GREEN}✓ SMTP configuration updated${NC}"
-
-# -------------------------------
-# Step 4: Create user via Thunder API
-# -------------------------------
-echo -e "\n${YELLOW}Step 4/5: Creating user in Thunder...${NC}"
-
-USER_RESPONSE=$(curl -sk -w "\n%{http_code}" -X POST \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json" \
-  https://$THUNDER_HOST:$THUNDER_PORT/users \
-  -d "{
-    \"organizationUnit\": \"456e8400-e29b-41d4-a716-446655440001\",
-    \"type\": \"superhuman\",
-    \"attributes\": {
-      \"username\": \"$USER_USERNAME\",
-      \"password\": \"$USER_PASSWORD\",
-      \"email\": \"$USER_EMAIL\"
-    }
-  }")
-
-USER_BODY=$(echo "$USER_RESPONSE" | head -n -1)
-USER_STATUS=$(echo "$USER_RESPONSE" | tail -n1)
-
-if [ "$USER_STATUS" -eq 201 ] || [ "$USER_STATUS" -eq 200 ]; then
-    echo -e "${GREEN}✓ User created successfully (HTTP $USER_STATUS)${NC}"
-else
-    echo -e "${RED}✗ Failed to create user (HTTP $USER_STATUS)${NC}"
-    echo "Response: $USER_BODY"
-    exit 1
-fi
 
 # -------------------------------
 # Step 5: Recreate SMTP service

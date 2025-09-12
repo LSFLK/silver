@@ -67,8 +67,10 @@ if ! [[ "$MAIL_DOMAIN" =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
     exit 1
 fi
 
-echo "MAIL_DOMAIN=${MAIL_DOMAIN}" > "${SCRIPT_DIR}/.env"
-echo -e "${GREEN}✓ .env file created successfully for ${MAIL_DOMAIN}${NC}"
+
+# Thunder var setting
+THUNDER_HOST="$MAIL_DOMAIN"
+THUNDER_PORT=8090
 
 # ================================
 # Step 2: SMTP Configuration
@@ -107,6 +109,14 @@ echo -e "${GREEN}✓ worker-controller.inc created for spam filter${NC}"
 # ================================
 echo -e "\n${YELLOW}Step 4/6: Starting Docker services${NC}"
 
+
+LETSENCRYPT_DIR="./letsencrypt/live/${MAIL_DOMAIN}/"
+
+mkdir -p "./thunder/"
+
+cp "${LETSENCRYPT_DIR}/fullchain.pem" "./thunder/server.cert"
+cp "${LETSENCRYPT_DIR}/privkey.pem" "./thunder/server.key"
+
 ( cd "${SCRIPT_DIR}" && docker compose up -d --build --force-recreate )
 if [ $? -ne 0 ]; then
     echo -e "${RED}✗ Docker compose failed. Please check the logs.${NC}"
@@ -124,6 +134,35 @@ if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ SMTP service rebuilt and running${NC}"
 else
     echo -e "${RED}✗ Failed to recreate SMTP service. Please check the logs.${NC}"
+    exit 1
+fi
+
+# ================================
+# Step 5: Initialize Thunder User Schema
+# ================================
+echo -e "\n${YELLOW}Step 5/6: Creating default user schema in Thunder${NC}"
+
+SCHEMA_RESPONSE=$(curl -w "\n%{http_code}" -X POST \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  https://${THUNDER_HOST}:${THUNDER_PORT}/user-schemas \
+  -d "{
+    \"name\": \"emailuser\",
+    \"schema\": {
+      \"username\": { \"type\": \"string\", \"unique\": true },
+      \"password\": { \"type\": \"string\" },
+      \"email\": { \"type\": \"string\", \"unique\": true }
+    }
+  }")
+
+SCHEMA_BODY=$(echo "$SCHEMA_RESPONSE" | head -n -1)
+SCHEMA_STATUS=$(echo "$SCHEMA_RESPONSE" | tail -n1)
+
+if [ "$SCHEMA_STATUS" -eq 201 ] || [ "$SCHEMA_STATUS" -eq 200 ]; then
+    echo -e "${GREEN}✓ User schema 'emailuser' created successfully (HTTP $SCHEMA_STATUS)${NC}"
+else
+    echo -e "${RED}✗ Failed to create user schema (HTTP $SCHEMA_STATUS)${NC}"
+    echo "Response: $SCHEMA_BODY"
     exit 1
 fi
 
