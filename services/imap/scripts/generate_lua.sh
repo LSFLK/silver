@@ -95,7 +95,9 @@ function auth_userdb_lookup(req)
         return dovecot.auth.USERDB_RESULT_USER_UNKNOWN, "no such user"
     end
 
-    local url = "https://thunder-server:8090/users"
+    -- Build SCIM filter request (search by username, not email)
+    local url = "https://thunder-server:8090/users?filter=username%20eq%20%22" ..
+                req.username .. "%22"
     local response_body = {}
 
     local ok, code, headers, status = https.request{
@@ -104,7 +106,7 @@ function auth_userdb_lookup(req)
         sink = ltn12.sink.table(response_body)
     }
 
-    if not ok then
+    if not ok or code ~= 200 then
         return dovecot.auth.USERDB_RESULT_USER_UNKNOWN, "API error"
     end
 
@@ -114,13 +116,13 @@ function auth_userdb_lookup(req)
         return dovecot.auth.USERDB_RESULT_USER_UNKNOWN, "invalid JSON"
     end
 
-    if data and data.users then
-        for _, user in ipairs(data.users) do
-            if user.attributes and user.attributes.username == req.username then
-                return dovecot.auth.USERDB_RESULT_OK,
-                       "uid=5000 gid=5000 home=/var/mail/vmail/" .. req.username ..
-                       " mail=maildir:/var/mail/vmail/" .. req.username
-            end
+    -- Compare username field
+    if data and data.users and #data.users > 0 then
+        local user = data.users[1]
+        if user.attributes and user.attributes.username == req.username then
+            return dovecot.auth.USERDB_RESULT_OK,
+                   "uid=5000 gid=5000 home=/var/mail/vmail/" .. req.username ..
+                   " mail=maildir:/var/mail/vmail/" .. req.username
         end
     end
 

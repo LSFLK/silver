@@ -67,7 +67,6 @@ if ! [[ "$MAIL_DOMAIN" =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
     exit 1
 fi
 
-
 # Thunder var setting
 THUNDER_HOST="$MAIL_DOMAIN"
 THUNDER_PORT=8090
@@ -141,6 +140,7 @@ fi
 # Step 5: Initialize Thunder User Schema
 # ================================
 echo -e "\n${YELLOW}Step 5/6: Creating default user schema in Thunder${NC}"
+
 
 SCHEMA_RESPONSE=$(curl -w "\n%{http_code}" -X POST \
   -H "Content-Type: application/json" \

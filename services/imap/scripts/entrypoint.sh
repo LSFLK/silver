@@ -13,6 +13,21 @@ echo "Generating Lua authentication script..."
 
 # Generate Dovecot configuration dynamically
 cat > /etc/dovecot/dovecot.conf <<EOF
+plugin {
+  # Enable quota for Maildir
+  quota = maildir:User quota
+  quota_rule = *:storage=1G
+  quota_warning = storage=90%% warning
+}
+
+protocol lmtp {
+  mail_plugins = $mail_plugins quota
+}
+
+protocol imap {
+  mail_plugins = $mail_plugins quota
+}
+
 service lmtp {
   unix_listener /var/spool/postfix/private/dovecot-lmtp {
     mode = 0600

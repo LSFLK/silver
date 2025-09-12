@@ -2,19 +2,24 @@
 set -e
 
 # -------------------------------
-# Read domain from .env file
+# Read domain from yaml file
 # -------------------------------
-ENV_FILE=".env"
-if [ ! -f "$ENV_FILE" ]; then
-    echo "❌ .env file not found in current folder"
-    exit 1
+
+CONFIG_FILE="silver.yaml"
+
+DOMAIN=$(grep -m 1 '^domain:' "$CONFIG_FILE" | sed 's/domain: //' | xargs)
+
+# Validate if DOMAIN is empty
+if [ -z "$DOMAIN" ]; then
+    echo -e "${RED}Error: Domain name is not configured or is empty. Please set it in '$CONFIG_FILE'.${NC}"
+    exit 1 # Exit the script with a failure status
+else
+    echo "Domain name found: $DOMAIN"
+    # ...continue with the rest of your script...
 fi
 
-# Extract MAIL_DOMAIN (ignore comments)
-DOMAIN=$(grep -v '^#' "$ENV_FILE" | grep 'MAIL_DOMAIN=' | cut -d'=' -f2)
-
-if [ -z "$DOMAIN" ]; then
-    echo "❌ MAIL_DOMAIN not set in .env"
+if ! [[ "$DOMAIN" =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+    echo -e "${RED}✗ Warning: '${DOMAIN}' does not look like a valid domain name.${NC}"
     exit 1
 fi
 
