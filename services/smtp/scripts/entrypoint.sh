@@ -15,8 +15,6 @@ RELAYHOST=${RELAYHOST:-}
 # Path for vmail
 VMAIL_DIR="/var/mail/vmail"
 
-echo "=== Configuring Postfix with MySQL virtual setup ==="
-
 # -------------------------------
 # Basic Postfix configuration
 # -------------------------------

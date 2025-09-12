@@ -86,7 +86,7 @@ services:
       context: ./certbot
     container_name: certbot-server
     volumes:
-      - ./silver.yaml:/etc/postfix/silver.yaml:ro
+      - ./silver.yaml:/etc/certbot/silver.yaml:ro
       - ./letsencrypt:/etc/letsencrypt
       - ./letsencrypt/certbot-logs:/var/log/letsencrypt
     ports:
