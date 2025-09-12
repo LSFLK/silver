@@ -1,0 +1,18 @@
+# ===============================================================
+#          Silver Mail Server Configuration (`silver.yaml`)
+# ===============================================================
+#
+# This file contains the primary configuration for your mail server.
+# --- Domain Configuration ---
+# This is the most critical setting. It defines the primary domain name
+# that your mail server will be responsible for.
+#
+# ➡ IMPORTANT:
+#   - Replace the empty value below with your actual domain name.
+#   - Do NOT include 'www.' or 'https://'. Just the domain itself.
+#   - This domain must be a real, registered domain that you own.
+#
+# Example (this line is commented out and is just a guide):
+# domain: your-awesome-domain.com
+
+domain:

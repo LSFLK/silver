@@ -19,3 +19,7 @@ services/letsencrypt/
 # Ignore node modules
 services/webui/node_modules
 services/webui/package-lock.json
+
+# Ignore test results files and test data files
+test/test_results/
+test/test_data/

@@ -1,14 +1,9 @@
 #!/bin/bash
 set -e
 
-# -------------------------------
-# Load .env from grandparent folder
-# -------------------------------
-ENV_FILE="$(dirname "$(dirname "$0")")/.env"
+CONFIG_FILE="/etc/postfix/silver.yaml"
 
-if [ -f "$ENV_FILE" ]; then
-    export $(grep -v '^#' "$ENV_FILE" | xargs)
-fi
+export MAIL_DOMAIN=$(yq -e '.domain' "$CONFIG_FILE")
 
 # -------------------------------
 # Environment variables
@@ -96,12 +91,12 @@ postconf -e "non_smtpd_milters = inet:rspamd-server:11332,inet:opendkim-server:8
 # -------------------------------
 # Throttling / Abuse control
 # -------------------------------
-postconf -e "smtpd_client_connection_rate_limit = 10"
-postconf -e "smtpd_client_message_rate_limit = 100"
-postconf -e "smtpd_client_recipient_rate_limit = 200"
-postconf -e "smtpd_recipient_limit = 50"
-postconf -e "anvil_rate_time_unit = 60s"
-postconf -e "smtpd_client_connection_count_limit = 20"
+postconf -e "smtpd_client_connection_rate_limit = 10"       # Number of new connections a client (IP) can make per time unit(60s).
+postconf -e "smtpd_client_message_rate_limit = 100"         # Number of messages a client can send per time unit.
+postconf -e "smtpd_client_recipient_rate_limit = 200"       # Number of recipients a client can send to per time unit.
+postconf -e "smtpd_recipient_limit = 50"                    # Max number of recipients per message.
+postconf -e "anvil_rate_time_unit = 60s"                    # Time unit for rate limiting.
+postconf -e "smtpd_client_connection_count_limit = 20"      # Number of simultaneous connections a client can make.
 
 # -------------------------------
 # vmail user/group and directories

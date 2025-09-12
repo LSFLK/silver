@@ -1,16 +1,13 @@
-
 services:
   smtp-server:
     build:
       context: ./smtp
     container_name: smtp-server-container
-    hostname: ${MAIL_DOMAIN}
-    env_file:
-      - .env
     ports:
       - "25:25"
       - "587:587"
     volumes:
+      - ./silver.yaml:/etc/postfix/silver.yaml:ro
       - maildata:/var/mail/vmail
       - postfix-sasl:/var/spool/postfix/private
       - ./letsencrypt:/etc/letsencrypt:ro
@@ -29,11 +26,10 @@ services:
     build:
       context: ./imap
     container_name: dovecot-server
-    env_file:
-      - .env
     ports:
       - "143:143"
     volumes:
+      - ./silver.yaml:/etc/dovecot/silver.yaml:ro
       - maildata:/var/mail/vmail
       - postfix-sasl:/var/spool/postfix/private
       - ./letsencrypt:/etc/letsencrypt:ro
@@ -46,9 +42,8 @@ services:
     build:
       context: ./dkim
     container_name: opendkim-server
-    env_file:
-      - .env
     volumes:
+      - ./silver.yaml:/etc/opendkim/silver.yaml:ro
       - dkim-keys:/etc/opendkim/keys
     networks:
       - mail-network
@@ -87,12 +82,13 @@ services:
       - mail-network
 
   certbot-server:
-    image: certbot/certbot
+    build: 
+      context: ./certbot
     container_name: certbot-server
     volumes:
+      - ./silver.yaml:/etc/certbot/silver.yaml:ro
       - ./letsencrypt:/etc/letsencrypt
       - ./letsencrypt/certbot-logs:/var/log/letsencrypt
-    command: certonly --standalone --non-interactive --agree-tos --email admin@${MAIL_DOMAIN} -d ${MAIL_DOMAIN} -d mail.${MAIL_DOMAIN}
     ports:
       - "80:80"
       - "443:443"

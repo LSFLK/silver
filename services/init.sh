@@ -13,6 +13,7 @@ NC="\033[0m" # No Color
 
 # Get the script directory (where init.sh is located)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="silver.yaml"
 
 # ASCII Banner
 echo -e "${CYAN}"
@@ -24,7 +25,7 @@ cat <<'EOF'
 S:::::SSSSSS::::::S  iiii  l:::::l                                                              
 S:::::S     SSSSSSS        l:::::l                                                              
 S:::::S            iiiiiii  l::::lvvvvvvv           vvvvvvv eeeeeeeeeeee    rrrrr   rrrrrrrrr   
-S:::::S            i:::::i  l::::l v:::::v         v:::::vee::::::::::::ee  r::::rrr:::::::::r  
+S:::::S            i::::i  l::::l v:::::v         v:::::vee::::::::::::ee  r::::rrr:::::::::r  
  S::::SSSS          i::::i  l::::l  v:::::v       v:::::ve::::::eeeee:::::eer:::::::::::::::::r 
   SS::::::SSSSS     i::::i  l::::l   v:::::v     v:::::ve::::::e     e:::::err::::::rrrrr::::::r
     SSS::::::::SS   i::::i  l::::l    v:::::v   v:::::v e:::::::eeeee::::::e r:::::r     r:::::r
@@ -49,72 +50,27 @@ MAIL_DOMAIN=""
 # Step 1: Domain Configuration
 # ================================
 echo -e "\n${YELLOW}Step 1/6: Configure domain name${NC}"
-while [ -z "$MAIL_DOMAIN" ]; do
-  read -p "Please enter the domain name: " MAIL_DOMAIN
-  if [ -z "$MAIL_DOMAIN" ]; then
-    echo -e "${RED}✗ Domain name cannot be empty. Please try again.${NC}"
-  fi
-done
+
+MAIL_DOMAIN=$(grep -m 1 '^domain:' "$CONFIG_FILE" | sed 's/domain: //' | xargs)
+
+# Validate if MAIL_DOMAIN is empty
+if [ -z "$MAIL_DOMAIN" ]; then
+    echo -e "${RED}Error: Domain name is not configured or is empty. Please set it in '$CONFIG_FILE'.${NC}"
+    exit 1 # Exit the script with a failure status
+else
+    echo "Domain name found: $MAIL_DOMAIN"
+    # ...continue with the rest of your script...
+fi
 
 if ! [[ "$MAIL_DOMAIN" =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
     echo -e "${RED}✗ Warning: '${MAIL_DOMAIN}' does not look like a valid domain name.${NC}"
     exit 1
 fi
 
-echo "MAIL_DOMAIN=${MAIL_DOMAIN}" > "${SCRIPT_DIR}/.env"
-echo -e "${GREEN}✓ .env file created successfully for ${MAIL_DOMAIN}${NC}"
-
 # ================================
-# Step 2: Admin User Configuration
+# Step 2: SMTP Configuration
 # ================================
-echo -e "\n${YELLOW}Step 2/6: Configure Admin User${NC}"
-
-read -p "Enter username: " USER_USERNAME
-read -s -p "Enter password: " USER_PASSWORD
-echo "" # newline
-
-read -p "Enter first name: " USER_FIRST_NAME
-read -p "Enter last name: " USER_LAST_NAME
-read -p "Enter age: " USER_AGE
-read -p "Enter phone number: " USER_PHONE
-
-echo -e "${GREEN}✓ Admin user information collected${NC}"
-
-# ================================
-# Step 3: Writing Thunder .env
-# ================================
-echo -e "\n${YELLOW}Step 3/6: Creating Thunder configuration file${NC}"
-
-# Create thunder scripts directory if it doesn't exist
-mkdir -p "${SCRIPT_DIR}/thunder/scripts"
-
-cat > "${SCRIPT_DIR}/thunder/scripts/.env" <<EOF
-# Thunder Server Configuration
-THUNDER_HOST="localhost"
-THUNDER_PORT="8090"
-
-# Application Configuration
-APP_NAME="MyThunderApp"
-APP_DESCRIPTION="Thunder application for API testing and development"
-APP_CLIENT_ID="************"
-APP_CLIENT_SECRET="************"
-
-# User Configuration
-USER_USERNAME="${USER_USERNAME}"
-USER_PASSWORD="${USER_PASSWORD}"
-USER_EMAIL="${USER_USERNAME}@${MAIL_DOMAIN}"
-USER_FIRST_NAME="${USER_FIRST_NAME}"
-USER_LAST_NAME="${USER_LAST_NAME}"
-USER_AGE="${USER_AGE}"
-USER_PHONE="${USER_PHONE}"
-EOF
-
-echo -e "${GREEN}✓ Thunder .env file created${NC}"
-
-# ================================
-# Step 4: SMTP Configuration
-# ================================
-echo -e "\n${YELLOW}Step 4/6: Creating SMTP configuration${NC}"
+echo -e "\n${YELLOW}Step 2/6: Creating SMTP configuration${NC}"
 
 TARGET_DIR="${SCRIPT_DIR}/smtp/conf"
 if [ ! -d "$TARGET_DIR" ]; then
@@ -122,19 +78,20 @@ if [ ! -d "$TARGET_DIR" ]; then
     mkdir -p "$TARGET_DIR"
 fi
 
+# Create required files
 echo "${MAIL_DOMAIN} OK" > "$TARGET_DIR/virtual-domains"
-echo "postmaster@${MAIL_DOMAIN} ${USER_USERNAME}@${MAIL_DOMAIN}" > "$TARGET_DIR/virtual-aliases"
-echo -e "${USER_USERNAME}@${MAIL_DOMAIN}\t${MAIL_DOMAIN}/${USER_USERNAME}" > "$TARGET_DIR/virtual-users"
+: > "$TARGET_DIR/virtual-aliases"
+: > "$TARGET_DIR/virtual-users"
 
-echo -e "${GREEN}✓ SMTP configuration files created${NC}"
-echo " - $TARGET_DIR/virtual-domains"
-echo " - $TARGET_DIR/virtual-aliases"
-echo " - $TARGET_DIR/virtual-users"
+echo -e "${GREEN}✓ SMTP configuration files prepared${NC}"
+echo " - $TARGET_DIR/virtual-domains (with '${MAIL_DOMAIN} OK')"
+echo " - $TARGET_DIR/virtual-aliases (empty)"
+echo " - $TARGET_DIR/virtual-users (empty)"
 
 # ================================
-# Step 5: Spam Filter Configuration
+# Step 3: Spam Filter Configuration
 # ================================
-echo -e "\n${YELLOW}Step 5/6: Configuring Spam Filter${NC}"
+echo -e "\n${YELLOW}Step 3/6: Configuring Spam Filter${NC}"
 
 if [ ! -d "${SCRIPT_DIR}/spam/conf" ]; then
     mkdir -p "${SCRIPT_DIR}/spam/conf"
@@ -143,9 +100,9 @@ echo "password = \"\$2\$8hn4c88rmafsueo4h3yckiirwkieidb3\$uge4i3ynbba89qpo1gqmqk
 echo -e "${GREEN}✓ worker-controller.inc created for spam filter${NC}"
 
 # ================================
-# Step 6: Docker Setup
+# Step 4: Docker Setup
 # ================================
-echo -e "\n${YELLOW}Step 6/6: Starting Docker services${NC}"
+echo -e "\n${YELLOW}Step 4/6: Starting Docker services${NC}"
 
 ( cd "${SCRIPT_DIR}" && docker compose up -d --build --force-recreate )
 if [ $? -ne 0 ]; then
@@ -160,13 +117,6 @@ while [ "$(cd "${SCRIPT_DIR}" && docker compose ps --services --filter "status=r
 done
 echo -e " ${GREEN}done${NC}"
 
-chmod +x "${SCRIPT_DIR}/thunder/scripts/init.sh"
-echo "Running Thunder initialization script..."
-( cd "${SCRIPT_DIR}" && ./thunder/scripts/init.sh )
-
-echo "Rebuilding and recreating only the SMTP service..."
-( cd "${SCRIPT_DIR}" && docker compose up -d --build --force-recreate smtp-server )
-
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ SMTP service rebuilt and running${NC}"
 else
@@ -175,16 +125,33 @@ else
 fi
 
 # ================================
-# Final Summary
+# Step 5: Initialize Thunder User Schema
 # ================================
-echo ""
-echo -e "🎉 ${GREEN}Setup Complete!${NC}"
-echo "---------------------------------------------"
-echo " Domain:        ${MAIL_DOMAIN}"
-echo " Admin User:    ${USER_USERNAME}"
-echo " Admin Email:   ${USER_USERNAME}@${MAIL_DOMAIN}"
-echo " Thunder API:   http://localhost:8090"
-echo "---------------------------------------------"
+echo -e "\n${YELLOW}Step 5/6: Creating default user schema in Thunder${NC}"
+
+SCHEMA_RESPONSE=$(curl -sk -w "\n%{http_code}" -X POST \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  https://localhost:8090/user-schemas \
+  -d "{
+    \"name\": \"emailuser\",
+    \"schema\": {
+      \"username\": { \"type\": \"string\", \"unique\": true },
+      \"password\": { \"type\": \"string\" },
+      \"email\": { \"type\": \"string\", \"unique\": true }
+    }
+  }")
+
+SCHEMA_BODY=$(echo "$SCHEMA_RESPONSE" | head -n -1)
+SCHEMA_STATUS=$(echo "$SCHEMA_RESPONSE" | tail -n1)
+
+if [ "$SCHEMA_STATUS" -eq 201 ] || [ "$SCHEMA_STATUS" -eq 200 ]; then
+    echo -e "${GREEN}✓ User schema 'emailuser' created successfully (HTTP $SCHEMA_STATUS)${NC}"
+else
+    echo -e "${RED}✗ Failed to create user schema (HTTP $SCHEMA_STATUS)${NC}"
+    echo "Response: $SCHEMA_BODY"
+    exit 1
+fi
 
 # ================================
 # Public DKIM Key Instructions
