@@ -7,9 +7,6 @@
 # -------------------------------
 # Configuration
 # -------------------------------
-THUNDER_HOST="localhost"
-THUNDER_PORT="8090"
-
 # Colors
 CYAN="\033[0;36m"
 GREEN="\033[0;32m"
@@ -63,6 +60,11 @@ fi
 
 echo -e "${GREEN}✓ Domain name is valid: $MAIL_DOMAIN${NC}"
 
+## Set Thunder Host
+
+THUNDER_HOST= "$MAIL_DOMAIN"
+THUNDER_PORT=8090
+
 # -------------------------------
 # Step 2: Collect user info
 # -------------------------------
@@ -80,10 +82,10 @@ echo -e "${GREEN}✓ User input collected${NC}"
 # -------------------------------
 echo -e "\n${YELLOW}Step 4/5: Creating user in Thunder...${NC}"
 
-USER_RESPONSE=$(curl -sk -w "\n%{http_code}" -X POST \
+USER_RESPONSE=$(curl -w "\n%{http_code}" -X POST \
   -H "Content-Type: application/json" \
   -H "Accept: application/json" \
-  https://$THUNDER_HOST:$THUNDER_PORT/users \
+  https://maneesha.dev:8090/users \
   -d "{
     \"organizationUnit\": \"456e8400-e29b-41d4-a716-446655440001\",
     \"type\": \"emailuser\",

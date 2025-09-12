@@ -67,6 +67,10 @@ if ! [[ "$MAIL_DOMAIN" =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
     exit 1
 fi
 
+# Thunder var setting
+THUNDER_HOST="$MAIL_DOMAIN"
+THUNDER_PORT=8090
+
 # ================================
 # Step 2: SMTP Configuration
 # ================================
@@ -104,6 +108,14 @@ echo -e "${GREEN}✓ worker-controller.inc created for spam filter${NC}"
 # ================================
 echo -e "\n${YELLOW}Step 4/6: Starting Docker services${NC}"
 
+
+LETSENCRYPT_DIR="./letsencrypt/live/${MAIL_DOMAIN}/"
+
+mkdir -p "./thunder/"
+
+cp "${LETSENCRYPT_DIR}/fullchain.pem" "./thunder/server.cert"
+cp "${LETSENCRYPT_DIR}/privkey.pem" "./thunder/server.key"
+
 ( cd "${SCRIPT_DIR}" && docker compose up -d --build --force-recreate )
 if [ $? -ne 0 ]; then
     echo -e "${RED}✗ Docker compose failed. Please check the logs.${NC}"
@@ -129,10 +141,11 @@ fi
 # ================================
 echo -e "\n${YELLOW}Step 5/6: Creating default user schema in Thunder${NC}"
 
-SCHEMA_RESPONSE=$(curl -sk -w "\n%{http_code}" -X POST \
+
+SCHEMA_RESPONSE=$(curl -w "\n%{http_code}" -X POST \
   -H "Content-Type: application/json" \
   -H "Accept: application/json" \
-  https://localhost:8090/user-schemas \
+  https://${THUNDER_HOST}:${THUNDER_PORT}/user-schemas \
   -d "{
     \"name\": \"emailuser\",
     \"schema\": {
