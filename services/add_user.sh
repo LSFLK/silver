@@ -7,9 +7,6 @@
 # -------------------------------
 # Configuration
 # -------------------------------
-THUNDER_HOST="localhost"
-THUNDER_PORT="8090"
-
 # Colors
 CYAN="\033[0;36m"
 GREEN="\033[0;32m"
@@ -63,6 +60,11 @@ fi
 
 echo -e "${GREEN}✓ Domain name is valid: $MAIL_DOMAIN${NC}"
 
+THUNDER_HOST=${MAIL_DOMAIN}
+THUNDER_PORT="8090"
+
+echo -e "${GREEN}✓ Thunder host set to: $THUNDER_HOST:$THUNDER_PORT${NC}"
+
 # -------------------------------
 # Step 2: Collect user info
 # -------------------------------
@@ -70,8 +72,9 @@ echo -e "${YELLOW}Step 2/3: Enter new user information${NC}"
 read -p "Enter username: " USER_USERNAME
 read -s -p "Enter password: " USER_PASSWORD
 echo ""
-read -p "Enter email (default: ${USER_USERNAME}@${MAIL_DOMAIN}): " USER_EMAIL
-USER_EMAIL=${USER_EMAIL:-"${USER_USERNAME}@${MAIL_DOMAIN}"}
+
+# Always use default email (no prompt)
+USER_EMAIL="${USER_USERNAME}@${MAIL_DOMAIN}"
 
 echo -e "${GREEN}✓ User input collected${NC}"
 
@@ -80,7 +83,7 @@ echo -e "${GREEN}✓ User input collected${NC}"
 # -------------------------------
 echo -e "\n${YELLOW}Step 4/5: Creating user in Thunder...${NC}"
 
-USER_RESPONSE=$(curl -sk -w "\n%{http_code}" -X POST \
+USER_RESPONSE=$(curl -w "\n%{http_code}" -X POST \
   -H "Content-Type: application/json" \
   -H "Accept: application/json" \
   https://$THUNDER_HOST:$THUNDER_PORT/users \

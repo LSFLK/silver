@@ -80,6 +80,11 @@ services:
       - "8090:8090"
     networks:
       - mail-network
+    volumes:
+       - ./thunder/certs/server.cert:/opt/thunder/repository/resources/security/server.cert:ro
+       - ./thunder/certs/server.key:/opt/thunder/repository/resources/security/server.key:ro
+    depends_on:
+      - certbot-server
 
   certbot-server:
     build: 

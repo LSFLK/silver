@@ -26,7 +26,7 @@ local function api_authenticate(user, password, req)
     local request_body = json.encode({ email = user, password = password })
     local response_body = {}
 
-    local res, code, headers, status = https.request{
+    local params = {
         url = "https://thunder-server:8090/users/authenticate",
         method = "POST",
         headers = {
@@ -34,8 +34,17 @@ local function api_authenticate(user, password, req)
             ["Content-Length"] = tostring(#request_body)
         },
         source = ltn12.source.string(request_body),
-        sink = ltn12.sink.table(response_body)
+        sink = ltn12.sink.table(response_body),
+
+        protocol = "tlsv1_2",   -- enforce TLS 1.2+
+        options = "all",
+
+        cafile = "/etc/ssl/certs/ca-certificates.crt",  -- system CA store (Debian/Ubuntu)
+        verify = "peer",       -- verify server certificate
+        verifyext = { "lsec_continue" },
     }
+
+    local res, code, headers, status = https.request(params)
 
     req:log_debug("HTTPS request finished. HTTP code: " .. tostring(code))
 
@@ -100,19 +109,31 @@ function auth_userdb_lookup(req)
                 req.username .. "%22"
     local response_body = {}
 
-    local ok, code, headers, status = https.request{
+    local params = {
         url = url,
         method = "GET",
-        sink = ltn12.sink.table(response_body)
+        sink = ltn12.sink.table(response_body),
+
+        protocol = "tlsv1_2",   -- enforce TLS 1.2+
+        options = "all",
+        cafile = "/etc/ssl/certs/ca-certificates.crt",  -- system CA store
+        verify = "peer",       -- verify server certificate
+        verifyext = { "lsec_continue" },
     }
 
+    local ok, code, headers, status = https.request(params)
+
     if not ok or code ~= 200 then
+        req:log_error("User lookup API error: " .. tostring(status))
         return dovecot.auth.USERDB_RESULT_USER_UNKNOWN, "API error"
     end
 
     local body = table.concat(response_body)
+    req:log_debug("User lookup raw API response: " .. body)
+
     local data, pos, err = json.decode(body, 1, nil)
     if err then
+        req:log_error("User lookup JSON decode error: " .. err)
         return dovecot.auth.USERDB_RESULT_USER_UNKNOWN, "invalid JSON"
     end
 
