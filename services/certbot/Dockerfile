@@ -14,4 +14,4 @@ RUN apk add --no-cache wget ca-certificates && \
 COPY ./scripts/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# NO 'USER certbot' or 'ENTRYPOINT' needed. The base image handles this.
+ENTRYPOINT [ "/entrypoint.sh" ]

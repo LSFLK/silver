@@ -17,6 +17,11 @@ import os
 import csv
 from datetime import datetime
 import subprocess
+from dotenv import load_dotenv
+
+# Load environment variables from .env file in the same folder
+load_dotenv()
+MAIL_DOMAIN = os.getenv("MAIL_DOMAIN", "localhost")  # fallback to localhost
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -24,9 +29,9 @@ logger = logging.getLogger(__name__)
 
 class EmailServerConfig:
     """Email server configuration with multiple fallback options"""
-    SMTP_SERVER = "openmail.lk"
+    SMTP_SERVER = MAIL_DOMAIN
     SMTP_PORT = 587
-    IMAP_SERVER = "openmail.lk"
+    IMAP_SERVER = MAIL_DOMAIN
 
     # Try these configurations in order
     IMAP_CONFIGS = [
@@ -160,7 +165,7 @@ class TestUserManager:
         for i in range(100):
             users.append({
                 'username': f'testuser{i:03d}',
-                'email': f'testuser{i:03d}@openmail.lk',
+                'email': f'testuser{i:03d}@{MAIL_DOMAIN}',
                 'password': 'TestPassword123!',
                 'full_name': fake.name()
             })

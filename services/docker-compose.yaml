@@ -80,13 +80,18 @@ services:
       - "8090:8090"
     networks:
       - mail-network
+    volumes:
+       - ./thunder/certs/server.cert:/opt/thunder/repository/resources/security/server.cert:ro
+       - ./thunder/certs/server.key:/opt/thunder/repository/resources/security/server.key:ro
+    depends_on:
+      - certbot-server
 
   certbot-server:
     build: 
       context: ./certbot
     container_name: certbot-server
     volumes:
-      - ./silver.yaml:/etc/postfix/silver.yaml:ro
+      - ./silver.yaml:/etc/certbot/silver.yaml:ro
       - ./letsencrypt:/etc/letsencrypt
       - ./letsencrypt/certbot-logs:/var/log/letsencrypt
     ports:

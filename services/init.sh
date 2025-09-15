@@ -49,7 +49,7 @@ MAIL_DOMAIN=""
 # ================================
 # Step 1: Domain Configuration
 # ================================
-echo -e "\n${YELLOW}Step 1/6: Configure domain name${NC}"
+echo -e "\n${YELLOW}Step 1/7: Configure domain name${NC}"
 
 MAIL_DOMAIN=$(grep -m 1 '^domain:' "$CONFIG_FILE" | sed 's/domain: //' | xargs)
 
@@ -67,13 +67,44 @@ if ! [[ "$MAIL_DOMAIN" =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
     exit 1
 fi
 
-echo "MAIL_DOMAIN=${MAIL_DOMAIN}" > "${SCRIPT_DIR}/.env"
-echo -e "${GREEN}✓ .env file created successfully for ${MAIL_DOMAIN}${NC}"
+# ================================
+# Step 2: Generate & Verify Certificates (via certbot container)
+# ================================
+echo -e "\n${YELLOW}Step 2/7: Generating TLS certificates using certbot container${NC}"
+
+# Start only certbot container first
+( cd "${SCRIPT_DIR}" && docker compose up certbot-server --build --force-recreate )
+
+LETSENCRYPT_DIR="./letsencrypt/live/${MAIL_DOMAIN}/"
+
+# Wait until certbot finishes and files exist
+echo -n "⏳ Waiting for certificates..."
+RETRIES=20
+while [ $RETRIES -gt 0 ]; do
+    if [ -f "${LETSENCRYPT_DIR}/fullchain.pem" ] && [ -f "${LETSENCRYPT_DIR}/privkey.pem" ]; then
+        echo -e " ${GREEN}done${NC}"
+        break
+    fi
+    echo -n "."
+    sleep 5
+    RETRIES=$((RETRIES-1))
+done
+
+if [ ! -f "${LETSENCRYPT_DIR}/fullchain.pem" ] || [ ! -f "${LETSENCRYPT_DIR}/privkey.pem" ]; then
+    echo -e "${RED}✗ Certificate generation failed. Required files not found:${NC}"
+    echo " - ${LETSENCRYPT_DIR}/fullchain.pem"
+    echo " - ${LETSENCRYPT_DIR}/privkey.pem"
+    exit 1
+fi
+
+echo -e "${GREEN}✓ Certificates ready for ${MAIL_DOMAIN}${NC}"
+echo " - ${LETSENCRYPT_DIR}/fullchain.pem"
+echo " - ${LETSENCRYPT_DIR}/privkey.pem"
 
 # ================================
-# Step 2: SMTP Configuration
+# Step 3: SMTP Configuration
 # ================================
-echo -e "\n${YELLOW}Step 2/6: Creating SMTP configuration${NC}"
+echo -e "\n${YELLOW}Step 3/7: Creating SMTP configuration${NC}"
 
 TARGET_DIR="${SCRIPT_DIR}/smtp/conf"
 if [ ! -d "$TARGET_DIR" ]; then
@@ -92,9 +123,9 @@ echo " - $TARGET_DIR/virtual-aliases (empty)"
 echo " - $TARGET_DIR/virtual-users (empty)"
 
 # ================================
-# Step 3: Spam Filter Configuration
+# Step 4: Spam Filter Configuration
 # ================================
-echo -e "\n${YELLOW}Step 3/6: Configuring Spam Filter${NC}"
+echo -e "\n${YELLOW}Step 4/7: Configuring Spam Filter${NC}"
 
 if [ ! -d "${SCRIPT_DIR}/spam/conf" ]; then
     mkdir -p "${SCRIPT_DIR}/spam/conf"
@@ -103,9 +134,30 @@ echo "password = \"\$2\$8hn4c88rmafsueo4h3yckiirwkieidb3\$uge4i3ynbba89qpo1gqmqk
 echo -e "${GREEN}✓ worker-controller.inc created for spam filter${NC}"
 
 # ================================
-# Step 4: Docker Setup
+# Step 5: Thunder TLS Configuration
 # ================================
-echo -e "\n${YELLOW}Step 4/6: Starting Docker services${NC}"
+echo -e "\n${YELLOW}Step 5/7: Configuring Thunder TLS certificates${NC}"
+
+THUNDER_HOST=${MAIL_DOMAIN}
+THUNDER_PORT=8090
+
+LETSENCRYPT_DIR="./letsencrypt/live/${MAIL_DOMAIN}/"
+
+mkdir -p "./thunder/certs"
+
+cp "${LETSENCRYPT_DIR}/fullchain.pem" "./thunder/certs/server.cert"
+cp "${LETSENCRYPT_DIR}/privkey.pem" "./thunder/certs/server.key"
+
+# Set ownership to user ID 802 (thunder user in container)
+sudo chown 802:802 ./thunder/certs/server.key ./thunder/certs/server.cert
+
+chmod 600 ./thunder/certs/server.key
+chmod 644 ./thunder/certs/server.cert
+
+# ================================
+# Step 6: Docker Setup
+# ================================
+echo -e "\n${YELLOW}Step 6/7: Starting Docker services${NC}"
 
 ( cd "${SCRIPT_DIR}" && docker compose up -d --build --force-recreate )
 if [ $? -ne 0 ]; then
@@ -120,10 +172,34 @@ while [ "$(cd "${SCRIPT_DIR}" && docker compose ps --services --filter "status=r
 done
 echo -e " ${GREEN}done${NC}"
 
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ SMTP service rebuilt and running${NC}"
+# ================================
+# Step 7: Initialize Thunder User Schema
+# ================================
+
+
+echo -e "\n${YELLOW}Step 7/7: Creating default user schema in Thunder${NC}"
+
+SCHEMA_RESPONSE=$(curl -w  "\n%{http_code}" -X POST \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  https://${THUNDER_HOST}:${THUNDER_PORT}/user-schemas \
+  -d "{
+    \"name\": \"emailuser\",
+    \"schema\": {
+      \"username\": { \"type\": \"string\", \"unique\": true },
+      \"password\": { \"type\": \"string\" },
+      \"email\": { \"type\": \"string\", \"unique\": true }
+    }
+  }")
+
+SCHEMA_BODY=$(echo "$SCHEMA_RESPONSE" | head -n -1)
+SCHEMA_STATUS=$(echo "$SCHEMA_RESPONSE" | tail -n1)
+
+if [ "$SCHEMA_STATUS" -eq 201 ] || [ "$SCHEMA_STATUS" -eq 200 ]; then
+    echo -e "${GREEN}✓ User schema 'emailuser' created successfully (HTTP $SCHEMA_STATUS)${NC}"
 else
-    echo -e "${RED}✗ Failed to recreate SMTP service. Please check the logs.${NC}"
+    echo -e "${RED}✗ Failed to create user schema (HTTP $SCHEMA_STATUS)${NC}"
+    echo "Response: $SCHEMA_BODY"
     exit 1
 fi
 

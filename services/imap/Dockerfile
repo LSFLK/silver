@@ -5,16 +5,17 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install dovecot and mail utilities
 RUN apt-get update && \
     apt-get install -y \
-    dovecot-core \
-    dovecot-imapd \
-    dovecot-lmtpd \
-    mailutils \
-    dovecot-auth-lua \
-    lua5.3 \
-    lua-socket \
-    lua-sec \
-    lua-dkjson \
-    wget && \
+        dovecot-core \
+        dovecot-imapd \
+        dovecot-lmtpd \
+        mailutils \
+        dovecot-auth-lua \
+        lua5.3 \
+        lua-socket \
+        lua-sec \
+        lua-dkjson \
+        wget \
+        ca-certificates && \
     wget -O /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64" && \
     chmod +x /usr/local/bin/yq && \
     apt-get purge -y --auto-remove wget && \
