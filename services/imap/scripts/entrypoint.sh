@@ -18,6 +18,17 @@ plugin {
   quota = maildir:User quota
   quota_rule = *:storage=1G
   quota_warning = storage=90%% warning
+
+  # POP3-specific settings
+  pop3_client_workarounds = outlook-no-nuls oe-ns-eoh
+  pop3_uidl_format = %n
+  pop3_read_only = yes
+}
+
+# POP3-specific protocol settings
+protocol pop3 {
+  mail_plugins = $mail_plugins
+  pop3_deleted_flag = Deleted
 }
 
 protocol lmtp {
@@ -51,7 +62,7 @@ mail_uid = 5000
 mail_gid = 8
 
 auth_mechanisms = plain login oauthbearer xoauth2
-protocols = imap lmtp
+protocols = imap lmtp pop3
 
 ssl = required
 ssl_cert = </etc/letsencrypt/live/${MAIL_DOMAIN}/fullchain.pem
@@ -78,6 +89,17 @@ service imap-login {
 
   inet_listener imaps {
     port = 993
+    ssl = yes
+  }
+}
+
+service pop3-login {
+  inet_listener pop3 {
+    port = 110
+  }
+
+  inet_listener pop3s {
+    port = 995
     ssl = yes
   }
 }

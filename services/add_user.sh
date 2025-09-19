@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================
-#  Silver Mail - Add Users from users.yaml + Thunder Init
+#  Silver Mail - Add Users from users.yaml + Thunder Initialization
 # ============================================
 
 # -------------------------------
@@ -18,10 +18,15 @@ NC="\033[0m" # No Color
 # Directories & files
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VIRTUAL_USERS_FILE="${SCRIPT_DIR}/smtp/conf/virtual-users"
+VIRTUAL_DOMAINS_FILE="${SCRIPT_DIR}/smtp/conf/virtual-domains"
 CONFIG_FILE="${SCRIPT_DIR}/silver.yaml"
 USERS_FILE="${SCRIPT_DIR}/users.yaml"
 PASSWORDS_DIR="${SCRIPT_DIR}/../scripts/decrypt"
 PASSWORDS_FILE="${PASSWORDS_DIR}/user_passwords.txt"
+
+# Docker container paths
+CONTAINER_VIRTUAL_USERS_FILE="/etc/postfix/virtual-users"
+CONTAINER_VIRTUAL_DOMAINS_FILE="/etc/postfix/virtual-domains"
 
 # -------------------------------
 # Prompt for encryption key
@@ -44,7 +49,6 @@ echo -e "${CYAN}---------------------------------------------${NC}\n"
 
 # Generate a random strong password
 generate_password() {
-    # Use OpenSSL for cryptographically secure password generation
     openssl rand -base64 24 | tr -d '\n' | head -c 16
 }
 
@@ -69,14 +73,101 @@ encrypt_password() {
     echo "$encrypted"
 }
 
-# -------------------------------
-# Step 0: Check maximum user limit
-# -------------------------------
-MAX_USERS=100
-mkdir -p "$(dirname "$VIRTUAL_USERS_FILE")"
-touch "$VIRTUAL_USERS_FILE"
+# Check if Docker Compose services are running
+check_services() {
+    echo -e "${YELLOW}Checking Docker Compose services...${NC}"
+    
+    if ! docker compose ps smtp-server | grep -q "Up\|running"; then
+        echo -e "${RED}✗ SMTP server container is not running${NC}"
+        echo -e "${YELLOW}Starting services with: docker compose up -d${NC}"
+        docker compose up -d
+        sleep 10
+    else
+        echo -e "${GREEN}✓ SMTP server container is running${NC}"
+    fi
+}
 
-CURRENT_USER_COUNT=$(grep -c "@" "$VIRTUAL_USERS_FILE")
+# Safe file updates without locking issues
+update_container_virtual_users() {
+    local smtp_container="$1"
+    local user_email="$2"
+    local username="$3"
+    local mail_domain="$4"
+    
+    echo -e "${YELLOW}Adding $user_email to container virtual-users file...${NC}"
+    
+    docker exec "$smtp_container" bash -c "
+        # Append user line (domain/username/ path format) and domain line (with OK)
+        echo -e '${user_email}\t${mail_domain}/${username}/' >> '${CONTAINER_VIRTUAL_USERS_FILE}'
+        
+        echo 'Files updated successfully'
+    "
+}
+
+# Check user count in container
+get_container_user_count() {
+    local smtp_container="$1"
+    local count=$(docker exec "$smtp_container" bash -c "grep -c '@' '${CONTAINER_VIRTUAL_USERS_FILE}' 2>/dev/null || echo '0'" | tr -d '\n\r' | head -c 10)
+    echo ${count:-0}
+}
+
+# Create proper maildir structure
+create_user_maildir() {
+    local smtp_container="$1"
+    local user_email="$2"
+    local username="$3"
+    local mail_domain="$4"
+    
+    echo -e "${YELLOW}Creating maildir for $user_email...${NC}"
+    
+    docker exec "$smtp_container" bash -c "
+        VMAIL_DIR='/var/mail/vmail'
+        user_dir=\"\$VMAIL_DIR/${username}\"
+        
+        if [ ! -d \"\$user_dir\" ]; then
+            echo \"Creating maildir: \$user_dir\"
+            mkdir -p \"\$user_dir\"/{new,cur,tmp}
+            chown -R vmail:mail \"\$user_dir\"
+            chmod -R 750 \"\$user_dir\"
+            echo '✓ Maildir created successfully for ${user_email}'
+        else
+            echo 'Maildir already exists for ${user_email}'
+        fi
+    "
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✓ Maildir created for $user_email${NC}"
+        return 0
+    else
+        echo -e "${RED}✗ Failed to create maildir for $user_email${NC}"
+        return 1
+    fi
+}
+
+# -------------------------------
+# Step 0: Check services and maximum user limit
+# -------------------------------
+check_services
+
+MAX_USERS=100
+
+# Find the smtp container
+SMTP_CONTAINER=$(docker compose ps -q smtp-server 2>/dev/null)
+if [ -z "$SMTP_CONTAINER" ]; then
+    echo -e "${RED}✗ SMTP container not found. Is Docker Compose running?${NC}"
+    echo -e "${YELLOW}Try running: docker compose up -d${NC}"
+    exit 1
+fi
+
+# Ensure virtual files exist in container
+docker exec "$SMTP_CONTAINER" bash -c "
+    touch '${CONTAINER_VIRTUAL_USERS_FILE}'
+    touch '${CONTAINER_VIRTUAL_DOMAINS_FILE}'
+"
+
+# Get current user count
+CURRENT_USER_COUNT=$(get_container_user_count "$SMTP_CONTAINER")
+CURRENT_USER_COUNT=${CURRENT_USER_COUNT:-0}
 echo -e "${CYAN}Current users: ${GREEN}$CURRENT_USER_COUNT${NC}. Maximum allowed: $MAX_USERS${NC}"
 
 # -------------------------------
@@ -113,8 +204,7 @@ if [ ! -f "$USERS_FILE" ]; then
     exit 1
 fi
 
-# Count how many users defined
-YAML_USER_COUNT=$(grep -c "username:" "$USERS_FILE")
+YAML_USER_COUNT=$(grep -c "username:" "$USERS_FILE" 2>/dev/null || echo "0")
 if [ "$YAML_USER_COUNT" -eq 0 ]; then
     echo -e "${RED}✗ No users defined in $USERS_FILE${NC}"
     exit 1
@@ -133,25 +223,30 @@ ADDED_COUNT=0
 USER_USERNAME=""
 
 while IFS= read -r line; do
-    # Remove leading/trailing spaces but preserve structure for YAML parsing
     trimmed_line=$(echo "$line" | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
 
-    # Parse username (handles both "- username:" and "username:" formats)
     if [[ $trimmed_line =~ ^-\ username:\ (.+)$ ]] || [[ $trimmed_line =~ ^username:\ (.+)$ ]]; then
         USER_USERNAME="${BASH_REMATCH[1]}"
         
         if [ -n "$USER_USERNAME" ]; then
             USER_EMAIL="${USER_USERNAME}@${MAIL_DOMAIN}"
 
-            # --- max users check ---
-            CURRENT_USER_COUNT=$(grep -c "@" "$VIRTUAL_USERS_FILE")
+            # Check user limit
+            CURRENT_USER_COUNT=$(get_container_user_count "$SMTP_CONTAINER")
             if [ "$CURRENT_USER_COUNT" -ge "$MAX_USERS" ]; then
                 echo -e "${RED}✗ Cannot add ${USER_USERNAME}: maximum user limit ($MAX_USERS) reached. Skipping.${NC}"
                 USER_USERNAME=""
                 continue
             fi
 
-            # Generate random strong password
+            # Check if user already exists
+            if docker exec "$SMTP_CONTAINER" bash -c "grep -q '^${USER_EMAIL}' '${CONTAINER_VIRTUAL_USERS_FILE}' 2>/dev/null"; then
+                echo -e "${YELLOW}⚠ User ${USER_EMAIL} already exists. Skipping.${NC}"
+                USER_USERNAME=""
+                continue
+            fi
+
+            # Generate password
             USER_PASSWORD=$(generate_password)
             
             echo -e "\n${YELLOW}Creating user $USER_EMAIL in Thunder...${NC}"
@@ -174,62 +269,111 @@ while IFS= read -r line; do
             USER_STATUS=$(echo "$USER_RESPONSE" | tail -n1)
 
             if [ "$USER_STATUS" -eq 201 ] || [ "$USER_STATUS" -eq 200 ]; then
-                echo -e "${GREEN}✓ User $USER_EMAIL created successfully (HTTP $USER_STATUS)${NC}"
+                echo -e "${GREEN}✓ User $USER_EMAIL created successfully in Thunder (HTTP $USER_STATUS)${NC}"
 
-                # Update Postfix virtual-users
-                sed -i "/^${USER_USERNAME}@${MAIL_DOMAIN}[[:space:]]/d" "$VIRTUAL_USERS_FILE" 2>/dev/null || \
-                sed -i '' "/^${USER_USERNAME}@${MAIL_DOMAIN}[[:space:]]/d" "$VIRTUAL_USERS_FILE"
+                # Update virtual configuration
+                if update_container_virtual_users "$SMTP_CONTAINER" "$USER_EMAIL" "$USER_USERNAME" "$MAIL_DOMAIN"; then
+                    
+                    # Create maildir with correct structure
+                    create_user_maildir "$SMTP_CONTAINER" "$USER_EMAIL" "$USER_USERNAME" "$MAIL_DOMAIN"
 
-                echo -e "${USER_USERNAME}@${MAIL_DOMAIN}\t${MAIL_DOMAIN}/${USER_USERNAME}" >> "$VIRTUAL_USERS_FILE"
-                sort -u -o "$VIRTUAL_USERS_FILE" "$VIRTUAL_USERS_FILE"
-                sed -i -e '$a\' "$VIRTUAL_USERS_FILE" 2>/dev/null || sed -i '' -e '$a\' "$VIRTUAL_USERS_FILE"
+                    # CRITICAL: Rebuild hash databases immediately
+                    echo -e "${YELLOW}Rebuilding hash databases for $USER_EMAIL...${NC}"
+                    docker exec "$SMTP_CONTAINER" bash -c "
+                        postmap '${CONTAINER_VIRTUAL_USERS_FILE}' &&
+                        postmap '${CONTAINER_VIRTUAL_DOMAINS_FILE}'
+                    "
+                    
+                    if [ $? -eq 0 ]; then
+                        echo -e "${GREEN}✓ Hash databases updated for $USER_EMAIL${NC}"
+                    else
+                        echo -e "${RED}✗ Failed to rebuild hash databases${NC}"
+                    fi
 
-                echo -e "${GREEN}✓ SMTP configuration updated for $USER_EMAIL${NC}"
+                    # Store encrypted password
+                    ENCRYPTED_PASSWORD=$(encrypt_password "$USER_PASSWORD")
+                    echo "EMAIL: $USER_EMAIL" >> "$PASSWORDS_FILE"
+                    echo "ENCRYPTED: $ENCRYPTED_PASSWORD" >> "$PASSWORDS_FILE"
+                    echo "" >> "$PASSWORDS_FILE"
 
-                # Encrypt password and store
-                ENCRYPTED_PASSWORD=$(encrypt_password "$USER_PASSWORD")
-                echo "EMAIL: $USER_EMAIL" >> "$PASSWORDS_FILE"
-                echo "ENCRYPTED: $ENCRYPTED_PASSWORD" >> "$PASSWORDS_FILE"
-                echo "" >> "$PASSWORDS_FILE"
+                    # Display info
+                    echo -e "${BLUE}📧 Email: ${GREEN}$USER_EMAIL${NC}"
+                    echo -e "${BLUE}🔐 Encrypted Password: ${YELLOW}$ENCRYPTED_PASSWORD${NC}"
+                    echo -e "${CYAN}   Use './decrypt_password.sh $USER_EMAIL' to view the plain password${NC}"
 
-                # Show encrypted password in terminal for admin
-                echo -e "${BLUE}📧 Email: ${GREEN}$USER_EMAIL${NC}"
-                echo -e "${BLUE}🔐 Encrypted Password: ${YELLOW}$ENCRYPTED_PASSWORD${NC}"
-                echo -e "${CYAN}   Use './decrypt_password.sh $USER_EMAIL' to view the plain password${NC}"
-
-                ADDED_COUNT=$((ADDED_COUNT + 1))
+                    ADDED_COUNT=$((ADDED_COUNT + 1))
+                else
+                    echo -e "${RED}✗ Failed to add $USER_EMAIL to virtual configuration${NC}"
+                fi
             else
-                echo -e "${RED}✗ Failed to create $USER_EMAIL (HTTP $USER_STATUS)${NC}"
-                echo "Response: $USER_BODY"
+                echo -e "${RED}✗ Failed to create user $USER_EMAIL in Thunder (HTTP $USER_STATUS)${NC}"
+                if [ -n "$USER_BODY" ]; then
+                    echo -e "${RED}Response: $USER_BODY${NC}"
+                fi
             fi
 
-            # Reset for next user
             USER_USERNAME=""
         fi
     fi
 done < "$USERS_FILE"
 
 # -------------------------------
-# Step 4: Recreate SMTP service (once after all users are added)
+# Step 4: Final Postfix configuration reload
 # -------------------------------
 if [ "$ADDED_COUNT" -gt 0 ]; then
-    echo -e "\n${YELLOW}Rebuilding and recreating only the SMTP service...${NC}"
-    ( cd "$SCRIPT_DIR" && docker compose up -d --build --force-recreate smtp-server )
+    echo -e "\n${YELLOW}Applying final Postfix configuration changes...${NC}"
 
+    # Final rebuild of all hash databases
+    echo -e "${YELLOW}Final rebuild of all hash databases...${NC}"
+    docker exec "$SMTP_CONTAINER" bash -c "
+        postmap '${CONTAINER_VIRTUAL_USERS_FILE}' &&
+        postmap '${CONTAINER_VIRTUAL_DOMAINS_FILE}' &&
+        echo 'Hash databases rebuilt successfully'
+    "
+    
     if [ $? -eq 0 ]; then
-        echo -e "${GREEN}✓ SMTP service successfully rebuilt and running${NC}"
+        echo -e "${GREEN}✓ All hash databases rebuilt successfully${NC}"
     else
-        echo -e "${RED}✗ Failed to recreate SMTP service. Check logs.${NC}"
+        echo -e "${RED}✗ Failed to rebuild hash databases${NC}"
         exit 1
     fi
+
+    # Hot reload postfix configuration
+    echo -e "${YELLOW}Reloading Postfix configuration...${NC}"
+    if docker exec "$SMTP_CONTAINER" postfix reload; then
+        echo -e "${GREEN}✓ Postfix configuration reloaded successfully${NC}"
+    else
+        echo -e "${RED}✗ Failed to reload Postfix configuration${NC}"
+        exit 1
+    fi
+
+    # Verify the changes
+    echo -e "${YELLOW}Verifying virtual configuration...${NC}"
+    echo "Virtual domains:"
+    docker exec "$SMTP_CONTAINER" postmap -s "${CONTAINER_VIRTUAL_DOMAINS_FILE}"
+    echo "Virtual users (last 5):"
+    docker exec "$SMTP_CONTAINER" postmap -s "${CONTAINER_VIRTUAL_USERS_FILE}" | tail -5
+    
+    # Reload Dovecot if available
+    DOVECOT_CONTAINER=$(docker compose ps -q dovecot-server 2>/dev/null)
+    if [ -n "$DOVECOT_CONTAINER" ]; then
+        echo -e "${YELLOW}Reloading Dovecot configuration...${NC}"
+        if docker exec "$DOVECOT_CONTAINER" dovecot reload 2>/dev/null; then
+            echo -e "${GREEN}✓ Dovecot configuration reloaded${NC}"
+        else
+            echo -e "${YELLOW}⚠ Dovecot reload failed or not needed${NC}"
+        fi
+    fi
+    
+    echo -e "${GREEN}✓ All configuration changes applied successfully${NC}"
 else
-    echo -e "${YELLOW}No new users added, skipping SMTP rebuild.${NC}"
+    echo -e "${YELLOW}No new users added, skipping configuration reload.${NC}"
 fi
 
 # -------------------------------
 # Final Summary
 # -------------------------------
-TOTAL_USERS=$(grep -c "@" "$VIRTUAL_USERS_FILE")
+TOTAL_USERS=$(get_container_user_count "$SMTP_CONTAINER")
 echo -e "\n${CYAN}==============================================${NC}"
 echo -e " 🎉 ${GREEN}User Setup Complete!${NC}"
 echo " Total new users added: $ADDED_COUNT"
@@ -244,4 +388,6 @@ echo -e "${CYAN}Admin Usage Examples:${NC}"
 echo -e " View specific user password: ${YELLOW}./decrypt_password.sh alice@$MAIL_DOMAIN${NC}"
 echo -e " View all passwords: ${YELLOW}./decrypt_password.sh all${NC}"
 echo -e " Decrypt hex string: ${YELLOW}./decrypt_password.sh '1a2b3c4d...'${NC}"
+echo ""
+echo -e "${GREEN}✅ All users are active immediately - no container rebuild required!${NC}"
 echo -e "${CYAN}==============================================${NC}"

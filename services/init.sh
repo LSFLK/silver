@@ -49,7 +49,7 @@ MAIL_DOMAIN=""
 # ================================
 # Step 1: Domain Configuration
 # ================================
-echo -e "\n${YELLOW}Step 1/7: Configure domain name${NC}"
+echo -e "\n${YELLOW}Step 1/8: Configure domain name${NC}"
 
 MAIL_DOMAIN=$(grep -m 1 '^domain:' "$CONFIG_FILE" | sed 's/domain: //' | xargs)
 
@@ -70,7 +70,7 @@ fi
 # ================================
 # Step 2: Generate & Verify Certificates (via certbot container)
 # ================================
-echo -e "\n${YELLOW}Step 2/7: Generating TLS certificates using certbot container${NC}"
+echo -e "\n${YELLOW}Step 2/8: Generating TLS certificates using certbot container${NC}"
 
 # Start only certbot container first
 ( cd "${SCRIPT_DIR}" && docker compose up certbot-server --build --force-recreate )
@@ -104,7 +104,7 @@ echo " - ${LETSENCRYPT_DIR}/privkey.pem"
 # ================================
 # Step 3: SMTP Configuration
 # ================================
-echo -e "\n${YELLOW}Step 3/7: Creating SMTP configuration${NC}"
+echo -e "\n${YELLOW}Step 3/8: Creating SMTP configuration${NC}"
 
 TARGET_DIR="${SCRIPT_DIR}/smtp/conf"
 if [ ! -d "$TARGET_DIR" ]; then
@@ -125,7 +125,7 @@ echo " - $TARGET_DIR/virtual-users (empty)"
 # ================================
 # Step 4: Spam Filter Configuration
 # ================================
-echo -e "\n${YELLOW}Step 4/7: Configuring Spam Filter${NC}"
+echo -e "\n${YELLOW}Step 4/8: Configuring Spam Filter${NC}"
 
 if [ ! -d "${SCRIPT_DIR}/spam/conf" ]; then
     mkdir -p "${SCRIPT_DIR}/spam/conf"
@@ -134,9 +134,24 @@ echo "password = \"\$2\$8hn4c88rmafsueo4h3yckiirwkieidb3\$uge4i3ynbba89qpo1gqmqk
 echo -e "${GREEN}✓ worker-controller.inc created for spam filter${NC}"
 
 # ================================
-# Step 5: Thunder TLS Configuration
+# Step 5: Ensure ${MAIL_DOMAIN} points to 127.0.0.1 in /etc/hosts
 # ================================
-echo -e "\n${YELLOW}Step 5/7: Configuring Thunder TLS certificates${NC}"
+echo -e "\n${YELLOW}Step 5/8: Updating ${MAIL_DOMAIN} mapping in /etc/hosts${NC}"
+
+if grep -q "[[:space:]]${MAIL_DOMAIN}" /etc/hosts; then
+    # Replace existing entry
+    sudo sed -i "/^[^#]*[[:space:]]${MAIL_DOMAIN}\([[:space:]]\|$\)/s/^.*[[:space:]]${MAIL_DOMAIN}\([[:space:]]\|$\).*/127.0.0.1   ${MAIL_DOMAIN}/" /etc/hosts
+    echo -e "${GREEN}✓ Updated existing ${MAIL_DOMAIN} entry to 127.0.0.1${NC}"
+else
+    # Add new if not present
+    echo "127.0.0.1   ${MAIL_DOMAIN}" | sudo tee -a /etc/hosts > /dev/null
+    echo -e "${GREEN}✓ Added ${MAIL_DOMAIN} entry to /etc/hosts${NC}"
+fi
+
+# ================================
+# Step 6: Thunder TLS Configuration
+# ================================
+echo -e "\n${YELLOW}Step 6/8: Configuring Thunder TLS certificates${NC}"
 
 THUNDER_HOST=${MAIL_DOMAIN}
 THUNDER_PORT=8090
@@ -155,9 +170,9 @@ chmod 600 ./thunder/certs/server.key
 chmod 644 ./thunder/certs/server.cert
 
 # ================================
-# Step 6: Docker Setup
+# Step 7: Docker Setup
 # ================================
-echo -e "\n${YELLOW}Step 6/7: Starting Docker services${NC}"
+echo -e "\n${YELLOW}Step 7/8: Starting Docker services${NC}"
 
 ( cd "${SCRIPT_DIR}" && docker compose up -d --build --force-recreate )
 if [ $? -ne 0 ]; then
@@ -173,11 +188,11 @@ done
 echo -e " ${GREEN}done${NC}"
 
 # ================================
-# Step 7: Initialize Thunder User Schema
+# Step 8: Initialize Thunder User Schema
 # ================================
 
 
-echo -e "\n${YELLOW}Step 7/7: Creating default user schema in Thunder${NC}"
+echo -e "\n${YELLOW}Step 8/8: Creating default user schema in Thunder${NC}"
 
 SCHEMA_RESPONSE=$(curl -w  "\n%{http_code}" -X POST \
   -H "Content-Type: application/json" \

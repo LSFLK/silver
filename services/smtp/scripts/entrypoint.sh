@@ -15,8 +15,6 @@ RELAYHOST=${RELAYHOST:-}
 # Path for vmail
 VMAIL_DIR="/var/mail/vmail"
 
-echo "=== Configuring Postfix with MySQL virtual setup ==="
-
 # -------------------------------
 # Basic Postfix configuration
 # -------------------------------
@@ -52,22 +50,37 @@ postconf -e "smtpd_sasl_security_options = noanonymous"
 postconf -e "broken_sasl_auth_clients = yes"
 
 # -------------------------------
-# MySQL virtual domains/users/aliases
+# Virtual mailbox configuration
 # -------------------------------
 postconf -e "virtual_mailbox_domains = hash:/etc/postfix/virtual-domains"
-postconf -e "virtual_mailbox_maps = hash:/etc/postfix/virtual-users"
+postconf -e "virtual_mailbox_maps = hash:/etc/postfix/virtual-users" 
 postconf -e "virtual_alias_maps = hash:/etc/postfix/virtual-aliases"
 
-# Compile hash maps
-postmap /etc/postfix/virtual-domains || true
-postmap /etc/postfix/virtual-users || true
-postmap /etc/postfix/virtual-aliases || true
+# Set the virtual mailbox base directory
+postconf -e "virtual_mailbox_base = $VMAIL_DIR"
 
 # LMTP delivery to Dovecot
 postconf -e "virtual_transport = lmtp:unix:private/dovecot-lmtp"
 postconf -e "virtual_minimum_uid = 5000"
 postconf -e "virtual_uid_maps = static:5000"
 postconf -e "virtual_gid_maps = static:8"
+
+# -------------------------------
+# Ensure domain file exists and is populated
+# -------------------------------
+TARGET_DIR="/etc/postfix"
+echo "${MAIL_DOMAIN} OK" > "${TARGET_DIR}/virtual-domains"
+
+# Create empty files if they don't exist
+touch /etc/postfix/virtual-users
+touch /etc/postfix/virtual-aliases
+
+# Compile hash maps (this is essential)
+postmap /etc/postfix/virtual-domains
+postmap /etc/postfix/virtual-users
+postmap /etc/postfix/virtual-aliases
+
+echo "=== Hash maps compiled successfully ==="
 
 # -------------------------------
 # Submission service overrides
@@ -101,7 +114,6 @@ postconf -e "smtpd_client_connection_count_limit = 20"      # Number of simultan
 # -------------------------------
 # vmail user/group and directories
 # -------------------------------
-
 if ! getent group mail >/dev/null; then
     groupadd -g 8 mail
 fi
@@ -111,18 +123,10 @@ if ! id "vmail" &>/dev/null; then
 fi
 
 mkdir -p "$VMAIL_DIR"
+chown vmail:mail "$VMAIL_DIR"
+chmod 755 "$VMAIL_DIR"
 
-# Create maildirs from virtual-users map
-if [ -f /etc/postfix/virtual-users ]; then
-    cut -f1 /etc/postfix/virtual-users | while read email; do
-        local_part=$(echo "$email" | cut -d'@' -f1)
-        mkdir -p "$VMAIL_DIR/$local_part"/{new,cur,tmp}
-        chown -R vmail:mail "$VMAIL_DIR/$local_part"
-        chmod -R 755 "$VMAIL_DIR/$local_part"
-    done
-fi
-
-echo "=== Maildirs created for all virtual users ==="
+echo "=== vmail directory setup completed ==="
 
 # -------------------------------
 # Fix for DNS resolution in chroot
@@ -130,6 +134,15 @@ echo "=== Maildirs created for all virtual users ==="
 mkdir -p /var/spool/postfix/etc
 cp /etc/host.conf /etc/resolv.conf /etc/services /var/spool/postfix/etc/
 chmod 644 /var/spool/postfix/etc/*
+
+# -------------------------------
+# Verify configuration
+# -------------------------------
+echo "=== Verifying Postfix configuration ==="
+postconf virtual_mailbox_domains
+postconf virtual_mailbox_maps
+postconf virtual_mailbox_base
+postconf virtual_transport
 
 # -------------------------------
 # Start Postfix

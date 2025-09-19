@@ -1,10 +1,10 @@
-FROM ubuntu:22.04
+FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install dovecot and mail utilities
+# Install dovecot, Lua, and required utilities
 RUN apt-get update && \
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
         dovecot-core \
         dovecot-imapd \
         dovecot-lmtpd \
@@ -15,15 +15,21 @@ RUN apt-get update && \
         lua-sec \
         lua-dkjson \
         wget \
+        dovecot-pop3d \
         ca-certificates && \
     wget -O /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64" && \
     chmod +x /usr/local/bin/yq && \
     apt-get purge -y --auto-remove wget && \
-    apt clean
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create vmail user and group for virtual mailboxes
 RUN groupadd -g 5000 vmail && \
-    useradd -u 5000 -g vmail -s /bin/false -d /var/mail/vmail -M vmail
+    useradd -u 5000 -g vmail -s /usr/sbin/nologin -d /var/mail/vmail -M vmail
+
+# We need a dummy postfix user to make dovecot happy.
+RUN groupadd -g 1001 postfix && \
+    useradd -u 1001 -g postfix -s /usr/sbin/nologin -M postfix
 
 # Create virtual mail directory structure
 RUN mkdir -p /var/mail/vmail && \

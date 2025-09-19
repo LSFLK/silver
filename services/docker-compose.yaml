@@ -7,13 +7,13 @@ services:
       - "25:25"
       - "587:587"
     volumes:
-      - ./silver.yaml:/etc/postfix/silver.yaml:ro
+      - ./silver.yaml:/etc/postfix/silver.yaml
       - maildata:/var/mail/vmail
       - postfix-sasl:/var/spool/postfix/private
       - ./letsencrypt:/etc/letsencrypt:ro
-      - ./smtp/conf/virtual-domains:/etc/postfix/virtual-domains:ro
-      - ./smtp/conf/virtual-users:/etc/postfix/virtual-users:ro
-      - ./smtp/conf/virtual-aliases:/etc/postfix/virtual-aliases:ro
+      - ./smtp/conf/virtual-domains:/etc/postfix/virtual-domains:rw
+      - ./smtp/conf/virtual-users:/etc/postfix/virtual-users:rw
+      - ./smtp/conf/virtual-aliases:/etc/postfix/virtual-aliases:rw
     networks:
       - mail-network
     depends_on:
@@ -28,6 +28,9 @@ services:
     container_name: dovecot-server
     ports:
       - "143:143"
+      - "993:993"
+      - "110:110"
+      - "995:995"
     volumes:
       - ./silver.yaml:/etc/dovecot/silver.yaml:ro
       - maildata:/var/mail/vmail
@@ -43,10 +46,14 @@ services:
       context: ./dkim
     container_name: opendkim-server
     volumes:
-      - ./silver.yaml:/etc/opendkim/silver.yaml:ro
+      - ./silver.yaml:/etc/opendkim/silver.yaml
       - dkim-keys:/etc/opendkim/keys
     networks:
       - mail-network
+    cap_drop:
+      - all
+    security_opt:
+      - no-new-privileges:true
 
   rspamd-server:
     image: rspamd/rspamd:latest
@@ -58,7 +65,7 @@ services:
     volumes:
       - rspamd_data:/var/lib/rspamd
       - ./spam/conf:/etc/rspamd/local.d
-      - clamsock:/var/run/clamav  # shared socket volume
+      - clamsock:/var/run/clamav # shared socket volume
     networks:
       - mail-network
 
@@ -66,7 +73,7 @@ services:
     image: mkodockx/docker-clamav:alpine
     container_name: clamav-server
     volumes:
-      - clamsock:/var/run/clamav  # shared socket volume
+      - clamsock:/var/run/clamav # shared socket volume
     networks:
       - mail-network
     restart: always
@@ -77,17 +84,17 @@ services:
     image: ghcr.io/asgardeo/thunder:latest
     container_name: thunder-server
     ports:
-      - "8090:8090"
+      - "127.0.0.1:8090:8090"
     networks:
       - mail-network
     volumes:
-       - ./thunder/certs/server.cert:/opt/thunder/repository/resources/security/server.cert:ro
-       - ./thunder/certs/server.key:/opt/thunder/repository/resources/security/server.key:ro
+      - ./thunder/certs/server.cert:/opt/thunder/repository/resources/security/server.cert:ro
+      - ./thunder/certs/server.key:/opt/thunder/repository/resources/security/server.key:ro
     depends_on:
       - certbot-server
 
   certbot-server:
-    build: 
+    build:
       context: ./certbot
     container_name: certbot-server
     volumes:
@@ -106,6 +113,7 @@ volumes:
   dkim-keys:
   rspamd_data:
   clamsock:
+
 
 networks:
   mail-network:

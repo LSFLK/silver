@@ -7,14 +7,14 @@ The Silver project aims to reinvent email and digital communication that is suit
   - [Documents](#documents)
   - [Getting Started](#getting-started)
     - [Prerequisites](#prerequisites)
+    - [Minimum hardware requirements](#minimum-hardware-requirements)
+    - [Software](#software)
     - [DNS setup](#dns-setup)
     - [Server Setup](#server-setup)
     - [Configuration](#configuration)
     - [Adding users](#adding-users)
     - [Testing your setup](#testing-your-setup)
-  - [Software](#software)
-  - [Web user interface for mail services](#web-user-interface-for-mail-services)
-    - [Setting up the web user interface](#setting-up-the-web-user-interface)
+  - [Open Source Software](#open-source-software)
   - [Contributing](#contributing)
   - [License](#license)
   - [Miscellaneous](#miscellaneous)
@@ -27,11 +27,16 @@ The Silver project aims to reinvent email and digital communication that is suit
 
 ## Getting Started
 ### Prerequisites
-- A dedicated Linux server with a static public IP address. You also require root access and control over 
+- A dedicated Linux server with a static public IP address. You also require root access and port access control.
 - Domain with DNS control
 
+### Minimum hardware requirements
+- 4GB of memory
+- 1GB of swap
 
-
+### Software 
+- Ensure you have [Git](https://git-scm.com/downloads/linux) and [Docker Engine](https://docs.docker.com/engine/install/) installed
+  
 ### DNS setup
 You own <a>example.com</a> and want to send email as person@example.com.
 
@@ -53,7 +58,6 @@ You will need to add a few records to your DNS control panel.
 > PTR records usually are set through your hosting provider. 
 
 ### Server Setup
-- Ensure you have [Git](https://git-scm.com/downloads/linux) and [Docker Engine](https://docs.docker.com/engine/install/) installed
 -  Clone the repository and navigate to the services folder.
 
 ```bash
@@ -62,14 +66,18 @@ cd silver/services
 ```
 
 ### Configuration
-- Give permission to the init.sh file and run it.
+- Open [`silver.yaml`](https://github.com/LSFLK/silver/blob/main/services/silver.yaml) with a text editor.
+
+- Enter your domain name.
+
+- Run the `init.sh`
+
+- To add more users to your email server, give permission to the add-users.sh file and run it.
 
 ```bash
-chmod +x init.sh
-./init.sh
+# silver/services
+bash init.sh
 ```
-
-- Enter your domain name and proceed with adding one admin user for your email server.
 
 - Replace the dkim record below with the output you get after running the `init.sh` script
 
@@ -82,24 +90,26 @@ chmod +x init.sh
 
 ### Adding users
 
-- To add more users to your email server, give permission to the add-users.sh file and run it.
+- To add more users to your email server, open up [`users.yaml`](https://github.com/LSFLK/silver/blob/main/services/users.yaml), and add their usernames and run the following command.
 
 ```bash
 # silver/services
-chmod +x add-users.sh
-./add-users.sh
+bash add_users.sh
 ```
 - Follow the prompts to add a new user.
 
 ### Testing your setup
 - Now that you have a working email server, you can test your configuration using the following links/scripts.
 
-  - [mail-tester](https://www.mail-tester.com/)
   - [mxtoolbox](https://mxtoolbox.com/SuperTool.aspx)
+    - MxToolbox is a powerful online service that provides a suite of free diagnostic and lookup tools for troubleshooting email delivery, DNS, and network issues.
+  - [mail-tester](https://www.mail-tester.com/)
+    - Mail-Tester is a free online tool that analyzes the "spamminess" of your email and server configuration, providing a score out of 10 to help improve your email deliverability.
+  
 
 - You can also set up a Mail User Agent (MUA) like Thunderbird to send and receive emails. Follow the instructions in [Mail User Agent Setup](docs/Mail-User-Agent-Setup.md).
 
-## Software
+## Open Source Software
 
 Silver is built using opensource software. 
 
@@ -108,26 +118,6 @@ Silver is built using opensource software.
 - [Thunder](https://github.com/asgardeo/thunder) - Identity provider and user manager
 - [Rspamd](https://rspamd.com/) - spam filtering system.
 - [ClamAV](https://docs.clamav.net/Introduction.html) -  virus scanning system.
-
-## Web user interface for mail services
-We have created a simple web user interface for initial setup and user creation. <b>It is not recommended for production use</b>. It is just for ease of use for the developers and testers to quickly set up and test the email server.
-
-### Setting up the web user interface
-- Navigate to the webui folder and give permission to the init.sh file and run it.
-```bash
-cd services
-chmod +x init.sh
-chmod +x add_user.sh
-cd webui
-```
-- Install the required npm packages and start the server.
-```bash
-npm install
-npm start
-```
-- The web user interface will be available at `http://your-server-ip:3001`. Follow the instructions on the page to set up your email server.
-
-![Silver Mail WebUI Screenshot](docs/images/webui.png)
 
 ## Contributing
 
