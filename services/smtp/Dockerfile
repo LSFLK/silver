@@ -13,5 +13,8 @@ COPY scripts/entrypoint.sh /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh
 
+COPY scripts/save_to_db.sh /usr/local/bin/save_to_db.sh
+RUN chmod +x /usr/local/bin/save_to_db.sh
+
 # Start Postfix service and run the entrypoint script
 CMD ["/entrypoint.sh"]
