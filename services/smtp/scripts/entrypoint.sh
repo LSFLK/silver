@@ -60,7 +60,7 @@ postconf -e "virtual_alias_maps = hash:/etc/postfix/virtual-aliases"
 postconf -e "virtual_mailbox_base = $VMAIL_DIR"
 
 # LMTP delivery to Dovecot
-postconf -e "virtual_transport = lmtp:unix:private/dovecot-lmtp"
+postconf -e "virtual_transport = dbdelivery"
 postconf -e "virtual_minimum_uid = 5000"
 postconf -e "virtual_uid_maps = static:5000"
 postconf -e "virtual_gid_maps = static:8"
@@ -143,6 +143,11 @@ postconf virtual_mailbox_domains
 postconf virtual_mailbox_maps
 postconf virtual_mailbox_base
 postconf virtual_transport
+
+cat >> /etc/postfix/master.cf << 'EOF'
+dbdelivery  unix  -       n       n       -       -       pipe
+  flags=Rq user=vmail argv=/usr/local/bin/save_to_db.sh -f ${sender} -- ${recipient}
+EOF
 
 # -------------------------------
 # Start Postfix
