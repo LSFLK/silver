@@ -21,6 +21,8 @@ services:
       - dovecot-server
       - rspamd-server
       - certbot-server
+    security_opt:
+      - no-new-privileges:true
 
   dovecot-server:
     build:
@@ -40,6 +42,8 @@ services:
       - mail-network
     depends_on:
       - certbot-server
+    security_opt:
+      - no-new-privileges:true
 
   opendkim-server:
     build:
@@ -68,9 +72,15 @@ services:
       - clamsock:/var/run/clamav # shared socket volume
     networks:
       - mail-network
+    cap_drop:
+      - all
+    security_opt:
+      - no-new-privileges:true
 
   clamav-server:
-    image: mkodockx/docker-clamav:alpine
+    image: clamav/clamav:stable
+    # uncomment when running on mac os
+    #platform: linux/amd64  
     container_name: clamav-server
     volumes:
       - clamsock:/var/run/clamav # shared socket volume
@@ -79,6 +89,10 @@ services:
     restart: always
     depends_on:
       - rspamd-server
+    cap_drop:
+      - all
+    security_opt:
+      - no-new-privileges:true
 
   thunder-server:
     image: ghcr.io/asgardeo/thunder:latest
@@ -92,6 +106,10 @@ services:
       - ./thunder/certs/server.key:/opt/thunder/repository/resources/security/server.key:ro
     depends_on:
       - certbot-server
+    cap_drop:
+      - all
+    security_opt:
+      - no-new-privileges:true
 
   certbot-server:
     build:
@@ -106,6 +124,10 @@ services:
       - "443:443"
     networks:
       - mail-network
+    cap_drop:
+      - all
+    security_opt:
+      - no-new-privileges:true
 
 volumes:
   maildata:

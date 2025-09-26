@@ -42,16 +42,16 @@ protocol imap {
 service lmtp {
   unix_listener /var/spool/postfix/private/dovecot-lmtp {
     mode = 0600
-    user = postfix
-    group = postfix
+    user = dovecot
+    group = dovecot
   }
 }
 
 service auth {
   unix_listener /var/spool/postfix/private/auth {
     mode = 0666
-    user = postfix
-    group = postfix
+    user = dovecot
+    group = dovecot
   }
 }
 

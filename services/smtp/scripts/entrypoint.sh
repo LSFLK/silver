@@ -29,7 +29,7 @@ postconf -e "mynetworks = 127.0.0.0/8"
 postconf -e "relayhost = $RELAYHOST"
 
 # Logging to stdout for Docker
-postconf -e "maillog_file = /var/log/mail.log"
+postconf -e "maillog_file = /dev/stdout"
 
 # -------------------------------
 # TLS / SSL

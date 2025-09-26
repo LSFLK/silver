@@ -1,7 +1,8 @@
 FROM debian:bookworm-slim
 ENV DEBIAN_FRONTEND=noninteractive
+EXPOSE 8891
 
-# Create a system user and group for opendkim
+# non root opendkim user
 RUN groupadd -r opendkim && useradd -r -g opendkim -s /usr/sbin/nologin opendkim
 
 RUN apt-get update && \
@@ -30,5 +31,4 @@ RUN chown -R opendkim:opendkim /etc/opendkim /var/run/opendkim /entrypoint.sh &&
     chmod 750 /entrypoint.sh
 
 USER opendkim
-EXPOSE 8891
 ENTRYPOINT ["/entrypoint.sh"]
