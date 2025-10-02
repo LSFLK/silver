@@ -1,19 +1,3 @@
-#!/bin/bash
-set -e
-
-CONFIG_FILE="/etc/dovecot/silver.yaml"
-
-export MAIL_DOMAIN=$(yq -e '.domain' "$CONFIG_FILE")
-
-MAIL_DOMAIN=${MAIL_DOMAIN:-example.org}
-
-# Output Lua file inside container
-OUTPUT="/etc/dovecot/auth_api.lua"
-
-# Make sure the directory exists
-mkdir -p "$(dirname "$OUTPUT")"
-
-cat > "$OUTPUT" <<EOF
 -- Requires LuaSocket and LuaSec
 local https = require("ssl.https")
 local ltn12 = require("ltn12")
@@ -78,11 +62,13 @@ end
 
 -- Passdb function
 function auth_passdb_lookup(req)
+
+    local mail_domain = os.getenv("MAIL_DOMAIN") or "example.org"
     req:log_debug("auth_passdb_lookup called for user: " .. (req.username or "nil"))
 
     local user = req.username
     if not user:find("@") then
-        user = user .. "@$MAIL_DOMAIN"
+        user = user .. "@" ..mail_domain
     end
 
     local success, err = api_authenticate(user, req.password, req)
@@ -156,6 +142,3 @@ end
 
 function script_init() return 0 end
 function script_deinit() end
-EOF
-
-echo "Lua auth script generated at $OUTPUT with MAIL_DOMAIN=$MAIL_DOMAIN"
