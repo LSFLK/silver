@@ -1,35 +1,36 @@
-## 🚀 Pull Request Summary
+## 📌 Description
+<!-- Provide a clear, concise description of what this PR does. -->
 
-Please provide a brief description of the changes:
-
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Documentation update
-- [ ] Other (please describe):
+- Closes #<issue-number>
 
 ---
 
-## 📋 Related Issues
-
-Fixes #<issue-number> (remove if not applicable)
-
----
-
-## ✅ Checklist
-
-- [ ] I have tested my changes locally
-- [ ] I have updated documentation if needed
-- [ ] I have added/updated tests where applicable
-- [ ] My changes follow the project’s coding guidelines
+## 🔍 Changes Made
+<!-- List key changes in bullet points. -->
+- 
 
 ---
 
-## 🖼️ Screenshots (if applicable)
-
-_Add screenshots or GIFs to show before/after changes._
+## ✅ Checklist (Email System)
+- [ ] Core services tested (SMTP, IMAP, mail storage, end-to-end delivery)
+- [ ] Security & compliance verified (auth via Thunder IDP, TLS, DKIM/SPF/DMARC, spam/virus filtering)
+- [ ] Configuration & deployment checked (configs generated, Docker/Compose updated)
+- [ ] Reliability confirmed (error handling, logging, monitoring)
+- [ ] Documentation & usage notes updated (README, deployment, API)
 
 ---
 
-## 📦 Notes for Reviewer
+## 🧪 Testing Instructions
+<!-- Explain how reviewers can test your changes. -->
+1. 
+2.
 
-_Anything special the reviewer should know (e.g., breaking changes, migration steps)._
+---
+
+## 📷 Screenshots / Logs (if applicable)
+<!-- Add screenshots of client tests, log snippets, etc. -->
+
+---
+
+## ⚠️ Notes for Reviewers
+<!-- Add special notes for reviewers (e.g., schema changes, ports affected, config updates). -->

@@ -42,10 +42,4 @@ RUN mkdir -p /etc/dovecot/keys && \
     find /etc/dovecot/keys -type d -exec chmod 750 {} \; && \
     find /etc/dovecot/keys -type f -exec chmod 640 {} \;
 
-# Copy scripts
-COPY scripts/entrypoint.sh /entrypoint.sh
-COPY scripts/generate_lua.sh /generate_lua.sh
-
-RUN chmod +x /entrypoint.sh /generate_lua.sh
-
-CMD ["/entrypoint.sh"]
+CMD ["dovecot", "-F"]
