@@ -29,7 +29,7 @@ mkdir -p "$(dirname "$OUTPUT_FILE")" "$(dirname "$MAILS_DB_PATH")" "$RAVEN_CERT_
 # --- Generate raven.yaml ---
 cat > "$OUTPUT_FILE" <<EOF
 domain: ${MAIL_DOMAIN}
-auth_server_url: https://thunder-server:8090/users/authenticate
+auth_server_url: https://thunder-server:8090/auth/credentials/authenticate
 EOF
 
 echo "✅ Generated: $OUTPUT_FILE (domain: ${MAIL_DOMAIN})"
