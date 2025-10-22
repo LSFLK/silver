@@ -1,33 +1,21 @@
-#!/bin/bash
-set -e
-
-CONFIG_FILE="/etc/dovecot/silver.yaml"
-
-export MAIL_DOMAIN=$(yq -e '.domain' "$CONFIG_FILE")
-
-MAIL_DOMAIN=${MAIL_DOMAIN:-example.org}
-
-# Output Lua file inside container
-OUTPUT="/etc/dovecot/auth_api.lua"
-
-# Make sure the directory exists
-mkdir -p "$(dirname "$OUTPUT")"
-
-cat > "$OUTPUT" <<EOF
 -- Requires LuaSocket and LuaSec
 local https = require("ssl.https")
 local ltn12 = require("ltn12")
-local json = require("dkjson")  -- For JSON parsing. Install if needed.
+local json = require("dkjson") -- For JSON parsing. Install if needed.
 
 -- Helper function to POST JSON to API
 local function api_authenticate(user, password, req)
     req:log_debug("Starting API authentication for user: " .. user)
 
-    local request_body = json.encode({ email = user, password = password })
+    local request_body = json.encode({
+        email = user,
+        password = password,
+        skip_assertion = true
+    })
     local response_body = {}
 
     local params = {
-        url = "https://thunder-server:8090/users/authenticate",
+        url = "https://thunder-server:8090/auth/credentials/authenticate",
         method = "POST",
         headers = {
             ["Content-Type"] = "application/json",
@@ -36,12 +24,12 @@ local function api_authenticate(user, password, req)
         source = ltn12.source.string(request_body),
         sink = ltn12.sink.table(response_body),
 
-        protocol = "tlsv1_2",   -- enforce TLS 1.2+
+        protocol = "tlsv1_2", -- enforce TLS 1.2+
         options = "all",
 
-        cafile = "/etc/ssl/certs/ca-certificates.crt",  -- system CA store (Debian/Ubuntu)
-        verify = "peer",       -- verify server certificate
-        verifyext = { "lsec_continue" },
+        cafile = "/etc/ssl/certs/ca-certificates.crt", -- system CA store (Debian/Ubuntu)
+        verify = "peer", -- verify server certificate
+        verifyext = {"lsec_continue"}
     }
 
     local res, code, headers, status = https.request(params)
@@ -78,15 +66,18 @@ end
 
 -- Passdb function
 function auth_passdb_lookup(req)
+
+    local mail_domain = __MAIL_DOMAIN__
+
     req:log_debug("auth_passdb_lookup called for user: " .. (req.username or "nil"))
 
     local user = req.username
     if not user:find("@") then
-        user = user .. "@$MAIL_DOMAIN"
+        user = user .. "@" .. mail_domain
     end
 
     local success, err = api_authenticate(user, req.password, req)
-    
+
     if success then
         req:log_debug("auth_passdb_lookup: PASSDB_RESULT_OK")
         return dovecot.auth.PASSDB_RESULT_OK, "password=" .. req.password
@@ -105,8 +96,7 @@ function auth_userdb_lookup(req)
     end
 
     -- Build SCIM filter request (search by username, not email)
-    local url = "https://thunder-server:8090/users?filter=username%20eq%20%22" ..
-                req.username .. "%22"
+    local url = "https://thunder-server:8090/users?filter=username%20eq%20%22" .. req.username .. "%22"
     local response_body = {}
 
     local params = {
@@ -114,11 +104,11 @@ function auth_userdb_lookup(req)
         method = "GET",
         sink = ltn12.sink.table(response_body),
 
-        protocol = "tlsv1_2",   -- enforce TLS 1.2+
+        protocol = "tlsv1_2", -- enforce TLS 1.2+
         options = "all",
-        cafile = "/etc/ssl/certs/ca-certificates.crt",  -- system CA store
-        verify = "peer",       -- verify server certificate
-        verifyext = { "lsec_continue" },
+        cafile = "/etc/ssl/certs/ca-certificates.crt", -- system CA store
+        verify = "peer", -- verify server certificate
+        verifyext = {"lsec_continue"}
     }
 
     local ok, code, headers, status = https.request(params)
@@ -141,9 +131,8 @@ function auth_userdb_lookup(req)
     if data and data.users and #data.users > 0 then
         local user = data.users[1]
         if user.attributes and user.attributes.username == req.username then
-            return dovecot.auth.USERDB_RESULT_OK,
-                   "uid=5000 gid=5000 home=/var/mail/vmail/" .. req.username ..
-                   " mail=maildir:/var/mail/vmail/" .. req.username
+            return dovecot.auth.USERDB_RESULT_OK, "uid=5000 gid=5000 home=/var/mail/vmail/" .. req.username ..
+                " mail=maildir:/var/mail/vmail/" .. req.username
         end
     end
 
@@ -151,11 +140,11 @@ function auth_userdb_lookup(req)
 end
 
 function auth_userdb_iterate()
-    return {}  -- empty
+    return {} -- empty
 end
 
-function script_init() return 0 end
-function script_deinit() end
-EOF
-
-echo "Lua auth script generated at $OUTPUT with MAIL_DOMAIN=$MAIL_DOMAIN"
+function script_init()
+    return 0
+end
+function script_deinit()
+end

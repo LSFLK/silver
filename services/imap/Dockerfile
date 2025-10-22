@@ -3,7 +3,7 @@ FROM debian:bookworm-slim
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Expose IMAP/POP3 ports
-EXPOSE 143 993 110 995
+EXPOSE 1143 993 110 995
 
 # Install dovecot, Lua, and required utilities
 RUN apt-get update && \
@@ -42,10 +42,4 @@ RUN mkdir -p /etc/dovecot/keys && \
     find /etc/dovecot/keys -type d -exec chmod 750 {} \; && \
     find /etc/dovecot/keys -type f -exec chmod 640 {} \;
 
-# Copy scripts
-COPY scripts/entrypoint.sh /entrypoint.sh
-COPY scripts/generate_lua.sh /generate_lua.sh
-
-RUN chmod +x /entrypoint.sh /generate_lua.sh
-
-CMD ["/entrypoint.sh"]
+CMD ["dovecot", "-F"]

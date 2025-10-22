@@ -16,3 +16,7 @@
 # domain: your-awesome-domain.com
 
 domain: 
+
+# DKIM 
+dkim-selector: 
+dkim-key-size:

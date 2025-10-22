@@ -1,19 +1,22 @@
 services:
   smtp-server:
-    build:
-      context: ./smtp
+    image: ghcr.io/lsflk/silver-smtp:main
     container_name: smtp-server-container
     ports:
       - "25:25"
       - "587:587"
     volumes:
-      - ./silver.yaml:/etc/postfix/silver.yaml
+      - ./silver-config/gen/postfix/main.cf:/etc/postfix/main.cf:ro
+      - ./silver-config/static/postfix/master.cf:/etc/postfix/master.cf:ro
+      - ../conf/silver.yaml:/etc/postfix/silver.yaml
       - maildata:/var/mail/vmail
       - postfix-sasl:/var/spool/postfix/private
-      - ./letsencrypt:/etc/letsencrypt:ro
-      - ./smtp/conf/virtual-domains:/etc/postfix/virtual-domains:rw
-      - ./smtp/conf/virtual-users:/etc/postfix/virtual-users:rw
-      - ./smtp/conf/virtual-aliases:/etc/postfix/virtual-aliases:rw
+      - ./silver-config/data/certbot/keys/etc:/etc/letsencrypt:ro
+      - ./silver-config/gen/postfix/virtual-domains:/etc/postfix/virtual-domains:rw
+      - ./silver-config/gen/postfix/virtual-users:/etc/postfix/virtual-users:rw
+      - ./silver-config/gen/postfix/virtual-aliases:/etc/postfix/virtual-aliases:rw
+      - ./silver-config/gen/raven/data:/app/data:rw
+      - raven-sockets:/var/run/raven  # Shared socket directory
     networks:
       - mail-network
     depends_on:
@@ -21,37 +24,56 @@ services:
       - dovecot-server
       - rspamd-server
       - certbot-server
-    security_opt:
-      - no-new-privileges:true
 
   dovecot-server:
-    build:
-      context: ./imap
+    image: ghcr.io/lsflk/silver-imap:main
     container_name: dovecot-server
     ports:
-      - "143:143"
-      - "993:993"
+      - "1143:143"
+      - "1142:993"
       - "110:110"
       - "995:995"
     volumes:
-      - ./silver.yaml:/etc/dovecot/silver.yaml:ro
+      - ./silver-config/static/dovecot/dovecot.conf:/etc/dovecot/dovecot.conf:ro
+      - ./silver-config/static/dovecot/auth_api.lua:/etc/dovecot/auth_api.lua:ro
       - maildata:/var/mail/vmail
       - postfix-sasl:/var/spool/postfix/private
-      - ./letsencrypt:/etc/letsencrypt:ro
+      - ./silver-config/data/certbot/keys/etc:/etc/letsencrypt:ro
     networks:
       - mail-network
     depends_on:
       - certbot-server
-    security_opt:
-      - no-new-privileges:true
+  
+  raven-server:
+    image: ghcr.io/lsflk/raven:latest
+    container_name: raven
+    ports:
+      - "143:143"
+      - "993:993"
+      - "24:24"
+    volumes:
+      - ./silver-config/gen/raven/conf:/etc/raven:rw
+      - ./silver-config/gen/raven/data:/app/data:rw
+      - ./silver-config/data/raven/certs:/certs:ro
+      - ./silver-config/static/raven/delivery.yaml:/etc/raven/delivery.yaml:ro
+      - raven-sockets:/var/run/raven  # Shared socket directory
+    environment:
+      - DB_FILE=/app/data/mails.db
+    networks:
+      - mail-network
+    restart: unless-stopped
+    user: "0:0"
 
   opendkim-server:
-    build:
-      context: ./dkim
+    image: ghcr.io/lsflk/silver-dkim:main
     container_name: opendkim-server
     volumes:
-      - ./silver.yaml:/etc/opendkim/silver.yaml
-      - dkim-keys:/etc/opendkim/keys
+      - ../conf/silver.yaml:/etc/opendkim/silver.yaml
+      - ./silver-config/static/opendkim/opendkim.conf:/etc/opendkim/opendkim.conf:ro
+      - ./silver-config/gen/opendkim/KeyTable:/etc/opendkim/KeyTable:ro
+      - ./silver-config/gen/opendkim/SigningTable:/etc/opendkim/SigningTable:ro
+      - ./silver-config/gen/opendkim/TrustedHosts:/etc/opendkim/TrustedHosts:ro
+      - dkim-keys:/etc/dkimkeys
     networks:
       - mail-network
     cap_drop:
@@ -68,31 +90,32 @@ services:
       - "11334:11334"
     volumes:
       - rspamd_data:/var/lib/rspamd
-      - ./spam/conf:/etc/rspamd/local.d
+      - ./silver-config/static/rspamd/:/etc/rspamd/local.d:ro
       - clamsock:/var/run/clamav # shared socket volume
     networks:
       - mail-network
-    cap_drop:
-      - all
-    security_opt:
-      - no-new-privileges:true
 
   clamav-server:
-    image: clamav/clamav:stable
-    # uncomment when running on mac os
-    #platform: linux/amd64  
+    image: clamav/clamav:latest  # Official ClamAV image
     container_name: clamav-server
     volumes:
-      - clamsock:/var/run/clamav # shared socket volume
+      - clamsock:/var/run/clamav
+      - clamav_db:/var/lib/clamav
     networks:
       - mail-network
     restart: always
     depends_on:
       - rspamd-server
-    cap_drop:
-      - all
-    security_opt:
-      - no-new-privileges:true
+    environment:
+      - CLAMAV_NO_FRESHCLAMD=false
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
 
   thunder-server:
     image: ghcr.io/asgardeo/thunder:latest
@@ -102,32 +125,23 @@ services:
     networks:
       - mail-network
     volumes:
-      - ./thunder/certs/server.cert:/opt/thunder/repository/resources/security/server.cert:ro
-      - ./thunder/certs/server.key:/opt/thunder/repository/resources/security/server.key:ro
+      - ./silver-config/data/thunder/certs/server.cert:/opt/thunder/repository/resources/security/server.cert:ro
+      - ./silver-config/data/thunder/certs/server.key:/opt/thunder/repository/resources/security/server.key:ro
     depends_on:
       - certbot-server
-    cap_drop:
-      - all
-    security_opt:
-      - no-new-privileges:true
 
   certbot-server:
-    build:
-      context: ./certbot
+    image: ghcr.io/lsflk/silver-certbot:main
     container_name: certbot-server
     volumes:
-      - ./silver.yaml:/etc/certbot/silver.yaml:ro
-      - ./letsencrypt:/etc/letsencrypt
-      - ./letsencrypt/certbot-logs:/var/log/letsencrypt
+      - ./silver-config/data/certbot/keys/etc:/etc/letsencrypt
+      - ./silver-config/data/certbot/keys/log:/var/log/letsencrypt
+      - ./silver-config/data/certbot/keys/lib:/var/lib/letsencrypt"
     ports:
       - "80:80"
       - "443:443"
     networks:
       - mail-network
-    cap_drop:
-      - all
-    security_opt:
-      - no-new-privileges:true
 
 volumes:
   maildata:
@@ -135,7 +149,9 @@ volumes:
   dkim-keys:
   rspamd_data:
   clamsock:
-
+  clamav_db: 
+  go-imap-data:
+  raven-sockets:
 
 networks:
   mail-network:

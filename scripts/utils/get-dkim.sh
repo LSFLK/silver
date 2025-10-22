@@ -5,7 +5,11 @@ set -e
 # Read domain from yaml file
 # -------------------------------
 
-CONFIG_FILE="silver.yaml"
+# Get the script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Conf directory contains config files
+CONF_DIR="$(cd "${SCRIPT_DIR}/../../conf" && pwd)"
+CONFIG_FILE="${CONF_DIR}/silver.yaml"
 
 DOMAIN=$(grep -m 1 '^domain:' "$CONFIG_FILE" | sed 's/domain: //' | xargs)
 
@@ -25,7 +29,7 @@ fi
 
 SELECTOR="mail"
 CONTAINER_NAME="opendkim-server"
-KEY_PATH="/etc/opendkim/keys/$DOMAIN/$SELECTOR.txt"
+KEY_PATH="/etc/dkimkeys/$DOMAIN/$SELECTOR.txt"
 
 # -------------------------------
 # Extract DKIM record from container
