@@ -27,11 +27,8 @@ services:
   dovecot-server:
     image: ghcr.io/lsflk/silver-imap:main
     container_name: dovecot-server
-    ports:
-      - "1143:143"
-      - "1142:993"
-      - "110:110"
-      - "995:995"
+    # No ports exposed - only used for SASL authentication via Unix socket
+    # All IMAP/POP3 services are provided by raven-server
     volumes:
       - ./silver-config/dovecot/dovecot.conf:/etc/dovecot/dovecot.conf:ro
       - ./silver-config/dovecot/auth_api.lua:/etc/dovecot/auth_api.lua:ro
