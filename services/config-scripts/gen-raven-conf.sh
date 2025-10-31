@@ -13,7 +13,7 @@ GEN_DIR="${ROOT_DIR}/silver-config/gen/raven"           # Base path
 
 CONFIG_FILE="${ROOT_DIR}/../conf/silver.yaml"
 OUTPUT_FILE="${GEN_DIR}/conf/raven.yaml"
-MAILS_DB_PATH="${GEN_DIR}/data/mails.db"
+MAILS_DB_PATH="${GEN_DIR}/data/databases/shared.db"
 
 # --- Extract domain from silver.yaml ---
 MAIL_DOMAIN=$(grep -m 1 '^domain:' "$CONFIG_FILE" | awk '{print $2}' | xargs)

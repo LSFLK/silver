@@ -11,9 +11,9 @@ services:
       - ../conf/silver.yaml:/etc/postfix/silver.yaml
       - postfix-sasl:/var/spool/postfix/private
       - ./silver-config/data/certbot/keys/etc:/etc/letsencrypt:ro
-      - ./silver-config/gen/postfix/virtual-domains:/etc/postfix/virtual-domains:rw
-      - ./silver-config/gen/postfix/virtual-users:/etc/postfix/virtual-users:rw
-      - ./silver-config/gen/postfix/virtual-aliases:/etc/postfix/virtual-aliases:rw
+      - ./silver-config/static/postfix/sqlite-virtual-domains.cf:/etc/postfix/sqlite-virtual-domains.cf:ro
+      - ./silver-config/static/postfix/sqlite-virtual-aliases.cf:/etc/postfix/sqlite-virtual-aliases.cf:ro
+      - ./silver-config/static/postfix/sqlite-virtual-users.cf:/etc/postfix/sqlite-virtual-users.cf:ro
       - ./silver-config/gen/raven/data:/app/data:rw
       - raven-sockets:/var/run/raven  # Shared socket directory
     networks:

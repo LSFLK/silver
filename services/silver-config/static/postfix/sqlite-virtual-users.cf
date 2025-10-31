@@ -1,0 +1,7 @@
+# Postfix SQLite configuration for virtual mailbox users
+# Query the users table joined with domains table
+# Returns 1 if user exists and is enabled (mail delivery handled by Raven IMAP)
+# NOTE: Using shared.db which contains user and domain information
+
+dbpath = /app/data/databases/shared.db
+query = SELECT 1 FROM users u INNER JOIN domains d ON u.domain_id = d.id WHERE u.username || '@' || d.domain = '%s' AND u.enabled=1 AND d.enabled=1

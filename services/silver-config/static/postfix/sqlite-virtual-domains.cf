@@ -1,0 +1,6 @@
+# Postfix SQLite configuration for virtual domains
+# Query the domains table
+# NOTE: Using shared.db which contains domain information
+
+dbpath = /app/data/databases/shared.db
+query = SELECT domain FROM domains WHERE domain='%s' AND enabled=1

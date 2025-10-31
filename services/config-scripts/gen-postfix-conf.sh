@@ -22,16 +22,6 @@ VMAIL_DIR="/var/mail/vmail"
 
 mkdir -p ${CONFIGS_PATH}
 
-# Create required files
-echo "${MAIL_DOMAIN} OK" >"$CONFIGS_PATH/virtual-domains"
-: >"$CONFIGS_PATH/virtual-aliases"
-: >"$CONFIGS_PATH/virtual-users"
-
-echo -e "SMTP configuration files prepared"
-echo " - $CONFIGS_PATH/virtual-domains (with '${MAIL_DOMAIN} OK')"
-echo " - $CONFIGS_PATH/virtual-aliases (empty)"
-echo " - $CONFIGS_PATH/virtual-users (empty)"
-
 # --- Generate main.cf content ---
 cat >"${CONFIGS_PATH}/main.cf" <<EOF
 # See /usr/share/postfix/main.cf.dist for a commented, more complete version
@@ -90,9 +80,9 @@ smtpd_sasl_path = private/auth
 smtpd_sasl_auth_enable = yes
 smtpd_sasl_security_options = noanonymous
 broken_sasl_auth_clients = yes
-virtual_mailbox_domains = hash:/etc/postfix/virtual-domains
-virtual_mailbox_maps = hash:/etc/postfix/virtual-users
-virtual_alias_maps = hash:/etc/postfix/virtual-aliases
+virtual_mailbox_domains = sqlite:/etc/postfix/sqlite-virtual-domains.cf
+virtual_mailbox_maps = sqlite:/etc/postfix/sqlite-virtual-users.cf
+virtual_alias_maps = sqlite:/etc/postfix/sqlite-virtual-aliases.cf
 virtual_mailbox_base = "${VMAIL_DIR}"
 virtual_transport = lmtp:raven:24
 virtual_minimum_uid = 5000

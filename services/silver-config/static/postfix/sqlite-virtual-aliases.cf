@@ -1,0 +1,7 @@
+# Postfix SQLite configuration for virtual aliases
+# Query the aliases table to resolve alias to destination user
+# Returns destination email address
+# NOTE: Using shared.db which contains users, domains, and aliases
+
+dbpath = /app/data/databases/shared.db
+query = SELECT 'postmaster@aravindahwk.org' WHERE '%s' = 'admin@aravindahwk.org'

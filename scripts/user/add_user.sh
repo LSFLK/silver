@@ -21,16 +21,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICES_DIR="$(cd "${SCRIPT_DIR}/../../services" && pwd)"
 # Conf directory contains config files
 CONF_DIR="$(cd "${SCRIPT_DIR}/../../conf" && pwd)"
-VIRTUAL_USERS_FILE="${SERVICES_DIR}/silver-config/gen/postfix/virtual-users"
-VIRTUAL_DOMAINS_FILE="${SERVICES_DIR}/silver-config/gen/postfix/virtual-domains"
 CONFIG_FILE="${CONF_DIR}/silver.yaml"
 USERS_FILE="${CONF_DIR}/users.yaml"
 PASSWORDS_DIR="${SCRIPT_DIR}/../../scripts/decrypt"
 PASSWORDS_FILE="${PASSWORDS_DIR}/user_passwords.txt"
 
-# Docker container paths
-CONTAINER_VIRTUAL_USERS_FILE="/etc/postfix/virtual-users"
-CONTAINER_VIRTUAL_DOMAINS_FILE="/etc/postfix/virtual-domains"
+# SQLite database path in container
+CONTAINER_DB_PATH="/app/data/databases/shared.db"
 
 # -------------------------------
 # Prompt for encryption key
@@ -91,27 +88,33 @@ check_services() {
 	fi
 }
 
-# Safe file updates without locking issues
+# Insert user into SQLite database
 update_container_virtual_users() {
 	local smtp_container="$1"
 	local user_email="$2"
 	local username="$3"
 	local mail_domain="$4"
 
-	echo -e "${YELLOW}Adding $user_email to container virtual-users file...${NC}"
+	echo -e "${YELLOW}Adding $user_email to SQLite database...${NC}"
 
 	docker exec "$smtp_container" bash -c "
-        # Append user line (domain/username/ path format) and domain line (with OK)
-        echo -e '${user_email}\t${mail_domain}/${username}/' >> '${CONTAINER_VIRTUAL_USERS_FILE}'
-        
-        echo 'Files updated successfully'
+        # Ensure domain exists in database
+        sqlite3 '${CONTAINER_DB_PATH}' \"INSERT OR IGNORE INTO domains (domain, enabled) VALUES ('${mail_domain}', 1);\"
+
+        # Get domain_id
+        domain_id=\$(sqlite3 '${CONTAINER_DB_PATH}' \"SELECT id FROM domains WHERE domain='${mail_domain}' LIMIT 1;\")
+
+        # Insert user into database
+        sqlite3 '${CONTAINER_DB_PATH}' \"INSERT INTO users (username, domain_id, enabled) VALUES ('${username}', \$domain_id, 1);\"
+
+        echo 'User added to database successfully'
     "
 }
 
-# Check user count in container
+# Check user count in container using SQLite
 get_container_user_count() {
 	local smtp_container="$1"
-	local count=$(docker exec "$smtp_container" bash -c "grep -c '@' '${CONTAINER_VIRTUAL_USERS_FILE}' 2>/dev/null || echo '0'" | tr -d '\n\r' | head -c 10)
+	local count=$(docker exec "$smtp_container" bash -c "sqlite3 '${CONTAINER_DB_PATH}' 'SELECT COUNT(*) FROM users WHERE enabled=1;' 2>/dev/null || echo '0'" | tr -d '\n\r' | head -c 10)
 	echo ${count:-0}
 }
 
@@ -163,10 +166,9 @@ if [ -z "$SMTP_CONTAINER" ]; then
 	exit 1
 fi
 
-# Ensure virtual files exist in container
+# Ensure database directory exists in container
 docker exec "$SMTP_CONTAINER" bash -c "
-    touch '${CONTAINER_VIRTUAL_USERS_FILE}'
-    touch '${CONTAINER_VIRTUAL_DOMAINS_FILE}'
+    mkdir -p /app/data/databases
 "
 
 # Get current user count
@@ -243,9 +245,10 @@ while IFS= read -r line; do
 				continue
 			fi
 
-			# Check if user already exists
-			if docker exec "$SMTP_CONTAINER" bash -c "grep -q '^${USER_EMAIL}' '${CONTAINER_VIRTUAL_USERS_FILE}' 2>/dev/null"; then
-				echo -e "${YELLOW}⚠ User ${USER_EMAIL} already exists. Skipping.${NC}"
+			# Check if user already exists in SQLite database
+			USER_EXISTS=$(docker exec "$SMTP_CONTAINER" bash -c "sqlite3 '${CONTAINER_DB_PATH}' \"SELECT COUNT(*) FROM users u INNER JOIN domains d ON u.domain_id = d.id WHERE u.username='${USER_USERNAME}' AND d.domain='${MAIL_DOMAIN}';\" 2>/dev/null" | tr -d '\n\r')
+			if [ "$USER_EXISTS" -gt 0 ]; then
+				echo -e "${YELLOW}⚠ User ${USER_EMAIL} already exists in database. Skipping.${NC}"
 				USER_USERNAME=""
 				continue
 			fi
@@ -281,18 +284,7 @@ while IFS= read -r line; do
 					# Create maildir with correct structure
 					create_user_maildir "$SMTP_CONTAINER" "$USER_EMAIL" "$USER_USERNAME" "$MAIL_DOMAIN"
 
-					# CRITICAL: Rebuild hash databases immediately
-					echo -e "${YELLOW}Rebuilding hash databases for $USER_EMAIL...${NC}"
-					docker exec "$SMTP_CONTAINER" bash -c "
-                        postmap '${CONTAINER_VIRTUAL_USERS_FILE}' &&
-                        postmap '${CONTAINER_VIRTUAL_DOMAINS_FILE}'
-                    "
-
-					if [ $? -eq 0 ]; then
-						echo -e "${GREEN}✓ Hash databases updated for $USER_EMAIL${NC}"
-					else
-						echo -e "${RED}✗ Failed to rebuild hash databases${NC}"
-					fi
+					echo -e "${GREEN}✓ User $USER_EMAIL added to SQLite database${NC}"
 
 					# Store encrypted password
 					ENCRYPTED_PASSWORD=$(encrypt_password "$USER_PASSWORD")
@@ -327,21 +319,6 @@ done <"$USERS_FILE"
 if [ "$ADDED_COUNT" -gt 0 ]; then
 	echo -e "\n${YELLOW}Applying final Postfix configuration changes...${NC}"
 
-	# Final rebuild of all hash databases
-	echo -e "${YELLOW}Final rebuild of all hash databases...${NC}"
-	docker exec "$SMTP_CONTAINER" bash -c "
-        postmap '${CONTAINER_VIRTUAL_USERS_FILE}' &&
-        postmap '${CONTAINER_VIRTUAL_DOMAINS_FILE}' &&
-        echo 'Hash databases rebuilt successfully'
-    "
-
-	if [ $? -eq 0 ]; then
-		echo -e "${GREEN}✓ All hash databases rebuilt successfully${NC}"
-	else
-		echo -e "${RED}✗ Failed to rebuild hash databases${NC}"
-		exit 1
-	fi
-
 	# Hot reload postfix configuration
 	echo -e "${YELLOW}Reloading Postfix configuration...${NC}"
 	if docker exec "$SMTP_CONTAINER" postfix reload; then
@@ -351,23 +328,12 @@ if [ "$ADDED_COUNT" -gt 0 ]; then
 		exit 1
 	fi
 
-	# Verify the changes
-	echo -e "${YELLOW}Verifying virtual configuration...${NC}"
+	# Verify the changes from SQLite database
+	echo -e "${YELLOW}Verifying database configuration...${NC}"
 	echo "Virtual domains:"
-	docker exec "$SMTP_CONTAINER" postmap -s "${CONTAINER_VIRTUAL_DOMAINS_FILE}"
+	docker exec "$SMTP_CONTAINER" sqlite3 "${CONTAINER_DB_PATH}" "SELECT domain FROM domains WHERE enabled=1;"
 	echo "Virtual users (last 5):"
-	docker exec "$SMTP_CONTAINER" postmap -s "${CONTAINER_VIRTUAL_USERS_FILE}" | tail -5
-
-	# Reload Dovecot if available
-	DOVECOT_CONTAINER=$(cd "${SERVICES_DIR}" && docker compose ps -q dovecot-server 2>/dev/null)
-	if [ -n "$DOVECOT_CONTAINER" ]; then
-		echo -e "${YELLOW}Reloading Dovecot configuration...${NC}"
-		if docker exec "$DOVECOT_CONTAINER" dovecot reload 2>/dev/null; then
-			echo -e "${GREEN}✓ Dovecot configuration reloaded${NC}"
-		else
-			echo -e "${YELLOW}⚠ Dovecot reload failed or not needed${NC}"
-		fi
-	fi
+	docker exec "$SMTP_CONTAINER" sqlite3 "${CONTAINER_DB_PATH}" "SELECT u.username || '@' || d.domain FROM users u INNER JOIN domains d ON u.domain_id = d.id WHERE u.enabled=1 ORDER BY u.id DESC LIMIT 5;"
 
 	echo -e "${GREEN}✓ All configuration changes applied successfully${NC}"
 else
@@ -393,5 +359,5 @@ echo -e " View specific user password: ${YELLOW}./decrypt_password.sh alice@$MAI
 echo -e " View all passwords: ${YELLOW}./decrypt_password.sh all${NC}"
 echo -e " Decrypt hex string: ${YELLOW}./decrypt_password.sh '1a2b3c4d...'${NC}"
 echo ""
-echo -e "${GREEN}✅ All users are active immediately - no container rebuild required!${NC}"
+echo -e "${GREEN}✅ All users are active immediately - stored in SQLite database!${NC}"
 echo -e "${CYAN}==============================================${NC}"
