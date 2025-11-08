@@ -134,28 +134,11 @@ add_user_to_role() {
 	local exists=$(docker exec "$smtp_container" bash -c "
         sqlite3 /app/data/databases/shared.db \"
             SELECT COUNT(*) FROM user_role_assignments
-            WHERE user_id=${user_id} AND role_mailbox_id=${role_id};
+            WHERE user_id=${user_id} AND role_mailbox_id=${role_id} AND is_active=1;
         \"" 2>/dev/null | tr -d '\n\r')
 
 	if [ "$exists" != "0" ]; then
-		# Check if it's inactive and reactivate it
-		local is_active=$(docker exec "$smtp_container" bash -c "
-            sqlite3 /app/data/databases/shared.db \"
-                SELECT is_active FROM user_role_assignments
-                WHERE user_id=${user_id} AND role_mailbox_id=${role_id};
-            \"" 2>/dev/null | tr -d '\n\r')
-
-		if [ "$is_active" = "0" ]; then
-			docker exec "$smtp_container" bash -c "
-                sqlite3 /app/data/databases/shared.db \"
-                    UPDATE user_role_assignments
-                    SET is_active=1, assigned_at=datetime('now')
-                    WHERE user_id=${user_id} AND role_mailbox_id=${role_id};
-                \""
-			echo -e "${GREEN}✓ Reactivated assignment: ${user_email} → ${role_email}${NC}"
-		else
-			echo -e "${YELLOW}⚠ User ${user_email} is already assigned to ${role_email}${NC}"
-		fi
+		echo -e "${YELLOW}⚠ User ${user_email} is already assigned to ${role_email}${NC}"
 		return 0
 	fi
 
@@ -188,11 +171,10 @@ remove_user_from_role() {
 	local user_id=$(get_user_id "$smtp_container" "$username" "$domain") || return 1
 	local role_id=$(get_role_id "$smtp_container" "$role_email") || return 1
 
-	# Set is_active to 0 instead of deleting (keeps audit trail)
+	# Delete the assignment entry
 	docker exec "$smtp_container" bash -c "
         sqlite3 /app/data/databases/shared.db \"
-            UPDATE user_role_assignments
-            SET is_active=0
+            DELETE FROM user_role_assignments
             WHERE user_id=${user_id} AND role_mailbox_id=${role_id};
         \""
 
@@ -256,14 +238,14 @@ list_user_assignments() {
 	docker exec "$smtp_container" bash -c "
         sqlite3 /app/data/databases/shared.db \"
             SELECT
-                CASE WHEN ura.is_active=1 THEN '✓' ELSE '✗' END || ' ' || r.email ||
+                '  • ' || r.email ||
                 ' (assigned: ' || datetime(ura.assigned_at, 'localtime') || ')'
             FROM user_role_assignments ura
             INNER JOIN users u ON ura.user_id = u.id
             INNER JOIN role_mailboxes r ON ura.role_mailbox_id = r.id
             INNER JOIN domains d ON u.domain_id = d.id
-            WHERE u.username='${username}' AND d.domain='${domain}'
-            ORDER BY ura.is_active DESC, r.email;
+            WHERE u.username='${username}' AND d.domain='${domain}' AND ura.is_active=1
+            ORDER BY r.email;
         \"" 2>/dev/null
 
 	if [ $? -ne 0 ]; then
@@ -283,15 +265,14 @@ list_role_users() {
 	docker exec "$smtp_container" bash -c "
         sqlite3 /app/data/databases/shared.db \"
             SELECT
-                CASE WHEN ura.is_active=1 THEN '✓' ELSE '✗' END || ' ' ||
-                u.username || '@' || d.domain ||
+                '  • ' || u.username || '@' || d.domain ||
                 ' (assigned: ' || datetime(ura.assigned_at, 'localtime') || ')'
             FROM user_role_assignments ura
             INNER JOIN users u ON ura.user_id = u.id
             INNER JOIN role_mailboxes r ON ura.role_mailbox_id = r.id
             INNER JOIN domains d ON u.domain_id = d.id
-            WHERE r.email='${role_email}'
-            ORDER BY ura.is_active DESC, u.username;
+            WHERE r.email='${role_email}' AND ura.is_active=1
+            ORDER BY u.username;
         \"" 2>/dev/null
 
 	if [ $? -ne 0 ]; then
@@ -310,13 +291,13 @@ list_all_assignments() {
 	docker exec "$smtp_container" bash -c "
         sqlite3 /app/data/databases/shared.db \"
             SELECT
-                CASE WHEN ura.is_active=1 THEN '✓' ELSE '✗' END || ' ' ||
-                u.username || '@' || d.domain || ' → ' || r.email
+                '  • ' || u.username || '@' || d.domain || ' → ' || r.email
             FROM user_role_assignments ura
             INNER JOIN users u ON ura.user_id = u.id
             INNER JOIN role_mailboxes r ON ura.role_mailbox_id = r.id
             INNER JOIN domains d ON u.domain_id = d.id
-            ORDER BY ura.is_active DESC, d.domain, u.username, r.email;
+            WHERE ura.is_active=1
+            ORDER BY d.domain, u.username, r.email;
         \"" 2>/dev/null
 
 	if [ $? -ne 0 ]; then
