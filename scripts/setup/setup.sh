@@ -18,6 +18,8 @@ readonly SERVICES_DIR="$(cd "${SCRIPT_DIR}/../../services" && pwd)"
 # Conf directory contains config files
 readonly CONF_DIR="$(cd "${SCRIPT_DIR}/../../conf" && pwd)"
 readonly CONFIG_FILE="${CONF_DIR}/silver.yaml"
+# Read silver-config from the configuration file
+readonly SILVER_CONFIG=$(grep -m 1 '^config-url:' "${CONFIG_FILE}" | sed 's/config-url: //' | xargs)
 
 # ASCII Banner
 echo -e "${CYAN}"

@@ -24,6 +24,8 @@
 #     dkim-selector: default
 #     dkim-key-size: 2048
 
+config-url: "https://github.com/maneeshaxyz/silver-config"
+
 domains:
   - domain:
     dkim-selector:
