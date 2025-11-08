@@ -128,8 +128,9 @@ create_role_mailbox() {
 	local smtp_container="$1"
 	local role_name="$2"
 	local mail_domain="$3"
+	local role_email="${role_name}@${mail_domain}"
 
-	echo -e "${YELLOW}Creating role mailbox ${role_name}@${mail_domain}...${NC}"
+	echo -e "${YELLOW}Creating role mailbox ${role_email}...${NC}"
 
 	docker exec "$smtp_container" bash -c "
         DB_PATH='/app/data/databases/shared.db'
@@ -143,33 +144,21 @@ create_role_mailbox() {
         fi
 
         # Check if role already exists
-        role_exists=\$(sqlite3 \"\$DB_PATH\" \"SELECT COUNT(*) FROM role_mailboxes WHERE name='${role_name}' AND domain_id=\$domain_id;\")
+        role_exists=\$(sqlite3 \"\$DB_PATH\" \"SELECT COUNT(*) FROM role_mailboxes WHERE email='${role_email}';\")
 
         if [ \"\$role_exists\" != \"0\" ]; then
-            echo 'Role mailbox ${role_name}@${mail_domain} already exists'
+            echo 'Role mailbox ${role_email} already exists'
             exit 0
         fi
 
         # Insert role mailbox into database
-        sqlite3 \"\$DB_PATH\" \"INSERT INTO role_mailboxes (name, domain_id, enabled, created_at) VALUES ('${role_name}', \$domain_id, 1, datetime('now'));\""
+        sqlite3 \"\$DB_PATH\" \"INSERT INTO role_mailboxes (email, domain_id, enabled, created_at) VALUES ('${role_email}', \$domain_id, 1, datetime('now'));\""
 
 	if [ $? -eq 0 ]; then
-		# Get the created role ID to set the db_path
-		docker exec "$smtp_container" bash -c "
-            DB_PATH='/app/data/databases/shared.db'
-            domain_id=\$(sqlite3 \"\$DB_PATH\" \"SELECT id FROM domains WHERE domain='${mail_domain}' AND enabled=1;\")
-            role_id=\$(sqlite3 \"\$DB_PATH\" \"SELECT id FROM role_mailboxes WHERE name='${role_name}' AND domain_id=\$domain_id;\")
-
-            if [ -n \"\$role_id\" ]; then
-                # Update db_path for the role
-                sqlite3 \"\$DB_PATH\" \"UPDATE role_mailboxes SET db_path='/app/data/databases/role_db_\${role_id}.db' WHERE id=\$role_id;\"
-                echo \"Role mailbox created with ID: \$role_id\"
-            fi
-        "
-		echo -e "${GREEN}✓ Role mailbox ${role_name}@${mail_domain} created successfully${NC}"
+		echo -e "${GREEN}✓ Role mailbox ${role_email} created successfully${NC}"
 		return 0
 	else
-		echo -e "${RED}✗ Failed to create role mailbox ${role_name}@${mail_domain}${NC}"
+		echo -e "${RED}✗ Failed to create role mailbox ${role_email}${NC}"
 		return 1
 	fi
 }
@@ -180,8 +169,9 @@ assign_user_to_role() {
 	local username="$2"
 	local role_name="$3"
 	local mail_domain="$4"
+	local role_email="${role_name}@${mail_domain}"
 
-	echo -e "${YELLOW}Assigning ${username}@${mail_domain} to role ${role_name}@${mail_domain}...${NC}"
+	echo -e "${YELLOW}Assigning ${username}@${mail_domain} to role ${role_email}...${NC}"
 
 	docker exec "$smtp_container" bash -c "
         DB_PATH='/app/data/databases/shared.db'
@@ -202,11 +192,11 @@ assign_user_to_role() {
             exit 1
         fi
 
-        # Get role_id
-        role_id=\$(sqlite3 \"\$DB_PATH\" \"SELECT id FROM role_mailboxes WHERE name='${role_name}' AND domain_id=\$domain_id AND enabled=1;\")
+        # Get role_id using email column
+        role_id=\$(sqlite3 \"\$DB_PATH\" \"SELECT id FROM role_mailboxes WHERE email='${role_email}' AND enabled=1;\")
 
         if [ -z \"\$role_id\" ]; then
-            echo 'Error: Role ${role_name}@${mail_domain} not found in database'
+            echo 'Error: Role ${role_email} not found in database'
             exit 1
         fi
 
@@ -222,7 +212,7 @@ assign_user_to_role() {
         sqlite3 \"\$DB_PATH\" \"INSERT INTO user_role_assignments (user_id, role_id, assigned_at) VALUES (\$user_id, \$role_id, datetime('now'));\""
 
 	if [ $? -eq 0 ]; then
-		echo -e "${GREEN}✓ User ${username}@${mail_domain} assigned to role ${role_name}@${mail_domain}${NC}"
+		echo -e "${GREEN}✓ User ${username}@${mail_domain} assigned to role ${role_email}${NC}"
 		return 0
 	else
 		echo -e "${RED}✗ Failed to assign user to role${NC}"
@@ -622,7 +612,7 @@ echo -e "${CYAN}Active Domains:${NC}"
 docker exec "$SMTP_CONTAINER" sqlite3 /app/data/databases/shared.db "SELECT '  • ' || domain FROM domains WHERE enabled=1;"
 echo ""
 echo -e "${CYAN}Active Role Mailboxes:${NC}"
-docker exec "$SMTP_CONTAINER" sqlite3 /app/data/databases/shared.db "SELECT '  • ' || name || '@' || d.domain || ' (ID: ' || r.id || ')' FROM role_mailboxes r INNER JOIN domains d ON r.domain_id = d.id WHERE r.enabled=1;" 2>/dev/null || echo "  (none)"
+docker exec "$SMTP_CONTAINER" sqlite3 /app/data/databases/shared.db "SELECT '  • ' || r.email || ' (ID: ' || r.id || ')' FROM role_mailboxes r WHERE r.enabled=1;" 2>/dev/null || echo "  (none)"
 echo ""
 echo -e "${BLUE}🔐 Security Information:${NC}"
 echo -e " Encrypted passwords: ${YELLOW}$PASSWORDS_FILE${NC}"
