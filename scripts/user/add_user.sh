@@ -192,16 +192,16 @@ assign_user_to_role() {
             exit 1
         fi
 
-        # Get role_id using email column
-        role_id=\$(sqlite3 \"\$DB_PATH\" \"SELECT id FROM role_mailboxes WHERE email='${role_email}' AND enabled=1;\")
+        # Get role_mailbox_id using email column
+        role_mailbox_id=\$(sqlite3 \"\$DB_PATH\" \"SELECT id FROM role_mailboxes WHERE email='${role_email}' AND enabled=1;\")
 
-        if [ -z \"\$role_id\" ]; then
+        if [ -z \"\$role_mailbox_id\" ]; then
             echo 'Error: Role ${role_email} not found in database'
             exit 1
         fi
 
         # Check if assignment already exists
-        assignment_exists=\$(sqlite3 \"\$DB_PATH\" \"SELECT COUNT(*) FROM user_role_assignments WHERE user_id=\$user_id AND role_id=\$role_id;\")
+        assignment_exists=\$(sqlite3 \"\$DB_PATH\" \"SELECT COUNT(*) FROM user_role_assignments WHERE user_id=\$user_id AND role_mailbox_id=\$role_mailbox_id;\")
 
         if [ \"\$assignment_exists\" != \"0\" ]; then
             echo 'User already assigned to this role'
@@ -209,7 +209,7 @@ assign_user_to_role() {
         fi
 
         # Create assignment
-        sqlite3 \"\$DB_PATH\" \"INSERT INTO user_role_assignments (user_id, role_id, assigned_at) VALUES (\$user_id, \$role_id, datetime('now'));\""
+        sqlite3 \"\$DB_PATH\" \"INSERT INTO user_role_assignments (user_id, role_mailbox_id, assigned_at, is_active) VALUES (\$user_id, \$role_mailbox_id, datetime('now'), 1);\""
 
 	if [ $? -eq 0 ]; then
 		echo -e "${GREEN}✓ User ${username}@${mail_domain} assigned to role ${role_email}${NC}"
@@ -594,7 +594,7 @@ fi
 TOTAL_USERS=$(get_container_user_count "$SMTP_CONTAINER")
 DOMAIN_COUNT=$(docker exec "$SMTP_CONTAINER" sqlite3 /app/data/databases/shared.db "SELECT COUNT(*) FROM domains WHERE enabled=1;" 2>/dev/null | tr -d '\n\r')
 TOTAL_ROLES=$(docker exec "$SMTP_CONTAINER" sqlite3 /app/data/databases/shared.db "SELECT COUNT(*) FROM role_mailboxes WHERE enabled=1;" 2>/dev/null | tr -d '\n\r')
-TOTAL_ASSIGNMENTS=$(docker exec "$SMTP_CONTAINER" sqlite3 /app/data/databases/shared.db "SELECT COUNT(*) FROM user_role_assignments;" 2>/dev/null | tr -d '\n\r')
+TOTAL_ASSIGNMENTS=$(docker exec "$SMTP_CONTAINER" sqlite3 /app/data/databases/shared.db "SELECT COUNT(*) FROM user_role_assignments WHERE is_active=1;" 2>/dev/null | tr -d '\n\r')
 
 echo -e "\n${CYAN}==============================================${NC}"
 echo -e " 🎉 ${GREEN}User Setup Complete!${NC}"
@@ -613,6 +613,9 @@ docker exec "$SMTP_CONTAINER" sqlite3 /app/data/databases/shared.db "SELECT '  �
 echo ""
 echo -e "${CYAN}Active Role Mailboxes:${NC}"
 docker exec "$SMTP_CONTAINER" sqlite3 /app/data/databases/shared.db "SELECT '  • ' || r.email || ' (ID: ' || r.id || ')' FROM role_mailboxes r WHERE r.enabled=1;" 2>/dev/null || echo "  (none)"
+echo ""
+echo -e "${CYAN}User-Role Assignments:${NC}"
+docker exec "$SMTP_CONTAINER" sqlite3 /app/data/databases/shared.db "SELECT '  • ' || u.username || '@' || d.domain || ' → ' || r.email FROM user_role_assignments ura INNER JOIN users u ON ura.user_id = u.id INNER JOIN role_mailboxes r ON ura.role_mailbox_id = r.id INNER JOIN domains d ON u.domain_id = d.id WHERE ura.is_active=1;" 2>/dev/null || echo "  (none)"
 echo ""
 echo -e "${BLUE}🔐 Security Information:${NC}"
 echo -e " Encrypted passwords: ${YELLOW}$PASSWORDS_FILE${NC}"
