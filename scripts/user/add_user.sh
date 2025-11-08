@@ -123,6 +123,113 @@ update_container_virtual_users() {
     "
 }
 
+# Create role mailbox in SQLite database
+create_role_mailbox() {
+	local smtp_container="$1"
+	local role_name="$2"
+	local mail_domain="$3"
+
+	echo -e "${YELLOW}Creating role mailbox ${role_name}@${mail_domain}...${NC}"
+
+	docker exec "$smtp_container" bash -c "
+        DB_PATH='/app/data/databases/shared.db'
+
+        # Get domain_id
+        domain_id=\$(sqlite3 \"\$DB_PATH\" \"SELECT id FROM domains WHERE domain='${mail_domain}' AND enabled=1;\")
+
+        if [ -z \"\$domain_id\" ]; then
+            echo 'Error: Domain ${mail_domain} not found in database'
+            exit 1
+        fi
+
+        # Check if role already exists
+        role_exists=\$(sqlite3 \"\$DB_PATH\" \"SELECT COUNT(*) FROM role_mailboxes WHERE name='${role_name}' AND domain_id=\$domain_id;\")
+
+        if [ \"\$role_exists\" != \"0\" ]; then
+            echo 'Role mailbox ${role_name}@${mail_domain} already exists'
+            exit 0
+        fi
+
+        # Insert role mailbox into database
+        sqlite3 \"\$DB_PATH\" \"INSERT INTO role_mailboxes (name, domain_id, enabled, created_at) VALUES ('${role_name}', \$domain_id, 1, datetime('now'));\""
+
+	if [ $? -eq 0 ]; then
+		# Get the created role ID to set the db_path
+		docker exec "$smtp_container" bash -c "
+            DB_PATH='/app/data/databases/shared.db'
+            domain_id=\$(sqlite3 \"\$DB_PATH\" \"SELECT id FROM domains WHERE domain='${mail_domain}' AND enabled=1;\")
+            role_id=\$(sqlite3 \"\$DB_PATH\" \"SELECT id FROM role_mailboxes WHERE name='${role_name}' AND domain_id=\$domain_id;\")
+
+            if [ -n \"\$role_id\" ]; then
+                # Update db_path for the role
+                sqlite3 \"\$DB_PATH\" \"UPDATE role_mailboxes SET db_path='/app/data/databases/role_db_\${role_id}.db' WHERE id=\$role_id;\"
+                echo \"Role mailbox created with ID: \$role_id\"
+            fi
+        "
+		echo -e "${GREEN}✓ Role mailbox ${role_name}@${mail_domain} created successfully${NC}"
+		return 0
+	else
+		echo -e "${RED}✗ Failed to create role mailbox ${role_name}@${mail_domain}${NC}"
+		return 1
+	fi
+}
+
+# Assign user to role mailbox
+assign_user_to_role() {
+	local smtp_container="$1"
+	local username="$2"
+	local role_name="$3"
+	local mail_domain="$4"
+
+	echo -e "${YELLOW}Assigning ${username}@${mail_domain} to role ${role_name}@${mail_domain}...${NC}"
+
+	docker exec "$smtp_container" bash -c "
+        DB_PATH='/app/data/databases/shared.db'
+
+        # Get domain_id
+        domain_id=\$(sqlite3 \"\$DB_PATH\" \"SELECT id FROM domains WHERE domain='${mail_domain}' AND enabled=1;\")
+
+        if [ -z \"\$domain_id\" ]; then
+            echo 'Error: Domain ${mail_domain} not found in database'
+            exit 1
+        fi
+
+        # Get user_id
+        user_id=\$(sqlite3 \"\$DB_PATH\" \"SELECT id FROM users WHERE username='${username}' AND domain_id=\$domain_id AND enabled=1;\")
+
+        if [ -z \"\$user_id\" ]; then
+            echo 'Error: User ${username}@${mail_domain} not found in database'
+            exit 1
+        fi
+
+        # Get role_id
+        role_id=\$(sqlite3 \"\$DB_PATH\" \"SELECT id FROM role_mailboxes WHERE name='${role_name}' AND domain_id=\$domain_id AND enabled=1;\")
+
+        if [ -z \"\$role_id\" ]; then
+            echo 'Error: Role ${role_name}@${mail_domain} not found in database'
+            exit 1
+        fi
+
+        # Check if assignment already exists
+        assignment_exists=\$(sqlite3 \"\$DB_PATH\" \"SELECT COUNT(*) FROM user_role_assignments WHERE user_id=\$user_id AND role_id=\$role_id;\")
+
+        if [ \"\$assignment_exists\" != \"0\" ]; then
+            echo 'User already assigned to this role'
+            exit 0
+        fi
+
+        # Create assignment
+        sqlite3 \"\$DB_PATH\" \"INSERT INTO user_role_assignments (user_id, role_id, assigned_at) VALUES (\$user_id, \$role_id, datetime('now'));\""
+
+	if [ $? -eq 0 ]; then
+		echo -e "${GREEN}✓ User ${username}@${mail_domain} assigned to role ${role_name}@${mail_domain}${NC}"
+		return 0
+	else
+		echo -e "${RED}✗ Failed to assign user to role${NC}"
+		return 1
+	fi
+}
+
 # Check user count in container (from SQLite database)
 get_container_user_count() {
 	local smtp_container="$1"
@@ -242,9 +349,18 @@ echo "" >>"$PASSWORDS_FILE"
 # Step 4: Process domains and users
 # -------------------------------
 ADDED_COUNT=0
+ROLES_CREATED_COUNT=0
+ASSIGNMENTS_COUNT=0
 CURRENT_DOMAIN=""
 USER_USERNAME=""
 IN_USERS_SECTION=false
+IN_ROLES_SECTION=false
+CURRENT_ROLE_NAME=""
+IN_ASSIGNED_USERS_SECTION=false
+
+# Arrays to store roles and their assignments (processed after users)
+declare -A DOMAIN_ROLES        # domain -> list of role names
+declare -A ROLE_ASSIGNMENTS    # domain:role -> list of usernames
 
 while IFS= read -r line; do
 	trimmed_line=$(echo "$line" | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
@@ -276,10 +392,63 @@ while IFS= read -r line; do
 		fi
 	fi
 
+	# Match "roles:" section marker
+	if [[ $trimmed_line =~ ^roles:[[:space:]]*$ ]] && [ -n "$CURRENT_DOMAIN" ]; then
+		IN_ROLES_SECTION=true
+		IN_USERS_SECTION=false
+		continue
+	fi
+
 	# Match "users:" section marker
 	if [[ $trimmed_line =~ ^users:[[:space:]]*$ ]] && [ -n "$CURRENT_DOMAIN" ]; then
 		IN_USERS_SECTION=true
+		IN_ROLES_SECTION=false
 		continue
+	fi
+
+	# Process role definitions (in roles section)
+	if [ "$IN_ROLES_SECTION" = true ] && [ -n "$CURRENT_DOMAIN" ]; then
+		# Match role name: "- name: info" or "  - name: info"
+		if [[ $line =~ ^[[:space:]]+-[[:space:]]+name:[[:space:]]+(.+)$ ]]; then
+			CURRENT_ROLE_NAME="${BASH_REMATCH[1]}"
+			CURRENT_ROLE_NAME=$(echo "$CURRENT_ROLE_NAME" | xargs)
+			IN_ASSIGNED_USERS_SECTION=false
+
+			if [ -n "$CURRENT_ROLE_NAME" ]; then
+				# Store role for later processing
+				if [ -z "${DOMAIN_ROLES[$CURRENT_DOMAIN]}" ]; then
+					DOMAIN_ROLES[$CURRENT_DOMAIN]="$CURRENT_ROLE_NAME"
+				else
+					DOMAIN_ROLES[$CURRENT_DOMAIN]="${DOMAIN_ROLES[$CURRENT_DOMAIN]},$CURRENT_ROLE_NAME"
+				fi
+				echo -e "${CYAN}Found role: ${CURRENT_ROLE_NAME}@${CURRENT_DOMAIN}${NC}"
+			fi
+			continue
+		fi
+
+		# Match "assigned_users:" marker
+		if [[ $trimmed_line =~ ^assigned_users:[[:space:]]*$ ]] && [ -n "$CURRENT_ROLE_NAME" ]; then
+			IN_ASSIGNED_USERS_SECTION=true
+			continue
+		fi
+
+		# Match assigned usernames: "- alice" or "  - alice"
+		if [[ $line =~ ^[[:space:]]+-[[:space:]]+(.+)$ ]] && [ "$IN_ASSIGNED_USERS_SECTION" = true ] && [ -n "$CURRENT_ROLE_NAME" ]; then
+			ASSIGNED_USER="${BASH_REMATCH[1]}"
+			ASSIGNED_USER=$(echo "$ASSIGNED_USER" | xargs)
+
+			if [ -n "$ASSIGNED_USER" ]; then
+				# Store assignment for later processing
+				ROLE_KEY="${CURRENT_DOMAIN}:${CURRENT_ROLE_NAME}"
+				if [ -z "${ROLE_ASSIGNMENTS[$ROLE_KEY]}" ]; then
+					ROLE_ASSIGNMENTS[$ROLE_KEY]="$ASSIGNED_USER"
+				else
+					ROLE_ASSIGNMENTS[$ROLE_KEY]="${ROLE_ASSIGNMENTS[$ROLE_KEY]},$ASSIGNED_USER"
+				fi
+				echo -e "${CYAN}  → User ${ASSIGNED_USER} will be assigned to ${CURRENT_ROLE_NAME}@${CURRENT_DOMAIN}${NC}"
+			fi
+			continue
+		fi
 	fi
 
 	# Match username line: "- username: alice" or "  - username: alice"
@@ -364,7 +533,46 @@ while IFS= read -r line; do
 done <"$USERS_FILE"
 
 # -------------------------------
-# Step 4: Final Postfix configuration reload
+# Step 5: Process role mailboxes and assignments
+# -------------------------------
+echo -e "\n${CYAN}========================================${NC}"
+echo -e "${CYAN}Processing Role Mailboxes${NC}"
+echo -e "${CYAN}========================================${NC}"
+
+# Create role mailboxes
+for domain in "${!DOMAIN_ROLES[@]}"; do
+	IFS=',' read -ra ROLES <<<"${DOMAIN_ROLES[$domain]}"
+	for role in "${ROLES[@]}"; do
+		if [ -n "$role" ]; then
+			if create_role_mailbox "$SMTP_CONTAINER" "$role" "$domain"; then
+				ROLES_CREATED_COUNT=$((ROLES_CREATED_COUNT + 1))
+			fi
+		fi
+	done
+done
+
+echo -e "\n${CYAN}========================================${NC}"
+echo -e "${CYAN}Assigning Users to Roles${NC}"
+echo -e "${CYAN}========================================${NC}"
+
+# Assign users to roles
+for role_key in "${!ROLE_ASSIGNMENTS[@]}"; do
+	IFS=':' read -r domain role <<<"$role_key"
+	IFS=',' read -ra USERS <<<"${ROLE_ASSIGNMENTS[$role_key]}"
+
+	echo -e "\n${YELLOW}Processing role ${role}@${domain}${NC}"
+
+	for user in "${USERS[@]}"; do
+		if [ -n "$user" ]; then
+			if assign_user_to_role "$SMTP_CONTAINER" "$user" "$role" "$domain"; then
+				ASSIGNMENTS_COUNT=$((ASSIGNMENTS_COUNT + 1))
+			fi
+		fi
+	done
+done
+
+# -------------------------------
+# Step 6: Final Postfix configuration reload
 # -------------------------------
 if [ "$ADDED_COUNT" -gt 0 ]; then
 	echo -e "\n${YELLOW}Applying final Postfix configuration changes...${NC}"
@@ -395,6 +603,8 @@ fi
 # -------------------------------
 TOTAL_USERS=$(get_container_user_count "$SMTP_CONTAINER")
 DOMAIN_COUNT=$(docker exec "$SMTP_CONTAINER" sqlite3 /app/data/databases/shared.db "SELECT COUNT(*) FROM domains WHERE enabled=1;" 2>/dev/null | tr -d '\n\r')
+TOTAL_ROLES=$(docker exec "$SMTP_CONTAINER" sqlite3 /app/data/databases/shared.db "SELECT COUNT(*) FROM role_mailboxes WHERE enabled=1;" 2>/dev/null | tr -d '\n\r')
+TOTAL_ASSIGNMENTS=$(docker exec "$SMTP_CONTAINER" sqlite3 /app/data/databases/shared.db "SELECT COUNT(*) FROM user_role_assignments;" 2>/dev/null | tr -d '\n\r')
 
 echo -e "\n${CYAN}==============================================${NC}"
 echo -e " 🎉 ${GREEN}User Setup Complete!${NC}"
@@ -402,8 +612,17 @@ echo " Total new users added: $ADDED_COUNT"
 echo " Total domains configured: $DOMAIN_COUNT"
 echo " Total users now: $TOTAL_USERS"
 echo ""
+echo -e " ${GREEN}Role-Based Mail System:${NC}"
+echo " Total role mailboxes created: $ROLES_CREATED_COUNT"
+echo " Total role mailboxes now: $TOTAL_ROLES"
+echo " Total user-role assignments: $ASSIGNMENTS_COUNT"
+echo " Total assignments now: $TOTAL_ASSIGNMENTS"
+echo ""
 echo -e "${CYAN}Active Domains:${NC}"
 docker exec "$SMTP_CONTAINER" sqlite3 /app/data/databases/shared.db "SELECT '  • ' || domain FROM domains WHERE enabled=1;"
+echo ""
+echo -e "${CYAN}Active Role Mailboxes:${NC}"
+docker exec "$SMTP_CONTAINER" sqlite3 /app/data/databases/shared.db "SELECT '  • ' || name || '@' || d.domain || ' (ID: ' || r.id || ')' FROM role_mailboxes r INNER JOIN domains d ON r.domain_id = d.id WHERE r.enabled=1;" 2>/dev/null || echo "  (none)"
 echo ""
 echo -e "${BLUE}🔐 Security Information:${NC}"
 echo -e " Encrypted passwords: ${YELLOW}$PASSWORDS_FILE${NC}"
