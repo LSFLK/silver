@@ -15,7 +15,7 @@ NC="\033[0m" # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Get the services directory (where docker-compose and configs are)
 SERVICES_DIR="$(cd "${SCRIPT_DIR}/../../services" && pwd)"
-CONFIG_FILE="silver.yaml"
+CONFIG_FILE="${SERVICES_DIR}/silver.yaml"
 
 # ASCII Banner
 echo -e "${CYAN}"
@@ -77,7 +77,7 @@ echo -e "\n${YELLOW}Step 2/8: Generating TLS certificates using certbot containe
 # Start only certbot container first
 ( cd "${SERVICES_DIR}" && docker compose up certbot-server --build --force-recreate )
 
-LETSENCRYPT_DIR="./letsencrypt/live/${MAIL_DOMAIN}/"
+LETSENCRYPT_DIR="${SERVICES_DIR}/letsencrypt/live/${MAIL_DOMAIN}/"
 
 # Wait until certbot finishes and files exist
 echo -n "⏳ Waiting for certificates..."
@@ -158,18 +158,18 @@ echo -e "\n${YELLOW}Step 6/8: Configuring Thunder TLS certificates${NC}"
 THUNDER_HOST=${MAIL_DOMAIN}
 THUNDER_PORT=8090
 
-LETSENCRYPT_DIR="./letsencrypt/live/${MAIL_DOMAIN}/"
+LETSENCRYPT_DIR="${SERVICES_DIR}/letsencrypt/live/${MAIL_DOMAIN}/"
 
-mkdir -p "./thunder/certs"
+mkdir -p "${SERVICES_DIR}/thunder/certs"
 
-cp "${LETSENCRYPT_DIR}/fullchain.pem" "./thunder/certs/server.cert"
-cp "${LETSENCRYPT_DIR}/privkey.pem" "./thunder/certs/server.key"
+cp "${LETSENCRYPT_DIR}/fullchain.pem" "${SERVICES_DIR}/thunder/certs/server.cert"
+cp "${LETSENCRYPT_DIR}/privkey.pem" "${SERVICES_DIR}/thunder/certs/server.key"
 
 # Set ownership to user ID 802 (thunder user in container)
-sudo chown 802:802 ./thunder/certs/server.key ./thunder/certs/server.cert
+sudo chown 802:802 ${SERVICES_DIR}/thunder/certs/server.key ${SERVICES_DIR}/thunder/certs/server.cert
 
-chmod 600 ./thunder/certs/server.key
-chmod 644 ./thunder/certs/server.cert
+chmod 600 ${SERVICES_DIR}/thunder/certs/server.key
+chmod 644 ${SERVICES_DIR}/thunder/certs/server.cert
 
 # ================================
 # Step 7: Docker Setup
