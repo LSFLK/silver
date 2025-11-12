@@ -7,7 +7,7 @@ services:
       - "25:25"
       - "587:587"
     volumes:
-      - ./silver.yaml:/etc/postfix/silver.yaml
+      - ../conf/silver.yaml:/etc/postfix/silver.yaml
       - maildata:/var/mail/vmail
       - postfix-sasl:/var/spool/postfix/private
       - ./letsencrypt:/etc/letsencrypt:ro
@@ -34,7 +34,7 @@ services:
       - "110:110"
       - "995:995"
     volumes:
-      - ./silver.yaml:/etc/dovecot/silver.yaml:ro
+      - ../conf/silver.yaml:/etc/dovecot/silver.yaml:ro
       - maildata:/var/mail/vmail
       - postfix-sasl:/var/spool/postfix/private
       - ./letsencrypt:/etc/letsencrypt:ro
@@ -50,7 +50,7 @@ services:
       context: ./dkim
     container_name: opendkim-server
     volumes:
-      - ./silver.yaml:/etc/opendkim/silver.yaml
+      - ../conf/silver.yaml:/etc/opendkim/silver.yaml
       - dkim-keys:/etc/opendkim/keys
     networks:
       - mail-network
@@ -119,7 +119,7 @@ services:
       context: ./certbot
     container_name: certbot-server
     volumes:
-      - ./silver.yaml:/etc/certbot/silver.yaml:ro
+      - ../conf/silver.yaml:/etc/certbot/silver.yaml:ro
       - ./letsencrypt:/etc/letsencrypt
       - ./letsencrypt/certbot-logs:/var/log/letsencrypt
     ports:

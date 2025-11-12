@@ -17,11 +17,12 @@ NC="\033[0m" # No Color
 
 # Directories & files
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SERVICES_DIR="$(cd "${SCRIPT_DIR}/../../services" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+SERVICES_DIR="${ROOT_DIR}/services"
 VIRTUAL_USERS_FILE="${SERVICES_DIR}/smtp/conf/virtual-users"
 VIRTUAL_DOMAINS_FILE="${SERVICES_DIR}/smtp/conf/virtual-domains"
-CONFIG_FILE="${SERVICES_DIR}/silver.yaml"
-USERS_FILE="${SERVICES_DIR}/users.yaml"
+CONFIG_FILE="${ROOT_DIR}/conf/silver.yaml"
+USERS_FILE="${ROOT_DIR}/conf/users.yaml"
 PASSWORDS_DIR="${SCRIPT_DIR}/../decrypt"
 PASSWORDS_FILE="${PASSWORDS_DIR}/user_passwords.txt"
 
