@@ -5,7 +5,9 @@ set -e
 # Read domain from yaml file
 # -------------------------------
 
-CONFIG_FILE="silver.yaml"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SERVICES_DIR="$(cd "${SCRIPT_DIR}/../../services" && pwd)"
+CONFIG_FILE="${SERVICES_DIR}/silver.yaml"
 
 DOMAIN=$(grep -m 1 '^domain:' "$CONFIG_FILE" | sed 's/domain: //' | xargs)
 

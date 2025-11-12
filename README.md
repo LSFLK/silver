@@ -72,11 +72,16 @@ cd silver/services
 
 - Run the `init.sh` script
 
-- To add more users to your email server, give permission to the add-users.sh file and run it.
-
 ```bash
 # From silver/services directory
 bash ../scripts/setup/init.sh
+```
+
+- To add more users to your email server, run the `add_user.sh` script:
+
+```bash
+# From silver/services directory
+bash ../scripts/admin/add_user.sh
 ```
 
 - Replace the dkim record below with the output you get after running the `init.sh` script

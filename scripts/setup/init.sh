@@ -223,5 +223,5 @@ fi
 # ================================
 # Public DKIM Key Instructions
 # ================================
-chmod +x "${SERVICES_DIR}/get-dkim.sh"
-( cd "${SERVICES_DIR}" && ./get-dkim.sh )
+chmod +x "${SCRIPT_DIR}/../admin/get-dkim.sh"
+"${SCRIPT_DIR}/../admin/get-dkim.sh"
