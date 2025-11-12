@@ -13,6 +13,8 @@ NC="\033[0m" # No Color
 
 # Get the script directory (where init.sh is located)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Get the services directory (where docker-compose and configs are)
+SERVICES_DIR="$(cd "${SCRIPT_DIR}/../../services" && pwd)"
 CONFIG_FILE="silver.yaml"
 
 # ASCII Banner
@@ -73,7 +75,7 @@ fi
 echo -e "\n${YELLOW}Step 2/8: Generating TLS certificates using certbot container${NC}"
 
 # Start only certbot container first
-( cd "${SCRIPT_DIR}" && docker compose up certbot-server --build --force-recreate )
+( cd "${SERVICES_DIR}" && docker compose up certbot-server --build --force-recreate )
 
 LETSENCRYPT_DIR="./letsencrypt/live/${MAIL_DOMAIN}/"
 
@@ -106,7 +108,7 @@ echo " - ${LETSENCRYPT_DIR}/privkey.pem"
 # ================================
 echo -e "\n${YELLOW}Step 3/8: Creating SMTP configuration${NC}"
 
-TARGET_DIR="${SCRIPT_DIR}/smtp/conf"
+TARGET_DIR="${SERVICES_DIR}/smtp/conf"
 if [ ! -d "$TARGET_DIR" ]; then
     echo "Directory '$TARGET_DIR' does not exist. Creating it now..."
     mkdir -p "$TARGET_DIR"
@@ -127,10 +129,10 @@ echo " - $TARGET_DIR/virtual-users (empty)"
 # ================================
 echo -e "\n${YELLOW}Step 4/8: Configuring Spam Filter${NC}"
 
-if [ ! -d "${SCRIPT_DIR}/spam/conf" ]; then
-    mkdir -p "${SCRIPT_DIR}/spam/conf"
+if [ ! -d "${SERVICES_DIR}/spam/conf" ]; then
+    mkdir -p "${SERVICES_DIR}/spam/conf"
 fi
-echo "password = \"\$2\$8hn4c88rmafsueo4h3yckiirwkieidb3\$uge4i3ynbba89qpo1gqmqk9gqjy8ysu676z1p8ss5qz5y1773zgb\";" > "${SCRIPT_DIR}/spam/conf/worker-controller.inc"
+echo "password = \"\$2\$8hn4c88rmafsueo4h3yckiirwkieidb3\$uge4i3ynbba89qpo1gqmqk9gqjy8ysu676z1p8ss5qz5y1773zgb\";" > "${SERVICES_DIR}/spam/conf/worker-controller.inc"
 echo -e "${GREEN}✓ worker-controller.inc created for spam filter${NC}"
 
 # ================================
@@ -174,14 +176,14 @@ chmod 644 ./thunder/certs/server.cert
 # ================================
 echo -e "\n${YELLOW}Step 7/8: Starting Docker services${NC}"
 
-( cd "${SCRIPT_DIR}" && docker compose up -d --build --force-recreate )
+( cd "${SERVICES_DIR}" && docker compose up -d --build --force-recreate )
 if [ $? -ne 0 ]; then
     echo -e "${RED}✗ Docker compose failed. Please check the logs.${NC}"
     exit 1
 fi
 
 echo -n "⏳ Waiting for services to become healthy"
-while [ "$(cd "${SCRIPT_DIR}" && docker compose ps --services --filter "status=running" | wc -l)" -lt "$(cd "${SCRIPT_DIR}" && docker compose ps --services | wc -l)" ]; do
+while [ "$(cd "${SERVICES_DIR}" && docker compose ps --services --filter "status=running" | wc -l)" -lt "$(cd "${SERVICES_DIR}" && docker compose ps --services | wc -l)" ]; do
     echo -n "."
     sleep 5
 done
@@ -221,5 +223,5 @@ fi
 # ================================
 # Public DKIM Key Instructions
 # ================================
-chmod +x "${SCRIPT_DIR}/get-dkim.sh"
-( cd "${SCRIPT_DIR}" && ./get-dkim.sh )
+chmod +x "${SERVICES_DIR}/get-dkim.sh"
+( cd "${SERVICES_DIR}" && ./get-dkim.sh )
