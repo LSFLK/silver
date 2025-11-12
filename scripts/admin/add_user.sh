@@ -77,11 +77,11 @@ encrypt_password() {
 # Check if Docker Compose services are running
 check_services() {
     echo -e "${YELLOW}Checking Docker Compose services...${NC}"
-    
-    if ! docker compose ps smtp-server | grep -q "Up\|running"; then
+
+    if ! ( cd "${SERVICES_DIR}" && docker compose ps smtp-server ) | grep -q "Up\|running"; then
         echo -e "${RED}✗ SMTP server container is not running${NC}"
         echo -e "${YELLOW}Starting services with: docker compose up -d${NC}"
-        docker compose up -d
+        ( cd "${SERVICES_DIR}" && docker compose up -d )
         sleep 10
     else
         echo -e "${GREEN}✓ SMTP server container is running${NC}"
@@ -153,10 +153,10 @@ check_services
 MAX_USERS=100
 
 # Find the smtp container
-SMTP_CONTAINER=$(docker compose ps -q smtp-server 2>/dev/null)
+SMTP_CONTAINER=$(cd "${SERVICES_DIR}" && docker compose ps -q smtp-server 2>/dev/null)
 if [ -z "$SMTP_CONTAINER" ]; then
     echo -e "${RED}✗ SMTP container not found. Is Docker Compose running?${NC}"
-    echo -e "${YELLOW}Try running: docker compose up -d${NC}"
+    echo -e "${YELLOW}Try running: cd ${SERVICES_DIR} && docker compose up -d${NC}"
     exit 1
 fi
 
@@ -356,7 +356,7 @@ if [ "$ADDED_COUNT" -gt 0 ]; then
     docker exec "$SMTP_CONTAINER" postmap -s "${CONTAINER_VIRTUAL_USERS_FILE}" | tail -5
     
     # Reload Dovecot if available
-    DOVECOT_CONTAINER=$(docker compose ps -q dovecot-server 2>/dev/null)
+    DOVECOT_CONTAINER=$(cd "${SERVICES_DIR}" && docker compose ps -q dovecot-server 2>/dev/null)
     if [ -n "$DOVECOT_CONTAINER" ]; then
         echo -e "${YELLOW}Reloading Dovecot configuration...${NC}"
         if docker exec "$DOVECOT_CONTAINER" dovecot reload 2>/dev/null; then
