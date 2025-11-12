@@ -78,24 +78,27 @@ services:
       - no-new-privileges:true
 
   clamav-server:
-    image: clamav/clamav:stable
-    # uncomment when running on mac os
-    #platform: linux/amd64  
+    image: clamav/clamav:latest # Official ClamAV image
     container_name: clamav-server
     volumes:
-      - clamsock:/var/run/clamav # shared socket volume
+      - clamsock:/var/run/clamav
+      - clamav_db:/var/lib/clamav
     networks:
       - mail-network
     restart: always
     depends_on:
       - rspamd-server
-    cap_drop:
-      - all
-    security_opt:
-      - no-new-privileges:true
+    environment:
+      - CLAMAV_NO_FRESHCLAMD=false
+    deploy:
+      resources:
+        limits:
+          memory: 2.8G
+        reservations:
+          memory: 1G
 
   thunder-server:
-    image: ghcr.io/asgardeo/thunder:latest
+    image: ghcr.io/asgardeo/thunder:0.8.0
     container_name: thunder-server
     ports:
       - "127.0.0.1:8090:8090"
@@ -135,6 +138,7 @@ volumes:
   dkim-keys:
   rspamd_data:
   clamsock:
+  clamav_db:
 
 
 networks:
