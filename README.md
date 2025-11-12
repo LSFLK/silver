@@ -66,7 +66,7 @@ cd silver/services
 ```
 
 ### Configuration
-- Open [`silver.yaml`](https://github.com/LSFLK/silver/blob/main/services/silver.yaml) with a text editor.
+- Open [`silver.yaml`](https://github.com/LSFLK/silver/blob/main/conf/silver.yaml) with a text editor.
 
 - Enter your domain name.
 
@@ -95,7 +95,7 @@ bash ../scripts/admin/add_user.sh
 
 ### Adding users
 
-- To add more users to your email server, open up [`users.yaml`](https://github.com/LSFLK/silver/blob/main/services/users.yaml), and add their usernames and run the following command.
+- To add more users to your email server, open up [`users.yaml`](https://github.com/LSFLK/silver/blob/main/conf/users.yaml), and add their usernames and run the following command.
 
 ```bash
 # silver/services

@@ -6,8 +6,8 @@ set -e
 # -------------------------------
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SERVICES_DIR="$(cd "${SCRIPT_DIR}/../../services" && pwd)"
-CONFIG_FILE="${SERVICES_DIR}/silver.yaml"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+CONFIG_FILE="${ROOT_DIR}/conf/silver.yaml"
 
 DOMAIN=$(grep -m 1 '^domain:' "$CONFIG_FILE" | sed 's/domain: //' | xargs)
 

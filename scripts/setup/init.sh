@@ -13,9 +13,11 @@ NC="\033[0m" # No Color
 
 # Get the script directory (where init.sh is located)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Get the root directory
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 # Get the services directory (where docker-compose and configs are)
-SERVICES_DIR="$(cd "${SCRIPT_DIR}/../../services" && pwd)"
-CONFIG_FILE="${SERVICES_DIR}/silver.yaml"
+SERVICES_DIR="${ROOT_DIR}/services"
+CONFIG_FILE="${ROOT_DIR}/conf/silver.yaml"
 
 # ASCII Banner
 echo -e "${CYAN}"
