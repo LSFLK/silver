@@ -7,9 +7,9 @@
 # and provides comprehensive security analysis.
 #
 # Usage:
-#   ./tls_encrypt_test.sh           # Quick mode (1-2 minutes)
-#   ./tls_encrypt_test.sh --full    # Full testssl.sh scan (~60-75 min)
-#   ./tls_encrypt_test.sh --critical # Only critical ports (~30-40 min)
+#   ./tls_security_test.sh           # Quick mode (1-2 minutes)
+#   ./tls_security_test.sh --full    # Full testssl.sh scan (~60-75 min)
+#   ./tls_security_test.sh --critical # Only critical ports (~30-40 min)
 # ================================================================
 
 set -e
@@ -126,8 +126,8 @@ if [ "$MODE" = "quick" ]; then
     echo "✅ Quick mode complete!"
     echo ""
     echo "For comprehensive vulnerability scanning, run:"
-    echo "  ./tls_encrypt_test.sh --critical  (tests SMTP & IMAPS - ~30-40 min)"
-    echo "  ./tls_encrypt_test.sh --full      (all ports - ~60-90 min)"
+    echo "  ./tls_security_test.sh --critical  (tests SMTP & IMAPS - ~30-40 min)"
+    echo "  ./tls_security_test.sh --full      (all ports - ~60-90 min)"
     echo ""
     echo "The quick test verified basic TLS connectivity."
     echo "To check for specific vulnerabilities (LUCKY13, BEAST, etc.),"
