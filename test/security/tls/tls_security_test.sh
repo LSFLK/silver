@@ -145,7 +145,7 @@ echo "================================================================"
 echo ""
 
 # Use more aggressive flags to speed up testing
-TESTSSL_FLAGS="--fast --warnings off --quiet --severity HIGH"
+TESTSSL_FLAGS="--fast --warnings off --quiet --severity MEDIUM"
 
 run_testssl() {
     local port=$1
