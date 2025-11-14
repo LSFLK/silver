@@ -59,8 +59,9 @@ compatibility_level = 3.6
 # TLS parameters - Enhanced Security Configuration
 # Certificate configuration
 smtpd_tls_cert_file = /etc/letsencrypt/live/${MAIL_DOMAIN}/fullchain.pem
-smtpd_tls_key_file = /etc/letsencrypt/live/${MAIL_DOMAIN}//privkey.pem
+smtpd_tls_key_file = /etc/letsencrypt/live/${MAIL_DOMAIN}/privkey.pem
 smtpd_tls_CAfile = /etc/ssl/certs/ca-certificates.crt
+smtp_tls_note_starttls_offer = yes
 
 # TLS Security Level - 'may' allows opportunistic encryption
 # Use 'encrypt' to enforce TLS for all connections (may break compatibility with old servers)
