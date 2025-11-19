@@ -75,10 +75,6 @@ smtpd_tls_mandatory_ciphers = high
 smtpd_tls_ciphers = high
 smtpd_tls_exclude_ciphers = aNULL, eNULL, EXPORT, DES, RC4, MD5, PSK, aECDH, EDH-DSS-DES-CBC3-SHA, EDH-RSA-DES-CBC3-SHA, KRB5-DES, CBC3-SHA, AES128-SHA, AES256-SHA, AES128-SHA256, AES256-SHA256, ECDHE-RSA-AES128-SHA, ECDHE-RSA-AES256-SHA, ECDHE-RSA-AES128-SHA256, ECDHE-RSA-AES256-SHA384, DHE-RSA-AES128-SHA, DHE-RSA-AES256-SHA, DHE-RSA-AES128-SHA256, DHE-RSA-AES256-SHA256, CAMELLIA128-SHA256, CAMELLIA256-SHA256, DHE-RSA-CAMELLIA128-SHA256, DHE-RSA-CAMELLIA256-SHA256
 
-# OCSP Stapling for improved performance and privacy
-smtpd_tls_stapling = yes
-smtpd_tls_stapling_cache_database = btree:\${data_directory}/smtpd_stapling_cache
-
 # TLS session cache and logging
 smtpd_tls_session_cache_database = btree:\${data_directory}/smtpd_scache
 smtpd_tls_loglevel = 1
