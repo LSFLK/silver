@@ -122,6 +122,27 @@ services:
     networks:
       - mail-network
 
+  prometheus:
+    image: prom/prometheus
+    container_name: my-prometheus
+    volumes:
+      - type: bind
+        source: ./silver-config/prometheus/prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+    ports:
+      - 9090:9090
+    extra_hosts:
+      - host.docker.internal=host-gateway
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: grafana
+  #   environment:
+  #     - GF_SECURITY_ADMIN_PASSWORD=admin
+  #   volumes:
+  #     - grafana-data:/var/lib/grafana
+  #   ports:
+  #     - "3000:3000"
+
 volumes:
   postfix-sasl:
   dkim-keys:
