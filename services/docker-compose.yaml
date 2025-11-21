@@ -124,7 +124,7 @@ services:
 
   prometheus:
     image: prom/prometheus
-    container_name: my-prometheus
+    container_name: prometheus
     volumes:
       - type: bind
         source: ./silver-config/prometheus/prometheus.yml
