@@ -143,6 +143,25 @@ services:
     ports:
       - "3000:3000"
 
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    user: "0:0"
+    volumes:
+      - ./loki-data:/loki
+    ports:
+      - "3100:3100"
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    volumes:
+      - ./silver-config/postfix/mail.log:/var/log/mail.log:ro
+      - ./promtail.yaml:/etc/promtail/promtail.yaml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    restart: unless-stopped
+
 volumes:
   postfix-sasl:
   dkim-keys:

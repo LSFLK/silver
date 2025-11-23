@@ -104,7 +104,7 @@ inet_interfaces = all
 inet_protocols = ipv4
 myorigin = /etc/mailname
 mydomain = ${MAIL_DOMAIN}
-maillog_file = /dev/stdout
+maillog_file = /var/log/mail.log
 
 # SASL authentication provided by Raven server via Unix socket
 smtpd_sasl_type = dovecot
