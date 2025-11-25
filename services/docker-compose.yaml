@@ -144,23 +144,25 @@ services:
       - "3000:3000"
 
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:3.5.8
     container_name: loki
     user: "0:0"
     volumes:
+      - ./silver-config/loki-config.yaml:/mnt/config/loki-config.yaml
       - ./loki-data:/loki
     ports:
       - "3100:3100"
-    restart: unless-stopped
+    command: -config.file=/mnt/config/loki-config.yaml
 
   promtail:
-    image: grafana/promtail:latest
+    image: grafana/promtail:3.5.8
     container_name: promtail
     volumes:
-      - ./silver-config/postfix/mail.log:/var/log/mail.log:ro
-      - ./promtail.yaml:/etc/promtail/promtail.yaml:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-    restart: unless-stopped
+      - ./silver-config/promtail-config.yaml:/mnt/config/promtail-config.yaml
+      - /var/log:/var/log:ro
+    depends_on:
+      - loki
+    command: -config.file=/mnt/config/promtail-config.yaml
 
 volumes:
   postfix-sasl:
@@ -170,6 +172,8 @@ volumes:
   clamav_db:
   go-imap-data:
   raven-sockets:
+  grafana-data:
+  loki-data:
 
 
 networks:
