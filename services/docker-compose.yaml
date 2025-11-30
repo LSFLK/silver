@@ -71,10 +71,33 @@ services:
       - "11334:11334"
     volumes:
       - rspamd_data:/var/lib/rspamd
+      - rspamd_logs:/var/log/rspamd
       - ./silver-config/rspamd/:/etc/rspamd/local.d:ro
       - clamsock:/var/run/clamav # shared socket volume
     networks:
       - mail-network
+
+  redis:
+    image: redis:alpine
+    container_name: rspamd-redis
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - mail-network
+
+  # Local recursive DNS resolver (recommended)
+  # Note: you can use any unbound image; this is an example. Ensure it is configured for recursion
+  unbound:
+    image: mvance/unbound:latest
+    container_name: rspamd-unbound
+    restart: unless-stopped
+    networks:
+      - mail-network
+    # Expose only to the compose network by default; no published ports are required
+    # You can mount custom configs if desired:
+    # volumes:
+    #   - ./unbound:/opt/unbound/etc/unbound
 
   clamav-server:
     image: clamav/clamav:latest # Official ClamAV image
@@ -97,7 +120,7 @@ services:
           memory: 1G
 
   thunder-server:
-    image: ghcr.io/asgardeo/thunder:latest
+    image: ghcr.io/asgardeo/thunder:0.11.0
     container_name: thunder-server
     ports:
       - "127.0.0.1:8090:8090"
@@ -148,7 +171,7 @@ services:
     container_name: loki
     user: "0:0"
     volumes:
-      - ./silver-config/loki-config.yaml:/mnt/config/loki-config.yaml
+      - ./silver-config/loki/loki-config.yaml:/mnt/config/loki-config.yaml
       - ./loki-data:/loki
     ports:
       - "3100:3100"
@@ -158,7 +181,7 @@ services:
     image: grafana/promtail:3.5.8
     container_name: promtail
     volumes:
-      - ./silver-config/promtail-config.yaml:/mnt/config/promtail-config.yaml
+      - ./silver-config/promtail/promtail-config.yaml:/mnt/config/promtail-config.yaml
       - /var/log:/var/log:ro
     depends_on:
       - loki
@@ -168,12 +191,14 @@ volumes:
   postfix-sasl:
   dkim-keys:
   rspamd_data:
+  rspamd_logs:
   clamsock:
   clamav_db:
   go-imap-data:
   raven-sockets:
   grafana-data:
   loki-data:
+  redis-data:
 
 
 networks:
