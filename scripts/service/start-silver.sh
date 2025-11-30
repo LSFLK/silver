@@ -138,3 +138,10 @@ fi
 # ================================
 chmod +x "${SCRIPT_DIR}/../utils/get-dkim.sh"
 (cd "${SCRIPT_DIR}/../utils" && ./get-dkim.sh)
+
+# ================================
+# Generate RSPAMD worker-controller.inc
+# ================================
+
+chmod +x "${SCRIPT_DIR}/../utils/generate-rspamd-worker-controller.sh"
+(cd "${SCRIPT_DIR}/../utils" && ./generate-rspamd-worker-controller.sh)
