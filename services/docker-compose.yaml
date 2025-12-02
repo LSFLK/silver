@@ -16,6 +16,8 @@ services:
       - ./silver-config/certbot/keys/etc:/etc/letsencrypt:ro
       - ./silver-config/raven/data:/app/data:rw
       - raven-sockets:/var/run/raven # Shared socket directory
+      - postfix-spool:/var/spool/postfix
+      - postfix-logs:/var/log
     networks:
       - mail-network
     depends_on:
@@ -145,6 +147,23 @@ services:
     networks:
       - mail-network
 
+  postfix-exporter:
+    image: chatwork/kumina-postfix-exporter:latest
+    container_name: postfix-exporter
+    command:
+      - --postfix.showq_path=/var/spool/postfix/public/showq
+      - --postfix.logfile_path=/var/log/mail.log
+    volumes:
+      - postfix-logs:/var/log:ro
+      - postfix-spool:/var/spool/postfix:ro
+    ports:
+      - "9154:9154"
+    networks:
+      - mail-network
+    restart: unless-stopped
+    depends_on:
+      - smtp-server
+
   prometheus:
     image: prom/prometheus
     container_name: prometheus
@@ -196,6 +215,8 @@ services:
 
 volumes:
   postfix-sasl:
+  postfix-spool:
+  postfix-logs:
   dkim-keys:
   rspamd_data:
   rspamd_logs:
