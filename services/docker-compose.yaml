@@ -194,6 +194,25 @@ services:
       - mail-network
     extra_hosts:
       - host.docker.internal=host-gateway
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    ports:
+      - "8080:8080"
+    networks:
+      - mail-network
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
