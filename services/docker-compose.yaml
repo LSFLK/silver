@@ -164,6 +164,23 @@ services:
     depends_on:
       - smtp-server
 
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    command:
+      - '--path.rootfs=/host'
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /:/host:ro,rslave
+    ports:
+      - "9100:9100"
+    networks:
+      - mail-network
+    restart: unless-stopped
+    pid: host
+
   prometheus:
     image: prom/prometheus
     container_name: prometheus
