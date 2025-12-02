@@ -107,6 +107,7 @@ services:
     volumes:
       - clamsock:/var/run/clamav
       - clamav_db:/var/lib/clamav
+      - clamav_logs:/var/log/clamav
     networks:
       - mail-network
     restart: always
@@ -120,6 +121,22 @@ services:
           memory: 2.8G
         reservations:
           memory: 1G
+
+  clamav-exporter:
+    build:
+      context: ./silver-config/clamav-exporter
+      dockerfile: Dockerfile
+    container_name: clamav-exporter
+    volumes:
+      - clamsock:/var/run/clamav:ro
+      - clamav_logs:/var/log/clamav:ro
+    ports:
+      - "9810:9810"
+    networks:
+      - mail-network
+    restart: unless-stopped
+    depends_on:
+      - clamav-server
 
   thunder-server:
     image: ghcr.io/asgardeo/thunder:0.11.0
@@ -258,6 +275,7 @@ volumes:
   rspamd_logs:
   clamsock:
   clamav_db:
+  clamav_logs:
   go-imap-data:
   raven-sockets:
   grafana-data:
