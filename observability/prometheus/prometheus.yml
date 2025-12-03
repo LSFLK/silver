@@ -1,0 +1,54 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'mail-server'
+    environment: 'production'
+
+# Scrape configuration for remote mail server exporters
+scrape_configs:
+  # Prometheus itself (local)
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter (server metrics)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['37.44.244.174:9100']
+        labels:
+          instance: 'mail-server'
+          service: 'node-exporter'
+
+  # cAdvisor (Docker container metrics)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['37.44.244.174:8080']
+        labels:
+          instance: 'mail-server'
+          service: 'cadvisor'
+
+  # Postfix Exporter (email metrics)
+  - job_name: 'postfix'
+    static_configs:
+      - targets: ['37.44.244.174:9154']
+        labels:
+          instance: 'mail-server'
+          service: 'postfix'
+
+  # ClamAV Exporter (antivirus metrics)
+  - job_name: 'clamav'
+    static_configs:
+      - targets: ['37.44.244.174:9810']
+        labels:
+          instance: 'mail-server'
+          service: 'clamav'
+
+  # Rspamd Metrics
+  - job_name: 'rspamd'
+    static_configs:
+      - targets: ['37.44.244.174:11334']
+        labels:
+          instance: 'mail-server'
+          service: 'rspamd'
+    metrics_path: '/metrics'
