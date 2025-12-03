@@ -8,8 +8,10 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
-# Export variables from .env
-export $(grep -v '^#' .env | xargs)
+# Export variables from .env safely
+set -a
+source .env
+set +a
 
 # Check variable
 if [ -z "$RSPAMD_PASSWORD" ]; then
@@ -18,14 +20,23 @@ if [ -z "$RSPAMD_PASSWORD" ]; then
 fi
 
 # Generate hashed password
+
+# Check if rspamd-server container is running
+if ! docker ps --format '{{.Names}}' | grep -q '^rspamd-server$'; then
+  echo "Error: The rspamd-server container is not running. Please start it before running this script."
+  exit 1
+fi
+
 echo "Generating Rspamd password hash..."
+
 HASH=$(docker exec rspamd-server rspamadm pw --password "$RSPAMD_PASSWORD")
 
 echo "Generated hash:"
 echo "$HASH"
 
 # Ensure config directory exists
-CONFIG_DIR="../../services/silver-config/rspamd"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_DIR="$SCRIPT_DIR/../../services/silver-config/rspamd"
 mkdir -p "$CONFIG_DIR"
 
 # Create worker-controller.inc
