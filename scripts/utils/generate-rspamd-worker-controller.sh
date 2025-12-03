@@ -64,7 +64,7 @@ EOF
 
 echo "✓ Created $FILE"
 echo "  - Rspamd web UI: http://localhost:11334"
-echo "  - Password: $RSPAMD_PASSWORD"
+echo "  - Password: (see .env file for RSPAMD_PASSWORD)"
 
 # Restart Rspamd container
 echo ""
