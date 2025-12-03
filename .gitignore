@@ -1,6 +1,5 @@
 # Ignore env files and certs
 *.env
-*.env.*
 services/conf/.env.conf
 services/test.env
 services/.env
