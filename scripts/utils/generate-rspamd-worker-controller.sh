@@ -7,11 +7,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICES_DIR="${SCRIPT_DIR}/../../services"
 CONFIG_DIR="${SERVICES_DIR}/silver-config/rspamd"
 
-# Load .env if it exists
+# Load .env if it exists, using safer 'source' approach
 if [ -f "${SCRIPT_DIR}/../.env" ]; then
-  export $(grep -v '^#' "${SCRIPT_DIR}/../.env" | xargs)
+  set -a
+  source "${SCRIPT_DIR}/../.env"
+  set +a
 elif [ -f "${SERVICES_DIR}/.env" ]; then
-  export $(grep -v '^#' "${SERVICES_DIR}/.env" | xargs)
+  set -a
+  source "${SERVICES_DIR}/.env"
+  set +a
 fi
 
 # Check if RSPAMD_PASSWORD is set, otherwise use default
@@ -60,7 +64,7 @@ EOF
 
 echo "✓ Created $FILE"
 echo "  - Rspamd web UI: http://localhost:11334"
-echo "  - Password: $RSPAMD_PASSWORD"
+echo "  - Password: (see .env file for RSPAMD_PASSWORD)"
 
 # Restart Rspamd container
 echo ""
