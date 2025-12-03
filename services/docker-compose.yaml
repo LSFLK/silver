@@ -99,6 +99,28 @@ services:
     # volumes:
     #   - ./unbound:/opt/unbound/etc/unbound
 
+  redis:
+    image: redis:alpine
+    container_name: rspamd-redis
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - mail-network
+
+  # Local recursive DNS resolver (recommended)
+  # Note: you can use any unbound image; this is an example. Ensure it is configured for recursion
+  unbound:
+    image: mvance/unbound:latest
+    container_name: rspamd-unbound
+    restart: unless-stopped
+    networks:
+      - mail-network
+    # Expose only to the compose network by default; no published ports are required
+    # You can mount custom configs if desired:
+    # volumes:
+    #   - ./unbound:/opt/unbound/etc/unbound
+
   clamav-server:
     image: clamav/clamav:latest # Official ClamAV image
     container_name: clamav-server
