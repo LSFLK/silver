@@ -51,13 +51,21 @@ bind_socket = "0.0.0.0:11334";
 # Single controller worker
 count = 1;
 
-# Allow unauthenticated access from Docker network for Prometheus
-# This allows /metrics endpoint to be scraped without password
-# while web UI still requires authentication
-secure_ip = ["172.16.0.0/12", "192.168.0.0/16", "127.0.0.1", "::1"];
+# Allow unauthenticated access to /metrics endpoint for Prometheus
+# This allows metrics to be scraped from anywhere without password
+# Web UI (/index.html, /graph, etc.) still requires authentication
+#
+# secure_ip allows these IPs to access /metrics without password:
+# - Docker networks (172.16.0.0/12, 192.168.0.0/16)
+# - localhost (127.0.0.1, ::1)
+# - All IPs (0.0.0.0/0) for external Prometheus access
+secure_ip = ["0.0.0.0/0", "127.0.0.1", "::1"];
 
 # Password-protected web UI access
 # Password is stored in .env as RSPAMD_PASSWORD
+# This password is required for:
+# - Web UI: http://server:11334
+# - API endpoints (except /metrics)
 password = "$HASH";
 enable_password = "$HASH";
 EOF
