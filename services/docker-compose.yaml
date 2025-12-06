@@ -225,7 +225,10 @@ services:
       - ./loki-data:/loki
     ports:
       - "3100:3100"
-    command: -config.file=/mnt/config/loki-config.yaml
+    command: -config.file=/mnt/config/loki-config.yml
+    networks:
+      - mail-network
+    restart: unless-stopped
 
   promtail:
     image: grafana/promtail:3.5.8
@@ -233,9 +236,15 @@ services:
     volumes:
       - ./silver-config/promtail/promtail-config.yaml:/mnt/config/promtail-config.yaml
       - /var/log:/var/log:ro
+      - postfix-logs:/mnt/logs/postfix:ro
+      - rspamd_logs:/mnt/logs/rspamd:ro
+      - clamav_logs:/mnt/logs/clamav:ro
     depends_on:
       - loki
     command: -config.file=/mnt/config/promtail-config.yaml
+    networks:
+      - mail-network
+    restart: unless-stopped
 
 volumes:
   postfix-sasl:
