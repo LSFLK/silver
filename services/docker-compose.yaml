@@ -166,8 +166,6 @@ services:
     depends_on:
       thunder-setup:
         condition: service_completed_successfully
-      certbot-server:
-        condition: service_completed_successfully
     ports:
       - "127.0.0.1:8090:8090"
     volumes:
@@ -176,6 +174,7 @@ services:
       - ./silver-config/thunder/certs/server.key:/opt/thunder/repository/resources/security/server.key:ro
     networks:
       - mail-network
+    restart: unless-stopped
 
   certbot-server:
     image: ghcr.io/lsflk/silver-certbot:main

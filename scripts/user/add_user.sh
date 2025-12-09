@@ -323,73 +323,18 @@ echo -e "${GREEN}✓ Thunder host set to: $THUNDER_HOST:$THUNDER_PORT (primary d
 # -------------------------------
 # Step 2.1: Authenticate with Thunder and get organization unit
 # -------------------------------
-echo -e "${YELLOW}Authenticating with Thunder...${NC}"
+# Source Thunder authentication utility
+source "${SCRIPT_DIR}/../utils/thunder-auth.sh"
 
-# Extract Sample App ID from Thunder setup container logs
-SAMPLE_APP_ID=$(docker logs thunder-setup 2>&1 | grep 'Sample App ID:' | head -n1 | grep -o '[a-f0-9-]\{36\}')
-
-if [ -z "$SAMPLE_APP_ID" ]; then
-	echo -e "${RED}✗ Failed to extract Sample App ID from Thunder setup logs${NC}"
-	echo "Please ensure Thunder setup container has completed successfully."
+# Authenticate with Thunder
+if ! thunder_authenticate "$THUNDER_HOST" "$THUNDER_PORT"; then
 	exit 1
 fi
 
-echo -e "${GREEN}✓ Sample App ID extracted: $SAMPLE_APP_ID${NC}"
-
-# Execute authentication flow and get assertion
-AUTH_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-	"https://${THUNDER_HOST}:${THUNDER_PORT}/flow/execute" \
-	-H "Content-Type: application/json" \
-	-d "{\"applicationId\":\"${SAMPLE_APP_ID}\",\"flowType\":\"AUTHENTICATION\",\"inputs\":{\"username\":\"admin\",\"password\":\"admin\",\"requested_permissions\":\"system\"}}")
-
-AUTH_BODY=$(echo "$AUTH_RESPONSE" | head -n -1)
-AUTH_STATUS=$(echo "$AUTH_RESPONSE" | tail -n1)
-
-if [ "$AUTH_STATUS" -ne 200 ]; then
-	echo -e "${RED}✗ Failed to authenticate with Thunder (HTTP $AUTH_STATUS)${NC}"
-	echo "Response: $AUTH_BODY"
+# Get organization unit ID for "silver"
+if ! thunder_get_org_unit "$THUNDER_HOST" "$THUNDER_PORT" "$BEARER_TOKEN" "silver"; then
 	exit 1
 fi
-
-# Extract assertion (Bearer token) from the response
-BEARER_TOKEN=$(echo "$AUTH_BODY" | grep -o '"assertion":"[^"]*' | sed 's/"assertion":"//')
-
-if [ -z "$BEARER_TOKEN" ]; then
-	echo -e "${RED}✗ Failed to extract assertion from authentication response${NC}"
-	exit 1
-fi
-
-echo -e "${GREEN}✓ Authentication successful${NC}"
-
-# Get organization units and find the "silver" organization
-echo -e "${YELLOW}Fetching organization units...${NC}"
-
-OU_LIST_RESPONSE=$(curl -s -w "\n%{http_code}" -X GET \
-	"https://${THUNDER_HOST}:${THUNDER_PORT}/organization-units" \
-	-H "Content-Type: application/json" \
-	-H "Authorization: Bearer ${BEARER_TOKEN}")
-
-OU_LIST_BODY=$(echo "$OU_LIST_RESPONSE" | head -n -1)
-OU_LIST_STATUS=$(echo "$OU_LIST_RESPONSE" | tail -n1)
-
-if [ "$OU_LIST_STATUS" -ne 200 ]; then
-	echo -e "${RED}✗ Failed to fetch organization units (HTTP $OU_LIST_STATUS)${NC}"
-	echo "Response: $OU_LIST_BODY"
-	exit 1
-fi
-
-# Extract organization unit ID for "silver" handle using grep and sed
-# First find the entire object containing "handle":"silver", then extract the id from it
-ORG_UNIT_ID=$(echo "$OU_LIST_BODY" | grep -o '{[^}]*"handle":"silver"[^}]*}' | grep -o '"id":"[^"]*"' | sed 's/"id":"//;s/"//')
-
-if [ -z "$ORG_UNIT_ID" ]; then
-	echo -e "${RED}✗ Failed to find 'silver' organization unit${NC}"
-	echo "Available organizations in response:"
-	echo "$OU_LIST_BODY" | grep -o '"handle":"[^"]*"' | sed 's/"handle":"//;s/"//g' | sed 's/^/  - /'
-	exit 1
-fi
-
-echo -e "${GREEN}✓ Organization unit 'silver' found (ID: $ORG_UNIT_ID)${NC}"
 
 # -------------------------------
 # Step 3: Validate users.yaml

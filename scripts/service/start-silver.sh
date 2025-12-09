@@ -109,75 +109,18 @@ THUNDER_PORT=8090
 
 echo -e "\n${YELLOW}Step 4/4: Creating default user schema in Thunder${NC}"
 
-# Step 4.1: Extract Sample App ID from Thunder setup container logs
-echo "  - Extracting Sample App ID from Thunder setup logs..."
-SAMPLE_APP_ID=$(docker logs thunder-setup 2>&1 | grep 'Sample App ID:' | head -n1 | grep -o '[a-f0-9-]\{36\}')
+# Source Thunder authentication utility
+source "${SCRIPT_DIR}/../utils/thunder-auth.sh"
 
-if [ -z "$SAMPLE_APP_ID" ]; then
-	echo -e "${RED}✗ Failed to extract Sample App ID from Thunder setup logs${NC}"
-	echo "Please ensure Thunder setup container has completed successfully."
+# Step 4.1 & 4.2: Authenticate with Thunder
+if ! thunder_authenticate "$THUNDER_HOST" "$THUNDER_PORT"; then
 	exit 1
 fi
-
-echo -e "${GREEN}  ✓ Sample App ID extracted: $SAMPLE_APP_ID${NC}"
-
-# Step 4.2: Execute authentication flow and get assertion
-echo "  - Authenticating with Thunder..."
-AUTH_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-	"https://${THUNDER_HOST}:${THUNDER_PORT}/flow/execute" \
-	-H "Content-Type: application/json" \
-	-d "{\"applicationId\":\"${SAMPLE_APP_ID}\",\"flowType\":\"AUTHENTICATION\",\"inputs\":{\"username\":\"admin\",\"password\":\"admin\",\"requested_permissions\":\"system\"}}")
-
-AUTH_BODY=$(echo "$AUTH_RESPONSE" | head -n -1)
-AUTH_STATUS=$(echo "$AUTH_RESPONSE" | tail -n1)
-
-if [ "$AUTH_STATUS" -ne 200 ]; then
-	echo -e "${RED}✗ Failed to authenticate with Thunder (HTTP $AUTH_STATUS)${NC}"
-	echo "Response: $AUTH_BODY"
-	exit 1
-fi
-
-# Extract assertion (Bearer token) from the response
-BEARER_TOKEN=$(echo "$AUTH_BODY" | grep -o '"assertion":"[^"]*' | sed 's/"assertion":"//')
-
-if [ -z "$BEARER_TOKEN" ]; then
-	echo -e "${RED}✗ Failed to extract assertion from authentication response${NC}"
-	exit 1
-fi
-
-echo -e "${GREEN}  ✓ Authentication successful${NC}"
 
 # Step 4.3: Create organization unit
-echo "  - Creating organization unit..."
-OU_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-	"https://${THUNDER_HOST}:${THUNDER_PORT}/organization-units" \
-	-H "Content-Type: application/json" \
-	-H "Authorization: Bearer ${BEARER_TOKEN}" \
-	-d '{
-    "handle": "silver",
-    "name": "Silver Mail",
-    "description": "Organization Unit for Silver Mail",
-    "parent": null
-  }')
-
-OU_BODY=$(echo "$OU_RESPONSE" | head -n -1)
-OU_STATUS=$(echo "$OU_RESPONSE" | tail -n1)
-
-if [ "$OU_STATUS" -ne 201 ] && [ "$OU_STATUS" -ne 200 ]; then
-	echo -e "${RED}✗ Failed to create organization unit (HTTP $OU_STATUS)${NC}"
-	echo "Response: $OU_BODY"
+if ! thunder_create_org_unit "$THUNDER_HOST" "$THUNDER_PORT" "$BEARER_TOKEN" "silver" "Silver Mail" "Organization Unit for Silver Mail"; then
 	exit 1
 fi
-
-# Extract organization unit ID from the response
-OU_ID=$(echo "$OU_BODY" | grep -o '"id":"[^"]*' | sed 's/"id":"//')
-
-if [ -z "$OU_ID" ]; then
-	echo -e "${RED}✗ Failed to extract organization unit ID from response${NC}"
-	exit 1
-fi
-
-echo -e "${GREEN}  ✓ Organization unit created successfully (ID: $OU_ID)${NC}"
 
 # Step 4.4: Create user schema
 echo "  - Creating user schema..."
@@ -188,7 +131,7 @@ SCHEMA_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
 	-H "Authorization: Bearer ${BEARER_TOKEN}" \
 	-d "{
     \"name\": \"emailuser\",
-    \"ouId\": \"${OU_ID}\",
+    \"ouId\": \"${ORG_UNIT_ID}\",
     \"schema\": {
       \"username\": { \"type\": \"string\", \"unique\": true },
       \"password\": { \"type\": \"string\" },
