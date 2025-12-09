@@ -164,6 +164,8 @@ services:
     depends_on:
       thunder-setup:
         condition: service_completed_successfully
+      certbot-server:
+        condition: service_completed_successfully
     ports:
       - "127.0.0.1:8090:8090"
     volumes:
