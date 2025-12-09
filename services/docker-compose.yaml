@@ -138,18 +138,35 @@ services:
     depends_on:
       - clamav-server
 
-  thunder-server:
-    image: ghcr.io/asgardeo/thunder:0.11.0
-    container_name: thunder-server
-    ports:
-      - "127.0.0.1:8090:8090"
-    networks:
-      - mail-network
+  # Initialize database from the image
+  thunder-db-init:
+    image: ghcr.io/asgardeo/thunder:0.14.0
+    command: sh -c "cp -r /opt/thunder/repository/database/* /data/"
     volumes:
-      - ./silver-config/thunder/certs/server.cert:/opt/thunder/repository/resources/security/server.cert:ro
-      - ./silver-config/thunder/certs/server.key:/opt/thunder/repository/resources/security/server.key:ro
+      - thunder-db:/data
+    restart: "no"
+
+  # Run setup once with the shared database
+  thunder-setup:
+    image: ghcr.io/asgardeo/thunder:0.14.0
+    command: ./setup.sh
+    volumes:
+      - thunder-db:/opt/thunder/repository/database
     depends_on:
-      - certbot-server
+      thunder-db-init:
+        condition: service_completed_successfully
+    restart: "no"
+
+  # Run Thunder server with the shared database
+  thunder:
+    image: ghcr.io/asgardeo/thunder:0.14.0
+    depends_on:
+      thunder-setup:
+        condition: service_completed_successfully
+    ports:
+      - "8090:8090"
+    volumes:
+      - thunder-db:/opt/thunder/repository/database
 
   certbot-server:
     image: ghcr.io/lsflk/silver-certbot:main
@@ -260,6 +277,7 @@ volumes:
   raven-sockets:
   loki-data:
   redis-data:
+  thunder-db:
 
 
 networks:
