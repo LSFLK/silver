@@ -15,7 +15,7 @@ scrape_configs:
   # Node Exporter (server metrics)
   - job_name: "node"
     static_configs:
-      - targets: ["31.97.207.164:9100"]
+      - targets: ["${MAIL_SERVER_IP}:9100"]
         labels:
           instance: "mail-server"
           service: "node-exporter"
@@ -23,7 +23,7 @@ scrape_configs:
   # cAdvisor (Docker container metrics)
   - job_name: "cadvisor"
     static_configs:
-      - targets: ["31.97.207.164:8080"]
+      - targets: ["${MAIL_SERVER_IP}:8080"]
         labels:
           instance: "mail-server"
           service: "cadvisor"
@@ -31,7 +31,7 @@ scrape_configs:
   # Postfix Exporter (email metrics)
   - job_name: "postfix"
     static_configs:
-      - targets: ["31.97.207.164:9154"]
+      - targets: ["${MAIL_SERVER_IP}:9154"]
         labels:
           instance: "mail-server"
           service: "postfix"
@@ -39,7 +39,7 @@ scrape_configs:
   # ClamAV Exporter (antivirus metrics)
   - job_name: "clamav"
     static_configs:
-      - targets: ["31.97.207.164:9810"]
+      - targets: ["${MAIL_SERVER_IP}:9810"]
         labels:
           instance: "mail-server"
           service: "clamav"
@@ -47,7 +47,7 @@ scrape_configs:
   # Rspamd Metrics
   - job_name: "rspamd"
     static_configs:
-      - targets: ["31.97.207.164:11334"]
+      - targets: ["${MAIL_SERVER_IP}:11334"]
         labels:
           instance: "mail-server"
           service: "rspamd"
