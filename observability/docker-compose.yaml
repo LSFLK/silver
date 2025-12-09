@@ -2,6 +2,7 @@ services:
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus-local
+    env_file: ".env"
     ports:
       - "${PROMETHEUS_PORT:-9090}:9090"
     volumes:
@@ -21,6 +22,7 @@ services:
   grafana:
     image: grafana/grafana:latest
     container_name: grafana-local
+    env_file: ".env"
     ports:
       - "${GRAFANA_PORT:-3000}:3000"
     volumes:
@@ -28,8 +30,8 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     environment:
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=http://localhost:${GRAFANA_PORT:-3000}
     restart: unless-stopped

@@ -1,9 +1,9 @@
 apiVersion: 1
 
 providers:
-  - name: 'Mail Server Dashboards'
+  - name: "Mail Server Dashboards"
     orgId: 1
-    folder: 'Mail Server'
+    folder: "Mail Server"
     type: file
     disableDeletion: false
     updateIntervalSeconds: 10
