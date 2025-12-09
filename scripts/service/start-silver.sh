@@ -155,7 +155,7 @@ OU_RESPONSE=$(curl -k -s -w "\n%{http_code}" -X POST \
 	-H "Authorization: Bearer ${BEARER_TOKEN}" \
 	-d '{
     "handle": "silver",
-    "name": "Silver Mail Engineering",
+    "name": "Silver Mail",
     "description": "Organization Unit for Silver Mail",
     "parent": null
   }')
