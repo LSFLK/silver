@@ -123,8 +123,8 @@ echo -e "${GREEN}  ✓ Sample App ID extracted: $SAMPLE_APP_ID${NC}"
 
 # Step 4.2: Execute authentication flow and get assertion
 echo "  - Authenticating with Thunder..."
-AUTH_RESPONSE=$(curl -k -s -w "\n%{http_code}" -X POST \
-	"https://localhost:${THUNDER_PORT}/flow/execute" \
+AUTH_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+	"https://${THUNDER_HOST}:${THUNDER_PORT}/flow/execute" \
 	-H "Content-Type: application/json" \
 	-d "{\"applicationId\":\"${SAMPLE_APP_ID}\",\"flowType\":\"AUTHENTICATION\",\"inputs\":{\"username\":\"admin\",\"password\":\"admin\",\"requested_permissions\":\"system\"}}")
 
@@ -149,8 +149,8 @@ echo -e "${GREEN}  ✓ Authentication successful${NC}"
 
 # Step 4.3: Create organization unit
 echo "  - Creating organization unit..."
-OU_RESPONSE=$(curl -k -s -w "\n%{http_code}" -X POST \
-	"https://localhost:${THUNDER_PORT}/organization-units" \
+OU_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+	"https://${THUNDER_HOST}:${THUNDER_PORT}/organization-units" \
 	-H "Content-Type: application/json" \
 	-H "Authorization: Bearer ${BEARER_TOKEN}" \
 	-d '{
@@ -181,8 +181,8 @@ echo -e "${GREEN}  ✓ Organization unit created successfully (ID: $OU_ID)${NC}"
 
 # Step 4.4: Create user schema
 echo "  - Creating user schema..."
-SCHEMA_RESPONSE=$(curl -k -s -w "\n%{http_code}" -X POST \
-	"https://localhost:${THUNDER_PORT}/user-schemas" \
+SCHEMA_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+	"https://${THUNDER_HOST}:${THUNDER_PORT}/user-schemas" \
 	-H "Content-Type: application/json" \
 	-H "Accept: application/json" \
 	-H "Authorization: Bearer ${BEARER_TOKEN}" \

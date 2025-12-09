@@ -164,9 +164,11 @@ services:
       thunder-setup:
         condition: service_completed_successfully
     ports:
-      - "8090:8090"
+      - "127.0.0.1:8090:8090"
     volumes:
       - thunder-db:/opt/thunder/repository/database
+      - ./silver-config/thunder/certs/server.cert:/opt/thunder/repository/resources/security/server.cert:ro
+      - ./silver-config/thunder/certs/server.key:/opt/thunder/repository/resources/security/server.key:ro
 
   certbot-server:
     image: ghcr.io/lsflk/silver-certbot:main

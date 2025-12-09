@@ -337,8 +337,8 @@ fi
 echo -e "${GREEN}✓ Sample App ID extracted: $SAMPLE_APP_ID${NC}"
 
 # Execute authentication flow and get assertion
-AUTH_RESPONSE=$(curl -k -s -w "\n%{http_code}" -X POST \
-	"https://localhost:${THUNDER_PORT}/flow/execute" \
+AUTH_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+	"https://${THUNDER_HOST}:${THUNDER_PORT}/flow/execute" \
 	-H "Content-Type: application/json" \
 	-d "{\"applicationId\":\"${SAMPLE_APP_ID}\",\"flowType\":\"AUTHENTICATION\",\"inputs\":{\"username\":\"admin\",\"password\":\"admin\",\"requested_permissions\":\"system\"}}")
 
@@ -364,8 +364,8 @@ echo -e "${GREEN}✓ Authentication successful${NC}"
 # Get organization units and find the "silver" organization
 echo -e "${YELLOW}Fetching organization units...${NC}"
 
-OU_LIST_RESPONSE=$(curl -k -s -w "\n%{http_code}" -X GET \
-	"https://localhost:${THUNDER_PORT}/organization-units" \
+OU_LIST_RESPONSE=$(curl -s -w "\n%{http_code}" -X GET \
+	"https://${THUNDER_HOST}:${THUNDER_PORT}/organization-units" \
 	-H "Content-Type: application/json" \
 	-H "Authorization: Bearer ${BEARER_TOKEN}")
 
@@ -541,11 +541,11 @@ while IFS= read -r line; do
 
 			echo -e "\n${YELLOW}Creating user $USER_EMAIL in Thunder...${NC}"
 
-			USER_RESPONSE=$(curl -k -s -w "\n%{http_code}" -X POST \
+			USER_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
 				-H "Content-Type: application/json" \
 				-H "Accept: application/json" \
 				-H "Authorization: Bearer ${BEARER_TOKEN}" \
-				https://localhost:$THUNDER_PORT/users \
+				https://${THUNDER_HOST}:${THUNDER_PORT}/users \
 				-d "{
                 \"organizationUnit\": \"${ORG_UNIT_ID}\",
                 \"type\": \"emailuser\",
