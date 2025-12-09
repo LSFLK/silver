@@ -160,6 +160,7 @@ services:
   # Run Thunder server with the shared database
   thunder:
     image: ghcr.io/asgardeo/thunder:0.14.0
+    container_name: thunder-server
     depends_on:
       thunder-setup:
         condition: service_completed_successfully
@@ -169,6 +170,8 @@ services:
       - thunder-db:/opt/thunder/repository/database
       - ./silver-config/thunder/certs/server.cert:/opt/thunder/repository/resources/security/server.cert:ro
       - ./silver-config/thunder/certs/server.key:/opt/thunder/repository/resources/security/server.key:ro
+    networks:
+      - mail-network
 
   certbot-server:
     image: ghcr.io/lsflk/silver-certbot:main
