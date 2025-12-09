@@ -111,7 +111,7 @@ echo -e "\n${YELLOW}Step 4/4: Creating default user schema in Thunder${NC}"
 
 # Step 4.1: Extract Sample App ID from Thunder setup container logs
 echo "  - Extracting Sample App ID from Thunder setup logs..."
-SAMPLE_APP_ID=$(docker logs services-thunder-setup-1 2>&1 | grep 'Sample App ID:' | head -n1 | grep -o '[a-f0-9-]\{36\}')
+SAMPLE_APP_ID=$(docker logs thunder-setup 2>&1 | grep 'Sample App ID:' | head -n1 | grep -o '[a-f0-9-]\{36\}')
 
 if [ -z "$SAMPLE_APP_ID" ]; then
 	echo -e "${RED}✗ Failed to extract Sample App ID from Thunder setup logs${NC}"

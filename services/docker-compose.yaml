@@ -141,6 +141,7 @@ services:
   # Initialize database from the image
   thunder-db-init:
     image: ghcr.io/asgardeo/thunder:0.14.0
+    container_name: thunder-db-init
     command: sh -c "cp -r /opt/thunder/repository/database/* /data/"
     volumes:
       - thunder-db:/data
@@ -149,6 +150,7 @@ services:
   # Run setup once with the shared database
   thunder-setup:
     image: ghcr.io/asgardeo/thunder:0.14.0
+    container_name: thunder-setup
     command: ./setup.sh
     volumes:
       - thunder-db:/opt/thunder/repository/database
