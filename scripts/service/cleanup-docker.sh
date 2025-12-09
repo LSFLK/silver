@@ -25,9 +25,9 @@ echo -e "${YELLOW}Docker Complete Cleanup${NC}"
 echo "---------------------------------------------"
 echo -e "${RED}WARNING: This will remove ALL Docker volumes and images!${NC}"
 echo ""
-read -p "Are you sure you want to continue? (yes/no): " CONFIRM
+read -p "Are you sure you want to continue? (y/n): " CONFIRM
 
-if [ "$CONFIRM" != "yes" ]; then
+if [ "$CONFIRM" != "y" ]; then
     echo -e "${CYAN}Cleanup cancelled.${NC}"
     exit 0
 fi
