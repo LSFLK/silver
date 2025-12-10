@@ -1,0 +1,27 @@
+# Docker Compose Override for Local Development
+#
+# This file allows you to build Docker images locally instead of pulling from GHCR.
+# Perfect for testing changes to Dockerfiles and service code.
+#
+# Note: This file is in git, but services/docker-compose.override.yml is gitignored
+
+services:
+  smtp-server:
+    build:
+      context: .
+      dockerfile: ./smtp/Dockerfile
+    image: silver-smtp:local
+
+  # Uncomment if you're also developing the DKIM server
+  # opendkim-server:
+  #   build:
+  #     context: .
+  #     dockerfile: ./dkim/Dockerfile
+  #   image: silver-dkim:local
+
+  # Uncomment if you're also developing the Certbot server
+  # certbot-server:
+  #   build:
+  #     context: ./certbot
+  #     dockerfile: ./Dockerfile
+  #   image: silver-certbot:local

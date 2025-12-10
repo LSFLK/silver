@@ -106,10 +106,10 @@ bash ../scripts/user/add_user.sh
 
 ## Open Source Software
 
-Silver is built using opensource software. 
+Silver is built using opensource software.
 
 - [Postfix](https://www.postfix.org/) - handles sending and receiving email.
-- [Dovecot](https://doc.dovecot.org/2.3/) - handles the retrieval of emails.
+- [Raven](https://github.com/lsflk/raven) - handles SASL authentication, LMTP, and IMAP server for email retrieval.
 - [Thunder](https://github.com/asgardeo/thunder) - Identity provider and user manager
 - [Rspamd](https://rspamd.com/) - spam filtering system.
 - [ClamAV](https://docs.clamav.net/Introduction.html) -  virus scanning system.

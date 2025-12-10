@@ -6,44 +6,26 @@ services:
       - "25:25"
       - "587:587"
     volumes:
-      - ./silver-config/gen/postfix/main.cf:/etc/postfix/main.cf:ro
-      - ./silver-config/static/postfix/master.cf:/etc/postfix/master.cf:ro
+      - ./silver-config/postfix/main.cf:/etc/postfix/main.cf:ro
+      - ./silver-config/postfix/master.cf:/etc/postfix/master.cf:ro
+      - ./silver-config/postfix/sqlite-virtual-domains.cf:/etc/postfix/sqlite-virtual-domains.cf:ro
+      - ./silver-config/postfix/sqlite-virtual-users.cf:/etc/postfix/sqlite-virtual-users.cf:ro
+      - ./silver-config/postfix/sqlite-virtual-aliases.cf:/etc/postfix/sqlite-virtual-aliases.cf:ro
       - ../conf/silver.yaml:/etc/postfix/silver.yaml
-      - maildata:/var/mail/vmail
       - postfix-sasl:/var/spool/postfix/private
-      - ./silver-config/data/certbot/keys/etc:/etc/letsencrypt:ro
-      - ./silver-config/gen/postfix/virtual-domains:/etc/postfix/virtual-domains:rw
-      - ./silver-config/gen/postfix/virtual-users:/etc/postfix/virtual-users:rw
-      - ./silver-config/gen/postfix/virtual-aliases:/etc/postfix/virtual-aliases:rw
-      - ./silver-config/gen/raven/data:/app/data:rw
-      - raven-sockets:/var/run/raven  # Shared socket directory
+      - ./silver-config/certbot/keys/etc:/etc/letsencrypt:ro
+      - ./silver-config/raven/data:/app/data:rw
+      - raven-sockets:/var/run/raven # Shared socket directory
+      - postfix-spool:/var/spool/postfix
+      - postfix-logs:/var/log
     networks:
       - mail-network
     depends_on:
       - opendkim-server
-      - dovecot-server
       - rspamd-server
       - certbot-server
+      - raven-server
 
-  dovecot-server:
-    image: ghcr.io/lsflk/silver-imap:main
-    container_name: dovecot-server
-    ports:
-      - "1143:143"
-      - "1142:993"
-      - "110:110"
-      - "995:995"
-    volumes:
-      - ./silver-config/static/dovecot/dovecot.conf:/etc/dovecot/dovecot.conf:ro
-      - ./silver-config/static/dovecot/auth_api.lua:/etc/dovecot/auth_api.lua:ro
-      - maildata:/var/mail/vmail
-      - postfix-sasl:/var/spool/postfix/private
-      - ./silver-config/data/certbot/keys/etc:/etc/letsencrypt:ro
-    networks:
-      - mail-network
-    depends_on:
-      - certbot-server
-  
   raven-server:
     image: ghcr.io/lsflk/raven:latest
     container_name: raven
@@ -52,13 +34,14 @@ services:
       - "993:993"
       - "24:24"
     volumes:
-      - ./silver-config/gen/raven/conf:/etc/raven:rw
-      - ./silver-config/gen/raven/data:/app/data:rw
-      - ./silver-config/data/raven/certs:/certs:ro
-      - ./silver-config/static/raven/delivery.yaml:/etc/raven/delivery.yaml:ro
-      - raven-sockets:/var/run/raven  # Shared socket directory
+      - ./silver-config/raven/conf:/etc/raven:rw
+      - ./silver-config/raven/data:/app/data:rw
+      - ./silver-config/raven/certs:/certs:ro
+      - ./silver-config/raven/delivery.yaml:/etc/raven/delivery.yaml:ro
+      - raven-sockets:/var/run/raven # Shared socket directory
+      - postfix-sasl:/var/spool/postfix/private
     environment:
-      - DB_FILE=/app/data/mails.db
+      - DB_FILE=/app/data/databases/shared.db
     networks:
       - mail-network
     restart: unless-stopped
@@ -69,10 +52,10 @@ services:
     container_name: opendkim-server
     volumes:
       - ../conf/silver.yaml:/etc/opendkim/silver.yaml
-      - ./silver-config/static/opendkim/opendkim.conf:/etc/opendkim/opendkim.conf:ro
-      - ./silver-config/gen/opendkim/KeyTable:/etc/opendkim/KeyTable:ro
-      - ./silver-config/gen/opendkim/SigningTable:/etc/opendkim/SigningTable:ro
-      - ./silver-config/gen/opendkim/TrustedHosts:/etc/opendkim/TrustedHosts:ro
+      - ./silver-config/opendkim/opendkim.conf:/etc/opendkim/opendkim.conf:ro
+      - ./silver-config/opendkim/KeyTable:/etc/opendkim/KeyTable:ro
+      - ./silver-config/opendkim/SigningTable:/etc/opendkim/SigningTable:ro
+      - ./silver-config/opendkim/TrustedHosts:/etc/opendkim/TrustedHosts:ro
       - dkim-keys:/etc/dkimkeys
     networks:
       - mail-network
@@ -90,17 +73,41 @@ services:
       - "11334:11334"
     volumes:
       - rspamd_data:/var/lib/rspamd
-      - ./silver-config/static/rspamd/:/etc/rspamd/local.d:ro
+      - rspamd_logs:/var/log/rspamd
+      - ./silver-config/rspamd/:/etc/rspamd/local.d:ro
       - clamsock:/var/run/clamav # shared socket volume
     networks:
       - mail-network
+  
+  redis:
+    image: redis:alpine
+    container_name: rspamd-redis
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - mail-network
+
+  # Local recursive DNS resolver (recommended)
+  # Note: you can use any unbound image; this is an example. Ensure it is configured for recursion
+  unbound:
+    image: mvance/unbound:latest
+    container_name: rspamd-unbound
+    restart: unless-stopped
+    networks:
+      - mail-network
+    # Expose only to the compose network by default; no published ports are required
+    # You can mount custom configs if desired:
+    # volumes:
+    #   - ./unbound:/opt/unbound/etc/unbound
 
   clamav-server:
-    image: clamav/clamav:latest  # Official ClamAV image
+    image: clamav/clamav:latest # Official ClamAV image
     container_name: clamav-server
     volumes:
       - clamsock:/var/run/clamav
       - clamav_db:/var/lib/clamav
+      - clamav_logs:/var/log/clamav
     networks:
       - mail-network
     restart: always
@@ -111,47 +118,175 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: 512M
+          memory: 2.8G
         reservations:
-          cpus: "0.25"
-          memory: 256M
+          memory: 1G
 
-  thunder-server:
-    image: ghcr.io/asgardeo/thunder:latest
-    container_name: thunder-server
+  clamav-exporter:
+    build:
+      context: ./silver-config/clamav-exporter
+      dockerfile: Dockerfile
+    container_name: clamav-exporter
+    volumes:
+      - clamsock:/var/run/clamav:ro
+      - clamav_logs:/var/log/clamav:ro
     ports:
-      - "127.0.0.1:8090:8090"
+      - "9810:9810"
     networks:
       - mail-network
-    volumes:
-      - ./silver-config/data/thunder/certs/server.cert:/opt/thunder/repository/resources/security/server.cert:ro
-      - ./silver-config/data/thunder/certs/server.key:/opt/thunder/repository/resources/security/server.key:ro
+    restart: unless-stopped
     depends_on:
-      - certbot-server
+      - clamav-server
+
+  # Initialize database from the image
+  thunder-db-init:
+    image: ghcr.io/asgardeo/thunder:0.14.0
+    container_name: thunder-db-init
+    command: sh -c "cp -r /opt/thunder/repository/database/* /data/"
+    volumes:
+      - thunder-db:/data
+    restart: "no"
+
+  # Run setup once with the shared database
+  thunder-setup:
+    image: ghcr.io/asgardeo/thunder:0.14.0
+    container_name: thunder-setup
+    command: ./setup.sh
+    volumes:
+      - thunder-db:/opt/thunder/repository/database
+    depends_on:
+      thunder-db-init:
+        condition: service_completed_successfully
+    restart: "no"
+
+  # Run Thunder server with the shared database
+  thunder:
+    image: ghcr.io/asgardeo/thunder:0.14.0
+    container_name: thunder-server
+    depends_on:
+      thunder-setup:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - thunder-db:/opt/thunder/repository/database
+      - ./silver-config/thunder/certs/server.cert:/opt/thunder/repository/resources/security/server.cert:ro
+      - ./silver-config/thunder/certs/server.key:/opt/thunder/repository/resources/security/server.key:ro
+    networks:
+      - mail-network
+    restart: unless-stopped
 
   certbot-server:
     image: ghcr.io/lsflk/silver-certbot:main
     container_name: certbot-server
     volumes:
-      - ./silver-config/data/certbot/keys/etc:/etc/letsencrypt
-      - ./silver-config/data/certbot/keys/log:/var/log/letsencrypt
-      - ./silver-config/data/certbot/keys/lib:/var/lib/letsencrypt"
+      - ./silver-config/certbot/keys/etc:/etc/letsencrypt
+      - ./silver-config/certbot/keys/log:/var/log/letsencrypt
+      - ./silver-config/certbot/keys/lib:/var/lib/letsencrypt"
     ports:
       - "80:80"
       - "443:443"
     networks:
       - mail-network
 
+  postfix-exporter:
+    image: chatwork/kumina-postfix-exporter:latest
+    container_name: postfix-exporter
+    command:
+      - --postfix.showq_path=/var/spool/postfix/public/showq
+      - --postfix.logfile_path=/var/log/mail.log
+    volumes:
+      - postfix-logs:/var/log:ro
+      - postfix-spool:/var/spool/postfix:ro
+    ports:
+      - "9154:9154"
+    networks:
+      - mail-network
+    restart: unless-stopped
+    depends_on:
+      - smtp-server
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    command:
+      - '--path.rootfs=/host'
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /:/host:ro,rslave
+    ports:
+      - "9100:9100"
+    networks:
+      - mail-network
+    restart: unless-stopped
+    pid: host
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    ports:
+      - "8080:8080"
+    networks:
+      - mail-network
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.5.8
+    container_name: loki
+    user: "0:0"
+    volumes:
+      - ./silver-config/loki/loki-config.yaml:/mnt/config/loki-config.yaml
+      - ./loki-data:/loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/mnt/config/loki-config.yml
+    networks:
+      - mail-network
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:3.5.8
+    container_name: promtail
+    volumes:
+      - ./silver-config/promtail/promtail-config.yaml:/mnt/config/promtail-config.yaml
+      - /var/log:/var/log:ro
+      - postfix-logs:/mnt/logs/postfix:ro
+      - rspamd_logs:/mnt/logs/rspamd:ro
+      - clamav_logs:/mnt/logs/clamav:ro
+    depends_on:
+      - loki
+    command: -config.file=/mnt/config/promtail-config.yaml
+    networks:
+      - mail-network
+    restart: unless-stopped
+
 volumes:
-  maildata:
   postfix-sasl:
+  postfix-spool:
+  postfix-logs:
   dkim-keys:
   rspamd_data:
+  rspamd_logs:
   clamsock:
-  clamav_db: 
+  clamav_db:
+  clamav_logs:
   go-imap-data:
   raven-sockets:
+  loki-data:
+  redis-data:
+  thunder-db:
+
 
 networks:
   mail-network:

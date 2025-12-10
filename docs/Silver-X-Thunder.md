@@ -85,39 +85,19 @@ curl -k https://localhost:8090/oauth2/jwks
 - Use the first value in the "keys" array to create a PEM file. You can use this website to convert the JWK key to PEM format: [JWK to PEM Converter](https://8gwifi.org/jwkconvertfunctions.jsp).
 
 
-### 2. Configure Dovecot to use Thunder as an OAUTH2 provider
-- Edit the `auth-oauth2.conf.ext` file in your Dovecot configuration directory
-```
-introspection_mode = local
-local_validation_key_dict = fs:posix:prefix=/etc/dovecot/keys/
-issuers = thunder
-username_attribute = email
-active_attribute = active
-active_value     = true
-tls_ca_cert_file = /etc/ssl/certs/ca-certificates.crt
-```
+### 2. Configure Raven to use Thunder for authentication
+Raven is now the IMAP/LMTP/SASL server for Silver, replacing Dovecot. Raven integrates with Thunder for user authentication.
 
-Place this `auth-oauth2.conf.ext` file in the 
+- Raven is configured via the `delivery.yaml` configuration file mounted in the docker-compose setup
+- The configuration allows Raven to authenticate users against Thunder's API
+- Raven provides:
+  - **SASL authentication** for Postfix SMTP (via Unix socket at `/var/spool/postfix/private/auth`)
+  - **LMTP service** for mail delivery (on port 24)
+  - **IMAP service** for mail retrieval (on ports 143 and 993)
 
-- Place the PEM file you created earlier in the `/etc/dovecot/keys/<azp:default>/<alg>/<keyid:default>` inside the Dovecot docker container. The path should look like this:
-```bash
-/etc/dovecot/keys/thunder/default/rsa/default.pem
-```
-- Ensure that the Dovecot configuration file (`dovecot.conf`) includes the OAUTH2 authentication configuration:
-```conf
-auth_mechanisms = $auth_mechanisms oauthbearer xoauth2
-
-passdb {
-  driver = oauth2
-  mechanisms = xoauth2 oauthbearer
-  args = /etc/dovecot/dovecot-oauth2.conf.ext
-}
-```
-
-### 3. Test the OAUTH2 authentication
-- Use netcat to connect to the Dovecot IMAP server and test the OAUTH2 authentication:
-```bash
-echo -e "EHLO mac\r\nAUTH XOAUTH2 <base64_encoded_oauth2_token>
-\r\nQUIT\r\n" | nc localhost 25
-```
-- Replace `<base64_encoded_oauth2_token>` with the base64 encoded JWT token(value of the "assertion") you received from Thunder during the login step.
+### 3. Test the authentication
+- Use a mail client to connect to the IMAP server and test authentication with Thunder-created users
+- Configure your mail client with:
+  - IMAP server: your domain (port 143 for STARTTLS or 993 for SSL/TLS)
+  - Username: the email address created in Thunder (e.g., `testuser@example.com`)
+  - Password: the password set when creating the user in Thunder

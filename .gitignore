@@ -1,6 +1,5 @@
 # Ignore env files and certs
 *.env
-*.env.*
 services/conf/.env.conf
 services/test.env
 services/.env
@@ -35,5 +34,7 @@ scripts/decrypt/user_passwords.txt
 services/raven/
 
 # generated configs and artifacts
-services/silver-config/gen/
-services/silver-config/data/
+services/silver-config
+
+# Ignore docker-compose override files
+services/docker-compose.override.yml

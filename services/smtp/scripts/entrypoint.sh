@@ -3,50 +3,47 @@ set -e
 
 CONFIG_FILE="/etc/postfix/silver.yaml"
 
-export MAIL_DOMAIN=$(yq -e '.domain' "$CONFIG_FILE")
+# Extract primary (first) domain from the domains list using awk
+MAIL_DOMAIN=$(awk '/^[[:space:]]*-[[:space:]]*domain:/ {sub(/^[[:space:]]*-[[:space:]]*domain:[[:space:]]*/, ""); print; exit}' "$CONFIG_FILE")
+
+# Fallback if extraction failed
+if [ -z "$MAIL_DOMAIN" ] || [ "$MAIL_DOMAIN" = "null" ]; then
+    echo "⚠️  Warning: Could not extract domain from $CONFIG_FILE"
+    echo "⚠️  Please ensure silver.yaml has domains configured"
+    MAIL_DOMAIN="example.org"
+fi
 
 # -------------------------------
 # Environment variables
 # -------------------------------
-MAIL_DOMAIN=${MAIL_DOMAIN:-example.org}
+export MAIL_DOMAIN
 MAIL_HOSTNAME=${MAIL_HOSTNAME:-mail.$MAIL_DOMAIN}
 RELAYHOST=${RELAYHOST:-}
 
+echo "Using domain: $MAIL_DOMAIN"
 echo "$MAIL_DOMAIN" > /etc/mailname
 
-# Path for vmail
-VMAIL_DIR="/var/mail/vmail"
-
-TARGET_DIR="/etc/postfix"
-echo "${MAIL_DOMAIN} OK" > "${TARGET_DIR}/virtual-domains"
-
-# Create empty files if they don't exist
-touch /etc/postfix/virtual-users
-touch /etc/postfix/virtual-aliases
-
-# Compile hash maps (this is essential)
-postmap /etc/postfix/virtual-domains
-postmap /etc/postfix/virtual-users
-postmap /etc/postfix/virtual-aliases
-
-echo "=== Hash maps compiled successfully ==="
-
 # -------------------------------
-# vmail user/group and directories
+# Check SQLite database
 # -------------------------------
-if ! getent group mail >/dev/null; then
-    groupadd -g 8 mail
+DB_PATH="/app/data/databases/shared.db"
+
+echo "=== Checking SQLite database ==="
+if [ -f "$DB_PATH" ]; then
+    echo "✓ SQLite database found at $DB_PATH"
+
+    # Ensure domain exists in database
+    sqlite3 "$DB_PATH" "INSERT OR IGNORE INTO domains (domain, enabled) VALUES ('${MAIL_DOMAIN}', 1);" 2>/dev/null || echo "Note: Could not insert domain (may already exist)"
+
+    # Set proper permissions
+    chmod 644 "$DB_PATH"
+else
+    echo "⚠ Warning: SQLite database not found at $DB_PATH"
+    echo "  Database should be created by raven-server"
+    echo "  Postfix will start but mail delivery may fail until database is available"
 fi
 
-if ! id "vmail" &>/dev/null; then
-    useradd -r -u 5000 -g 8 -d "$VMAIL_DIR" -s /sbin/nologin -c "Virtual Mail User" vmail
-fi
-
-mkdir -p "$VMAIL_DIR"
-chown vmail:mail "$VMAIL_DIR"
-chmod 755 "$VMAIL_DIR"
-
-echo "=== vmail directory setup completed ==="
+echo "=== Database setup completed ==="
 
 # -------------------------------
 # Fix for DNS resolution in chroot

@@ -18,6 +18,8 @@ readonly SERVICES_DIR="$(cd "${SCRIPT_DIR}/../../services" && pwd)"
 # Conf directory contains config files
 readonly CONF_DIR="$(cd "${SCRIPT_DIR}/../../conf" && pwd)"
 readonly CONFIG_FILE="${CONF_DIR}/silver.yaml"
+# Read silver-config from the configuration file
+readonly SILVER_CONFIG=$(grep -m 1 '^config-url:' "${CONFIG_FILE}" | sed 's/config-url: //' | xargs)
 
 # ASCII Banner
 echo -e "${CYAN}"
@@ -55,8 +57,8 @@ MAIL_DOMAIN=""
 # ================================
 echo -e "\n${YELLOW}Step 1/8: Configure domain name${NC}"
 
-# Read domain from the configuration file
-readonly MAIL_DOMAIN=$(grep -m 1 '^domain:' "${CONFIG_FILE}" | sed 's/domain: //' | xargs)
+# Extract primary (first) domain from the domains list in silver.yaml
+readonly MAIL_DOMAIN=$(grep -m 1 '^\s*-\s*domain:' "${CONFIG_FILE}" | sed 's/.*domain:\s*//' | xargs)
 
 # Validate if MAIL_DOMAIN is empty
 if [[ -z "${MAIL_DOMAIN}" ]]; then
@@ -71,5 +73,14 @@ if ! [[ "${MAIL_DOMAIN}" =~ ^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
 	exit 1
 fi
 
-# Run config generation
+# ================================
+# Step 2: Config Generation
+# ================================
+
+git clone ${SILVER_CONFIG} "${SERVICES_DIR}/silver-config"
+
+# ================================
+# Step 3: Generate Service Configurations
+# ================================
+
 bash ${SERVICES_DIR}/config-scripts/gen-configs.sh

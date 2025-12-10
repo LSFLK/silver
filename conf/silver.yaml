@@ -4,19 +4,29 @@
 #
 # This file contains the primary configuration for your mail server.
 # --- Domain Configuration ---
-# This is the most critical setting. It defines the primary domain name
-# that your mail server will be responsible for.
+# You can configure multiple domains for your mail server.
 #
 # ➡ IMPORTANT:
-#   - Replace the empty value below with your actual domain name.
+#   - Replace the empty values below with your actual domain names.
 #   - Do NOT include 'www.' or 'https://'. Just the domain itself.
-#   - This domain must be a real, registered domain that you own.
+#   - These domains must be real, registered domains that you own.
+#   - The first domain in the list is considered the primary domain.
 #
-# Example (this line is commented out and is just a guide):
-# domain: your-awesome-domain.com
+# Example configuration:
+# domains:
+#   - domain: example.com
+#     dkim-selector: mail
+#     dkim-key-size: 2048
+#   - domain: subdomain.example.com
+#     dkim-selector: mail
+#     dkim-key-size: 2048
+#   - domain: another-domain.org
+#     dkim-selector: default
+#     dkim-key-size: 2048
 
-domain: 
+config-url: "https://github.com/maneeshaxyz/silver-config"
 
-# DKIM 
-dkim-selector: 
-dkim-key-size:
+domains:
+  - domain:
+    dkim-selector:
+    dkim-key-size:

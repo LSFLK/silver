@@ -9,28 +9,25 @@ set -euo pipefail
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly ROOT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
 readonly SILVER_YAML_FILE="${ROOT_DIR}/conf/silver.yaml"
-readonly CONFIGS_PATH="${ROOT_DIR}/services/silver-config/gen/postfix"
+readonly CONFIGS_PATH="${ROOT_DIR}/services/silver-config/postfix"
 readonly DKIM_SELECTOR=mail
 
 # --- Main Logic ---
-readonly MAIL_DOMAIN=$(grep -m 1 '^domain:' "${SILVER_YAML_FILE}" | sed 's/domain: //' | xargs)
+# Extract primary (first) domain from the domains list in silver.yaml
+readonly MAIL_DOMAIN=$(grep -m 1 '^\s*-\s*domain:' "${SILVER_YAML_FILE}" | sed 's/.*domain:\s*//' | xargs)
 #export RELAYHOST=$(yq -e '.relayhost' "$SILVER_YAML_FILE" || echo "")
 
 # --- Derived variables ---
 MAIL_HOSTNAME=${MAIL_HOSTNAME:-mail.$MAIL_DOMAIN}
-VMAIL_DIR="/var/mail/vmail"
 
 mkdir -p ${CONFIGS_PATH}
 
-# Create required files
-echo "${MAIL_DOMAIN} OK" >"$CONFIGS_PATH/virtual-domains"
-: >"$CONFIGS_PATH/virtual-aliases"
-: >"$CONFIGS_PATH/virtual-users"
+# Note: Using SQLite database instead of virtual files
+# SQLite configuration files are in silver-config/postfix/sqlite-*.cf
 
-echo -e "SMTP configuration files prepared"
-echo " - $CONFIGS_PATH/virtual-domains (with '${MAIL_DOMAIN} OK')"
-echo " - $CONFIGS_PATH/virtual-aliases (empty)"
-echo " - $CONFIGS_PATH/virtual-users (empty)"
+echo -e "SMTP configuration will use SQLite database"
+echo " - Database: /app/data/databses/shared.db"
+echo " - SQLite configs: $CONFIGS_PATH/sqlite-*.cf"
 
 # --- Generate main.cf content ---
 cat >"${CONFIGS_PATH}/main.cf" <<EOF
@@ -59,14 +56,39 @@ compatibility_level = 3.6
 
 
 
-# TLS parameters
+# TLS parameters - Enhanced Security Configuration
+# Certificate configuration
 smtpd_tls_cert_file = /etc/letsencrypt/live/${MAIL_DOMAIN}/fullchain.pem
-smtpd_tls_key_file = /etc/letsencrypt/live/${MAIL_DOMAIN}//privkey.pem
-smtpd_tls_security_level = may
+smtpd_tls_key_file = /etc/letsencrypt/live/${MAIL_DOMAIN}/privkey.pem
+smtpd_tls_CAfile = /etc/ssl/certs/ca-certificates.crt
+smtp_tls_note_starttls_offer = yes
 
-smtp_tls_CApath=/etc/ssl/certs
-smtp_tls_security_level=may
+# TLS Security Level - 'may' allows opportunistic encryption
+# Use 'encrypt' to enforce TLS for all connections (may break compatibility with old servers)
+smtpd_tls_security_level = may
+smtpd_tls_mandatory_protocols = !SSLv2, !SSLv3, !TLSv1, !TLSv1.1
+smtpd_tls_protocols = !SSLv2, !SSLv3, !TLSv1, !TLSv1.1
+
+# Cipher Configuration - Only AEAD ciphers (GCM, CHACHA20-POLY1305) to prevent LUCKY13
+# Excludes all CBC ciphers which are vulnerable to timing attacks
+smtpd_tls_mandatory_ciphers = high
+smtpd_tls_ciphers = high
+smtpd_tls_exclude_ciphers = aNULL, eNULL, EXPORT, DES, RC4, MD5, PSK, aECDH, EDH-DSS-DES-CBC3-SHA, EDH-RSA-DES-CBC3-SHA, KRB5-DES, CBC3-SHA, AES128-SHA, AES256-SHA, AES128-SHA256, AES256-SHA256, ECDHE-RSA-AES128-SHA, ECDHE-RSA-AES256-SHA, ECDHE-RSA-AES128-SHA256, ECDHE-RSA-AES256-SHA384, DHE-RSA-AES128-SHA, DHE-RSA-AES256-SHA, DHE-RSA-AES128-SHA256, DHE-RSA-AES256-SHA256, CAMELLIA128-SHA256, CAMELLIA256-SHA256, DHE-RSA-CAMELLIA128-SHA256, DHE-RSA-CAMELLIA256-SHA256
+
+# TLS session cache and logging
+smtpd_tls_session_cache_database = btree:\${data_directory}/smtpd_scache
+smtpd_tls_loglevel = 1
+smtpd_tls_received_header = yes
+smtpd_use_tls = yes
+
+# Outbound SMTP TLS settings
+smtp_tls_CApath = /etc/ssl/certs
+smtp_tls_security_level = may
+smtp_tls_protocols = !SSLv2, !SSLv3, !TLSv1, !TLSv1.1
+smtp_tls_ciphers = high
+smtp_tls_exclude_ciphers = aNULL, eNULL, EXPORT, DES, RC4, MD5, PSK, CBC3-SHA, AES128-SHA, AES256-SHA, AES128-SHA256, AES256-SHA256
 smtp_tls_session_cache_database = btree:\${data_directory}/smtp_scache
+smtp_tls_loglevel = 1
 
 
 smtpd_relay_restrictions = permit_mynetworks permit_sasl_authenticated defer_unauth_destination
@@ -82,22 +104,18 @@ inet_interfaces = all
 inet_protocols = ipv4
 myorigin = /etc/mailname
 mydomain = ${MAIL_DOMAIN}
-maillog_file = /dev/stdout
-smtpd_tls_CAfile = /etc/ssl/certs/ca-certificates.crt
-smtpd_use_tls = yes
+maillog_file = /var/log/mail.log
+
+# SASL authentication provided by Raven server via Unix socket
 smtpd_sasl_type = dovecot
 smtpd_sasl_path = private/auth
 smtpd_sasl_auth_enable = yes
 smtpd_sasl_security_options = noanonymous
 broken_sasl_auth_clients = yes
-virtual_mailbox_domains = hash:/etc/postfix/virtual-domains
-virtual_mailbox_maps = hash:/etc/postfix/virtual-users
-virtual_alias_maps = hash:/etc/postfix/virtual-aliases
-virtual_mailbox_base = "${VMAIL_DIR}"
+virtual_mailbox_domains = sqlite:/etc/postfix/sqlite-virtual-domains.cf
+virtual_mailbox_maps = sqlite:/etc/postfix/sqlite-virtual-users.cf
+virtual_alias_maps = sqlite:/etc/postfix/sqlite-virtual-aliases.cf
 virtual_transport = lmtp:raven:24
-virtual_minimum_uid = 5000
-virtual_uid_maps = static:5000
-virtual_gid_maps = static:8
 milter_protocol = 6
 milter_default_action = accept
 smtpd_milters = inet:rspamd-server:11332,inet:opendkim-server:8891
