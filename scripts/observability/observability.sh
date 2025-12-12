@@ -14,4 +14,4 @@ OBSERVABILITY_REPO="https://github.com/maneeshaxyz/silver-observability.git"
 # Clone observability repo
 git clone "$OBSERVABILITY_REPO" "$TARGET_DIR"
 
-printf "${GREEN}Observability folder complete.${NC}\n"
+printf "Observability folder added at ${TARGET_DIR}\n"
