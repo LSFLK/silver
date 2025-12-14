@@ -1,0 +1,26 @@
+{
+  "name": "silver-mail-password-reset",
+  "version": "1.0.0",
+  "description": "Password reset and change password UI for Silver Mail",
+  "main": "password-reset-server.js",
+  "scripts": {
+    "start": "node password-reset-server.js",
+    "dev": "nodemon password-reset-server.js",
+    "change-password": "node change-password-ui/change-password-server.js",
+    "change-password:dev": "nodemon change-password-ui/change-password-server.js"
+  },
+  "keywords": [
+    "password-reset",
+    "silver-mail",
+    "authentication"
+  ],
+  "author": "Silver Mail Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "body-parser": "^1.20.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
