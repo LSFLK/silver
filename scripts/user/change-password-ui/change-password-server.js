@@ -8,17 +8,104 @@
  * Usage:
  *   npm install express
  *   node change-password-server.js
- *
- * Or:
- *   npm start
+        console.log('┌─────────────────────────────────────────────────┐');
+        console.log('│  Silver Mail - Password Change UI Server       │');
+        console.log('│  🔒 HTTPS Enabled                               │');
+        console.log('└─────────────────────────────────────────────────┘');
+        console.log('');
+        console.log(`✓ HTTPS Server: https://localhost:${HTTPS_PORT}`);
+        console.log(`✓ Change password UI: https://localhost:${HTTPS_PORT}/`);
+        console.log(`✓ Thunder API: ${THUNDER_API}`);
+        console.log('');npm start
  */
 
 const express = require('express');
+const https = require('https');
+const http = require('http');
+const fs = require('fs');
 const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const HTTPS_PORT = process.env.HTTPS_PORT || 3443;
 const THUNDER_API = process.env.THUNDER_API || 'https://localhost:8090';
+
+// Read domain from silver.yaml
+function getDomainFromConfig() {
+    try {
+        const configPath = process.env.SILVER_CONFIG || '/etc/silver/silver.yaml';
+        if (fs.existsSync(configPath)) {
+            const configContent = fs.readFileSync(configPath, 'utf8');
+            // Simple YAML parsing for domain (first domain in list)
+            const domainMatch = configContent.match(/^\s*-\s*domain:\s*(.+)$/m);
+            if (domainMatch && domainMatch[1].trim()) {
+                const domain = domainMatch[1].trim();
+                console.log(`Loaded domain from config: ${domain}`);
+                return domain;
+            }
+        }
+    } catch (e) {
+        console.error('Error reading silver.yaml:', e.message);
+    }
+    return null;
+}
+
+const DOMAIN = process.env.DOMAIN || getDomainFromConfig() || 'localhost';
+
+// Auto-detect certificate paths
+let SSL_CERT = process.env.SSL_CERT;
+let SSL_KEY = process.env.SSL_KEY;
+
+// Helper function to check if file exists (handles symlinks)
+function fileExists(filePath) {
+    try {
+        fs.accessSync(filePath, fs.constants.R_OK);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// If not explicitly set, try to find domain certificates
+if (!SSL_CERT || !SSL_KEY) {
+    // Try domain-specific path first
+    const domainCertPath = `/etc/letsencrypt/live/${DOMAIN}/fullchain.pem`;
+    const domainKeyPath = `/etc/letsencrypt/live/${DOMAIN}/privkey.pem`;
+    
+    if (fileExists(domainCertPath) && fileExists(domainKeyPath)) {
+        SSL_CERT = domainCertPath;
+        SSL_KEY = domainKeyPath;
+    } else {
+        // Try to find any available domain
+        const letsencryptDir = '/etc/letsencrypt/live';
+        if (fs.existsSync(letsencryptDir)) {
+            try {
+                const domains = fs.readdirSync(letsencryptDir).filter(f => {
+                    if (f === 'README') return false;
+                    const certPath = path.join(letsencryptDir, f, 'fullchain.pem');
+                    const keyPath = path.join(letsencryptDir, f, 'privkey.pem');
+                    return fileExists(certPath) && fileExists(keyPath);
+                });
+                
+                if (domains.length > 0) {
+                    const firstDomain = domains[0];
+                    SSL_CERT = path.join(letsencryptDir, firstDomain, 'fullchain.pem');
+                    SSL_KEY = path.join(letsencryptDir, firstDomain, 'privkey.pem');
+                }
+            } catch (e) {
+                console.error('Error scanning certificate directory:', e.message);
+            }
+        }
+        
+        // Fallback to /certs
+        if (!SSL_CERT && fileExists('/certs/fullchain.pem') && fileExists('/certs/privkey.pem')) {
+            SSL_CERT = '/certs/fullchain.pem';
+            SSL_KEY = '/certs/privkey.pem';
+        }
+    }
+}
+
+const ENABLE_HTTPS = SSL_CERT && SSL_KEY && fileExists(SSL_CERT) && fileExists(SSL_KEY);
 
 // Enable JSON parsing
 app.use(express.json());
@@ -111,22 +198,53 @@ app.get('/health', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-    console.log('┌─────────────────────────────────────────────────┐');
-    console.log('│  Silver Mail - Password Change UI Server       │');
-    console.log('└─────────────────────────────────────────────────┘');
-    console.log('');
-    console.log(`✓ Server running on: http://localhost:${PORT}`);
-    console.log(`✓ Change password UI: http://localhost:${PORT}/`);
-    console.log(`✓ API Proxy: http://localhost:${PORT}/api/thunder/*`);
-    console.log(`✓ Thunder API: ${THUNDER_API}`);
-    console.log(`✓ Health check: http://localhost:${PORT}/health`);
-    console.log('');
-    console.log('🔧 CORS handled via proxy - no browser CORS errors!');
-    console.log('');
-    console.log('Press Ctrl+C to stop the server');
-    console.log('');
-});
+if (ENABLE_HTTPS && fs.existsSync(SSL_CERT) && fs.existsSync(SSL_KEY)) {
+    // HTTPS Server
+    const httpsOptions = {
+        cert: fs.readFileSync(SSL_CERT),
+        key: fs.readFileSync(SSL_KEY)
+    };
+    
+    https.createServer(httpsOptions, app).listen(HTTPS_PORT, () => {
+        console.log('┌─────────────────────────────────────────────────┐');
+        console.log('│  Silver Mail - Password Change UI Server       │');
+        console.log('│  🔒 HTTPS Enabled                               │');
+        console.log('└─────────────────────────────────────────────────┘');
+        console.log('');
+        console.log(`✓ HTTPS Server: https://localhost:${HTTPS_PORT}`);
+        console.log(`✓ Change password UI: https://localhost:${HTTPS_PORT}/`);
+        console.log(`✓ API Proxy: https://localhost:${HTTPS_PORT}/api/thunder/*`);
+        console.log(`✓ Thunder API: ${THUNDER_API}`);
+        console.log(`✓ Health check: https://localhost:${HTTPS_PORT}/health`);
+        console.log('');
+        console.log('� SSL/TLS enabled with provided certificates');
+        console.log('');
+        console.log('Press Ctrl+C to stop the server');
+        console.log('');
+    });
+    
+    // HTTP redirect to HTTPS
+    if (PORT !== HTTPS_PORT) {
+        http.createServer((req, res) => {
+            res.writeHead(301, { 'Location': `https://${req.headers.host.split(':')[0]}:${HTTPS_PORT}${req.url}` });
+            res.end();
+        }).listen(PORT);
+    }
+} else {
+    // HTTP Server (fallback)
+    app.listen(PORT, () => {
+        console.log('┌─────────────────────────────────────────────────┐');
+        console.log('│  Silver Mail - Password Change UI Server       │');
+        console.log('│  ⚠️  HTTP Mode (No SSL)                         │');
+        console.log('└─────────────────────────────────────────────────┘');
+        console.log('');
+        console.log(`✓ Server running on: http://localhost:${PORT}`);
+        console.log(`✓ Thunder API: ${THUNDER_API}`);
+        console.log('');
+        console.log('⚠️  Warning: SSL certificates not found');
+        console.log('');
+    });
+}
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
