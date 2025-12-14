@@ -271,6 +271,25 @@ services:
       - mail-network
     restart: unless-stopped
 
+  change-password-ui:
+    build:
+      context: ../scripts/user/change-password-ui
+      dockerfile: Dockerfile
+    container_name: change-password-ui
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - THUNDER_API=https://thunder-server:8090
+    networks:
+      - mail-network
+    depends_on:
+      - thunder
+      - smtp-server
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
 volumes:
   postfix-sasl:
   postfix-spool:
