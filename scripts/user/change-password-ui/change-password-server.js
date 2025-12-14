@@ -34,10 +34,9 @@ app.post('/api/check-password-status', async (req, res) => {
         const cmd = `docker exec smtp-server-container sqlite3 /app/data/databases/shared.db "SELECT password_initialized FROM users u INNER JOIN domains d ON u.domain_id = d.id WHERE u.username='${username}' AND d.domain='${domain}' AND u.enabled=1;" 2>&1`;
         const result = execSync(cmd, { encoding: 'utf8' }).trim();
         const initialized = result === '1';
-        console.log(`✅ ${email} password_initialized: ${initialized}`);
         res.json({ email, password_initialized: initialized, must_change_password: !initialized });
     } catch (error) {
-        console.error('❌ Check status error:', error.message);
+        console.error('Check status error:', error.message);
         res.status(500).json({ error: 'Failed to check status' });
     }
 });
@@ -48,20 +47,16 @@ async function updatePasswordInitialized(email) {
     try {
         const { execSync } = require('child_process');
         const [username, domain] = email.split('@');
-        console.log(`🔄 Setting password_initialized=1 for ${email}...`);
         const cmd = `docker exec smtp-server-container sqlite3 /app/data/databases/shared.db "UPDATE users SET password_initialized = 1 WHERE id IN (SELECT u.id FROM users u INNER JOIN domains d ON u.domain_id = d.id WHERE u.username='${username}' AND d.domain='${domain}');" 2>&1`;
         execSync(cmd);
-        console.log(`✅ Updated password_initialized for ${email}`);
     } catch (error) {
-        console.error('❌ Update failed:', error.message);
+        console.error('Update password_initialized failed:', error.message);
     }
 }
 
 // CORS proxy middleware - intercept API calls and proxy them to avoid CORS
 app.use('/api/thunder', async (req, res) => {
     const targetUrl = `${THUNDER_API}${req.path}`;
-    
-    console.log(`🔄 Proxying ${req.method} ${req.path} to ${targetUrl}`);
     
     try {
         const https = require('https');
@@ -80,8 +75,6 @@ app.use('/api/thunder', async (req, res) => {
         
         // Handle 204 No Content or empty responses
         if (response.status === 204 || response.headers.get('content-length') === '0') {
-            console.log(`✅ ${response.status} - No content (success)`);
-            
             // Update password_initialized if this was a password change
             if (req.path === '/users/me/update-credentials' && req.body?.email) {
                 await updatePasswordInitialized(req.body.email);
@@ -90,7 +83,6 @@ app.use('/api/thunder', async (req, res) => {
             res.status(response.status).json({ success: true, message: 'Operation completed successfully' });
         } else {
             const data = await response.json();
-            console.log(`✅ ${response.status} - Response:`, data);
             
             // Update password_initialized if this was a successful password change
             if (req.path === '/users/me/update-credentials' && response.status === 200 && req.body?.email) {
@@ -100,7 +92,7 @@ app.use('/api/thunder', async (req, res) => {
             res.status(response.status).json(data);
         }
     } catch (error) {
-        console.error('❌ Proxy error:', error);
+        console.error('Proxy error:', error.message);
         res.status(500).json({ error: 'Proxy request failed', message: error.message });
     }
 });
