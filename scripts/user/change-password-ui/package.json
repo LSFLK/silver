@@ -1,0 +1,25 @@
+{
+  "name": "silver-mail-password-change-ui",
+  "version": "1.0.0",
+  "description": "Silver Mail Password Change UI - Frontend and Backend",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node backend/server.js"
+  },
+  "keywords": [
+    "silver-mail",
+    "password-change",
+    "express",
+    "ui"
+  ],
+  "author": "Silver Mail Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^3.3.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

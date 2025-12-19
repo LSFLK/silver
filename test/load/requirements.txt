@@ -1,0 +1,6 @@
+# Requirements for Load Testing Suite
+# Install with: pip install -r requirements.txt
+
+locust>=2.14.0
+faker>=19.0.0
+python-dotenv>=1.0.0

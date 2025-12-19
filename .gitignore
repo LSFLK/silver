@@ -35,6 +35,7 @@ services/raven/
 
 # generated configs and artifacts
 services/silver-config
+silver-observability
 
 # Ignore docker-compose override files
 services/docker-compose.override.yml
