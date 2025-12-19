@@ -58,8 +58,14 @@ get_domain_from_config() {
         exit 1
     fi
     
-    # Extract primary_domain from silver.yaml
-    local domain=$(grep -E '^\s*primary_domain:' "$CONFIG_FILE" | sed 's/.*primary_domain:\s*//' | xargs)
+    # Extract the first domain from the domains array in silver.yaml
+    # Look for pattern: "- domain: example.com" or "  - domain: example.com"
+    local domain=$(grep -m 1 '^\s*-\s*domain:' "$CONFIG_FILE" | sed 's/.*domain:\s*//' | xargs)
+    
+    if [ -z "$domain" ]; then
+        # Try to get primary_domain as fallback
+        domain=$(grep -E '^\s*primary_domain:' "$CONFIG_FILE" | sed 's/.*primary_domain:\s*//' | xargs)
+    fi
     
     if [ -z "$domain" ]; then
         # Try to get mail_domain as fallback
@@ -67,8 +73,8 @@ get_domain_from_config() {
     fi
     
     if [ -z "$domain" ]; then
-        echo -e "${RED}✗ Could not find domain in $CONFIG_FILE${NC}"
-        echo -e "${YELLOW}Please ensure 'primary_domain' or 'mail_domain' is set in the config file${NC}"
+        echo -e "${RED}✗ Could not find domain in $CONFIG_FILE${NC}" >&2
+        echo -e "${YELLOW}Please ensure at least one domain is configured in the domains section${NC}" >&2
         exit 1
     fi
     
