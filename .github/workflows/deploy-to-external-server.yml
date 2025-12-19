@@ -75,7 +75,7 @@ jobs:
           fi
 
   check-silver-folder:
-    name: Check Silver Folder Exists
+    name: Create Test Users
     needs: check-connection-vars
     if: needs.check-connection-vars.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
@@ -102,41 +102,39 @@ jobs:
           ssh-keyscan -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }} -H ${{ secrets.EXTERNAL_SERVER_HOST }} >> ~/.ssh/known_hosts
           echo "✅ Added server to known hosts"
 
-      - name: Check silver folder and run get-dkim.sh (Key-based)
+      - name: Create Test Users (Key-based)
         if: needs.check-connection-vars.outputs.auth_method == 'key'
         run: |
           ssh -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }} \
               ${{ secrets.EXTERNAL_SERVER_USER }}@${{ secrets.EXTERNAL_SERVER_HOST }} << 'ENDSSH'
             if [ -d "${{ env.DEPLOY_PATH }}" ]; then
               echo "✅ Silver folder exists at ${{ env.DEPLOY_PATH }}"
-              echo ""
-              echo "📂 All folders in ${{ env.DEPLOY_PATH }}:"
-              find ${{ env.DEPLOY_PATH }} -maxdepth 1 -type d -exec basename {} \; | sort
-              echo ""
-              echo "📂 Detailed contents of ${{ env.DEPLOY_PATH }}:"
-              ls -lah ${{ env.DEPLOY_PATH }}
-              echo ""
-              echo "📂 Full directory tree (3 levels deep):"
-              find ${{ env.DEPLOY_PATH }} -maxdepth 3 -type d | sort
-              echo ""
-              if [ -d "${{ env.DEPLOY_PATH }}/scripts" ]; then
-                echo "📂 Contents of scripts directory:"
-                ls -lah ${{ env.DEPLOY_PATH }}/scripts
-                echo ""
-              fi
-              if [ -d "${{ env.DEPLOY_PATH }}/scripts/utils" ]; then
-                echo "📂 Contents of scripts/utils:"
-                ls -lah ${{ env.DEPLOY_PATH }}/scripts/utils
-                echo ""
-                if [ -f "${{ env.DEPLOY_PATH }}/scripts/utils/get-dkim.sh" ]; then
-                  cd ${{ env.DEPLOY_PATH }}/scripts/utils
-                  echo "📂 Running get-dkim.sh from $(pwd)"
-                  bash get-dkim.sh
+              
+              if [ -f "${{ env.DEPLOY_PATH }}/scripts/user/create_test_users.sh" ]; then
+                cd ${{ env.DEPLOY_PATH }}/scripts/user
+                echo "🚀 Running create_test_users.sh"
+                echo "Creating 100 test users..."
+                bash create_test_users.sh
+                
+                if [ $? -eq 0 ]; then
+                  echo "✅ Test users created successfully"
+                  if [ -f "${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv" ]; then
+                    echo ""
+                    echo "📊 Test users credentials saved to:"
+                    echo "   ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv"
+                    echo ""
+                    echo "Total users created: $(tail -n +2 ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv | wc -l)"
+                    echo ""
+                    echo "📝 First 5 test users:"
+                    head -n 6 ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv
+                  fi
                 else
-                  echo "❌ get-dkim.sh not found in ${{ env.DEPLOY_PATH }}/scripts/utils"
+                  echo "❌ Failed to create test users"
+                  exit 1
                 fi
               else
-                echo "❌ scripts/utils directory does not exist in ${{ env.DEPLOY_PATH }}"
+                echo "❌ create_test_users.sh not found"
+                exit 1
               fi
             else
               echo "❌ Silver folder does not exist at ${{ env.DEPLOY_PATH }}"
@@ -144,7 +142,7 @@ jobs:
             fi
           ENDSSH
 
-      - name: Check silver folder and run get-dkim.sh (Password-based)
+      - name: Create Test Users (Password-based)
         if: needs.check-connection-vars.outputs.auth_method == 'password'
         env:
           SSHPASS: ${{ secrets.EXTERNAL_SERVER_PASSWORD }}
@@ -154,34 +152,32 @@ jobs:
               ${{ secrets.EXTERNAL_SERVER_USER }}@${{ secrets.EXTERNAL_SERVER_HOST }} << 'ENDSSH'
             if [ -d "${{ env.DEPLOY_PATH }}" ]; then
               echo "✅ Silver folder exists at ${{ env.DEPLOY_PATH }}"
-              echo ""
-              echo "📂 All folders in ${{ env.DEPLOY_PATH }}:"
-              find ${{ env.DEPLOY_PATH }} -maxdepth 1 -type d -exec basename {} \; | sort
-              echo ""
-              echo "📂 Detailed contents of ${{ env.DEPLOY_PATH }}:"
-              ls -lah ${{ env.DEPLOY_PATH }}
-              echo ""
-              echo "📂 Full directory tree (3 levels deep):"
-              find ${{ env.DEPLOY_PATH }} -maxdepth 3 -type d | sort
-              echo ""
-              if [ -d "${{ env.DEPLOY_PATH }}/scripts" ]; then
-                echo "📂 Contents of scripts directory:"
-                ls -lah ${{ env.DEPLOY_PATH }}/scripts
-                echo ""
-              fi
-              if [ -d "${{ env.DEPLOY_PATH }}/scripts/utils" ]; then
-                echo "📂 Contents of scripts/utils:"
-                ls -lah ${{ env.DEPLOY_PATH }}/scripts/utils
-                echo ""
-                if [ -f "${{ env.DEPLOY_PATH }}/scripts/utils/get-dkim.sh" ]; then
-                  cd ${{ env.DEPLOY_PATH }}/scripts/utils
-                  echo "📂 Running get-dkim.sh from $(pwd)"
-                  bash get-dkim.sh
+              
+              if [ -f "${{ env.DEPLOY_PATH }}/scripts/user/create_test_users.sh" ]; then
+                cd ${{ env.DEPLOY_PATH }}/scripts/user
+                echo "🚀 Running create_test_users.sh"
+                echo "Creating 100 test users..."
+                bash create_test_users.sh
+                
+                if [ $? -eq 0 ]; then
+                  echo "✅ Test users created successfully"
+                  if [ -f "${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv" ]; then
+                    echo ""
+                    echo "📊 Test users credentials saved to:"
+                    echo "   ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv"
+                    echo ""
+                    echo "Total users created: $(tail -n +2 ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv | wc -l)"
+                    echo ""
+                    echo "📝 First 5 test users:"
+                    head -n 6 ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv
+                  fi
                 else
-                  echo "❌ get-dkim.sh not found in ${{ env.DEPLOY_PATH }}/scripts/utils"
+                  echo "❌ Failed to create test users"
+                  exit 1
                 fi
               else
-                echo "❌ scripts/utils directory does not exist in ${{ env.DEPLOY_PATH }}"
+                echo "❌ create_test_users.sh not found"
+                exit 1
               fi
             else
               echo "❌ Silver folder does not exist at ${{ env.DEPLOY_PATH }}"
