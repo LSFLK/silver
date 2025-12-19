@@ -28,7 +28,7 @@ class IMAPLoadTester(User):
         try:
             context = ssl.create_default_context()
             # Allow older TLS versions if needed
-            context.minimum_version = ssl.TLSVersion.TLSv1_2
+            context.minimum_version = ssl.TLSVersion.TLSv1_3
             # For testing environments, you might need to disable cert verification
             # context.check_hostname = False
             # context.verify_mode = ssl.CERT_NONE
