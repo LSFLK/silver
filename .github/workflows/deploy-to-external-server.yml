@@ -30,7 +30,7 @@ env:
   # EXTERNAL_SERVER_USER: Set this in GitHub repository settings (e.g., root)
   # EXTERNAL_SERVER_PASSWORD: Set this in GitHub Secrets
   # EXTERNAL_SERVER_PORT: Set this in GitHub repository settings (default: 22)
-  DEPLOY_PATH: /home/
+  DEPLOY_PATH: /root/silver/
 
 jobs:
   check-connection-vars:
