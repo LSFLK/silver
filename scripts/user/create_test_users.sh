@@ -232,20 +232,9 @@ CURRENT_USER_COUNT=$(get_container_user_count "$SMTP_CONTAINER")
 CURRENT_USER_COUNT=${CURRENT_USER_COUNT:-0}
 echo -e "${CYAN}Current users: ${GREEN}$CURRENT_USER_COUNT${NC}. Maximum allowed: $MAX_USERS${NC}"
 
-# Prompt for number of users
-echo -e "${YELLOW}Enter the number of test users to generate (default: ${NUM_USERS}):${NC}"
-read -r USER_COUNT
-if [ -z "$USER_COUNT" ]; then
-    USER_COUNT="$NUM_USERS"
-fi
-
-# Validate user count
-if ! [[ "$USER_COUNT" =~ ^[0-9]+$ ]] || [ "$USER_COUNT" -lt 1 ] || [ "$USER_COUNT" -gt 1000 ]; then
-    echo -e "${RED}✗ Invalid user count. Please enter a number between 1 and 1000${NC}"
-    exit 1
-fi
-
-echo -e "${GREEN}✓ Generating $USER_COUNT test users${NC}\n"
+# Set user count to 100 (no prompt)
+USER_COUNT=$NUM_USERS
+echo -e "${GREEN}✓ Will generate $USER_COUNT test users${NC}\n"
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
