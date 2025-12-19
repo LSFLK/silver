@@ -4,15 +4,7 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'services/**'
-      - 'scripts/**'
-      - 'conf/**'
   pull_request:
-    paths:
-      - 'services/**'
-      - 'scripts/**'
-      - 'conf/**'
   workflow_dispatch:
     inputs:
       target_environment:
@@ -117,9 +109,27 @@ jobs:
               ${{ secrets.EXTERNAL_SERVER_USER }}@${{ secrets.EXTERNAL_SERVER_HOST }} << 'ENDSSH'
             if [ -d "${{ env.DEPLOY_PATH }}" ]; then
               echo "✅ Silver folder exists at ${{ env.DEPLOY_PATH }}"
-              cd ${{ env.DEPLOY_PATH }}/scripts/utils
-              echo "📂 Running get-dkim.sh from $(pwd)"
-              bash get-dkim.sh
+              echo ""
+              echo "📂 Contents of ${{ env.DEPLOY_PATH }}:"
+              ls -lah ${{ env.DEPLOY_PATH }}
+              echo ""
+              echo "📂 Directory structure:"
+              find ${{ env.DEPLOY_PATH }} -maxdepth 3 -type d
+              echo ""
+              if [ -d "${{ env.DEPLOY_PATH }}/scripts/utils" ]; then
+                echo "📂 Contents of scripts/utils:"
+                ls -lah ${{ env.DEPLOY_PATH }}/scripts/utils
+                echo ""
+                if [ -f "${{ env.DEPLOY_PATH }}/scripts/utils/get-dkim.sh" ]; then
+                  cd ${{ env.DEPLOY_PATH }}/scripts/utils
+                  echo "📂 Running get-dkim.sh from $(pwd)"
+                  bash get-dkim.sh
+                else
+                  echo "❌ get-dkim.sh not found in ${{ env.DEPLOY_PATH }}/scripts/utils"
+                fi
+              else
+                echo "❌ scripts/utils directory does not exist in ${{ env.DEPLOY_PATH }}"
+              fi
             else
               echo "❌ Silver folder does not exist at ${{ env.DEPLOY_PATH }}"
               exit 1
@@ -136,9 +146,27 @@ jobs:
               ${{ secrets.EXTERNAL_SERVER_USER }}@${{ secrets.EXTERNAL_SERVER_HOST }} << 'ENDSSH'
             if [ -d "${{ env.DEPLOY_PATH }}" ]; then
               echo "✅ Silver folder exists at ${{ env.DEPLOY_PATH }}"
-              cd ${{ env.DEPLOY_PATH }}/scripts/utils
-              echo "📂 Running get-dkim.sh from $(pwd)"
-              bash get-dkim.sh
+              echo ""
+              echo "📂 Contents of ${{ env.DEPLOY_PATH }}:"
+              ls -lah ${{ env.DEPLOY_PATH }}
+              echo ""
+              echo "📂 Directory structure:"
+              find ${{ env.DEPLOY_PATH }} -maxdepth 3 -type d
+              echo ""
+              if [ -d "${{ env.DEPLOY_PATH }}/scripts/utils" ]; then
+                echo "📂 Contents of scripts/utils:"
+                ls -lah ${{ env.DEPLOY_PATH }}/scripts/utils
+                echo ""
+                if [ -f "${{ env.DEPLOY_PATH }}/scripts/utils/get-dkim.sh" ]; then
+                  cd ${{ env.DEPLOY_PATH }}/scripts/utils
+                  echo "📂 Running get-dkim.sh from $(pwd)"
+                  bash get-dkim.sh
+                else
+                  echo "❌ get-dkim.sh not found in ${{ env.DEPLOY_PATH }}/scripts/utils"
+                fi
+              else
+                echo "❌ scripts/utils directory does not exist in ${{ env.DEPLOY_PATH }}"
+              fi
             else
               echo "❌ Silver folder does not exist at ${{ env.DEPLOY_PATH }}"
               exit 1
