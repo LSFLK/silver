@@ -110,12 +110,20 @@ jobs:
             if [ -d "${{ env.DEPLOY_PATH }}" ]; then
               echo "✅ Silver folder exists at ${{ env.DEPLOY_PATH }}"
               echo ""
-              echo "📂 Contents of ${{ env.DEPLOY_PATH }}:"
+              echo "📂 All folders in ${{ env.DEPLOY_PATH }}:"
+              find ${{ env.DEPLOY_PATH }} -maxdepth 1 -type d -exec basename {} \; | sort
+              echo ""
+              echo "📂 Detailed contents of ${{ env.DEPLOY_PATH }}:"
               ls -lah ${{ env.DEPLOY_PATH }}
               echo ""
-              echo "📂 Directory structure:"
-              find ${{ env.DEPLOY_PATH }} -maxdepth 3 -type d
+              echo "📂 Full directory tree (3 levels deep):"
+              find ${{ env.DEPLOY_PATH }} -maxdepth 3 -type d | sort
               echo ""
+              if [ -d "${{ env.DEPLOY_PATH }}/scripts" ]; then
+                echo "📂 Contents of scripts directory:"
+                ls -lah ${{ env.DEPLOY_PATH }}/scripts
+                echo ""
+              fi
               if [ -d "${{ env.DEPLOY_PATH }}/scripts/utils" ]; then
                 echo "📂 Contents of scripts/utils:"
                 ls -lah ${{ env.DEPLOY_PATH }}/scripts/utils
@@ -147,12 +155,20 @@ jobs:
             if [ -d "${{ env.DEPLOY_PATH }}" ]; then
               echo "✅ Silver folder exists at ${{ env.DEPLOY_PATH }}"
               echo ""
-              echo "📂 Contents of ${{ env.DEPLOY_PATH }}:"
+              echo "📂 All folders in ${{ env.DEPLOY_PATH }}:"
+              find ${{ env.DEPLOY_PATH }} -maxdepth 1 -type d -exec basename {} \; | sort
+              echo ""
+              echo "📂 Detailed contents of ${{ env.DEPLOY_PATH }}:"
               ls -lah ${{ env.DEPLOY_PATH }}
               echo ""
-              echo "📂 Directory structure:"
-              find ${{ env.DEPLOY_PATH }} -maxdepth 3 -type d
+              echo "📂 Full directory tree (3 levels deep):"
+              find ${{ env.DEPLOY_PATH }} -maxdepth 3 -type d | sort
               echo ""
+              if [ -d "${{ env.DEPLOY_PATH }}/scripts" ]; then
+                echo "📂 Contents of scripts directory:"
+                ls -lah ${{ env.DEPLOY_PATH }}/scripts
+                echo ""
+              fi
               if [ -d "${{ env.DEPLOY_PATH }}/scripts/utils" ]; then
                 echo "📂 Contents of scripts/utils:"
                 ls -lah ${{ env.DEPLOY_PATH }}/scripts/utils
