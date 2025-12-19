@@ -113,8 +113,8 @@ update_container_virtual_users() {
             exit 1
         fi
 
-        # Insert user into database
-        sqlite3 \"\$DB_PATH\" \"INSERT OR REPLACE INTO users (username, domain_id, enabled) VALUES ('${username}', \$domain_id, 1);\"
+        # Insert user into database with password_initialized set to true (1) for testing
+        sqlite3 \"\$DB_PATH\" \"INSERT OR REPLACE INTO users (username, domain_id, enabled, password_initialized) VALUES ('${username}', \$domain_id, 1, 1);\"
 
         if [ \$? -eq 0 ]; then
             echo 'User added to database successfully'
