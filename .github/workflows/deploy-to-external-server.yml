@@ -8,6 +8,11 @@ on:
       - 'services/**'
       - 'scripts/**'
       - 'conf/**'
+  pull_request:
+    paths:
+      - 'services/**'
+      - 'scripts/**'
+      - 'conf/**'
   workflow_dispatch:
     inputs:
       target_environment:
@@ -77,8 +82,8 @@ jobs:
             echo "⚠️  External server deployment is not configured (missing host/user)"
           fi
 
-  deploy-to-external-server:
-    name: Deploy to External Server
+  check-silver-folder:
+    name: Check Silver Folder Exists
     needs: check-connection-vars
     if: needs.check-connection-vars.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
@@ -86,11 +91,6 @@ jobs:
       name: ${{ github.event.inputs.target_environment || 'production' }}
     
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Install sshpass (for password authentication)
         if: needs.check-connection-vars.outputs.auth_method == 'password'
         run: |
@@ -110,126 +110,21 @@ jobs:
           ssh-keyscan -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }} -H ${{ secrets.EXTERNAL_SERVER_HOST }} >> ~/.ssh/known_hosts
           echo "✅ Added server to known hosts"
 
-      - name: Test SSH connection (Key-based)
-        if: needs.check-connection-vars.outputs.auth_method == 'key'
-        run: |
-          ssh -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }} \
-              ${{ secrets.EXTERNAL_SERVER_USER }}@${{ secrets.EXTERNAL_SERVER_HOST }} \
-              'echo "✅ SSH connection successful (Key-based)"'
-
-      - name: Test SSH connection (Password-based)
-        if: needs.check-connection-vars.outputs.auth_method == 'password'
-        env:
-          SSHPASS: ${{ secrets.EXTERNAL_SERVER_PASSWORD }}
-        run: |
-          sshpass -e ssh -o StrictHostKeyChecking=no \
-              -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }} \
-              ${{ secrets.EXTERNAL_SERVER_USER }}@${{ secrets.EXTERNAL_SERVER_HOST }} \
-              'echo "✅ SSH connection successful (Password-based)"'
-
-      - name: Create deployment directory on remote server (Key-based)
-        if: needs.check-connection-vars.outputs.auth_method == 'key'
-        run: |
-          ssh -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }} \
-              ${{ secrets.EXTERNAL_SERVER_USER }}@${{ secrets.EXTERNAL_SERVER_HOST }} \
-              "mkdir -p ${{ env.DEPLOY_PATH }} && echo '✅ Deployment directory created'"
-
-      - name: Create deployment directory on remote server (Password-based)
-        if: needs.check-connection-vars.outputs.auth_method == 'password'
-        env:
-          SSHPASS: ${{ secrets.EXTERNAL_SERVER_PASSWORD }}
-        run: |
-          sshpass -e ssh -o StrictHostKeyChecking=no \
-              -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }} \
-              ${{ secrets.EXTERNAL_SERVER_USER }}@${{ secrets.EXTERNAL_SERVER_HOST }} \
-              "mkdir -p ${{ env.DEPLOY_PATH }} && echo '✅ Deployment directory created'"
-
-      - name: Sync files to external server (Key-based)
-        if: needs.check-connection-vars.outputs.auth_method == 'key'
-        run: |
-          rsync -avz --delete \
-            -e "ssh -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }}" \
-            --exclude '.git' \
-            --exclude '.github' \
-            --exclude 'node_modules' \
-            --exclude '*.log' \
-            --exclude 'services/letsencrypt/certbot-logs' \
-            ./ ${{ secrets.EXTERNAL_SERVER_USER }}@${{ secrets.EXTERNAL_SERVER_HOST }}:${{ env.DEPLOY_PATH }}/
-          echo "✅ Files synced successfully"
-
-      - name: Sync files to external server (Password-based)
-        if: needs.check-connection-vars.outputs.auth_method == 'password'
-        env:
-          SSHPASS: ${{ secrets.EXTERNAL_SERVER_PASSWORD }}
-        run: |
-          rsync -avz --delete \
-            -e "sshpass -e ssh -o StrictHostKeyChecking=no -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }}" \
-            --exclude '.git' \
-            --exclude '.github' \
-            --exclude 'node_modules' \
-            --exclude '*.log' \
-            --exclude 'services/letsencrypt/certbot-logs' \
-            ./ ${{ secrets.EXTERNAL_SERVER_USER }}@${{ secrets.EXTERNAL_SERVER_HOST }}:${{ env.DEPLOY_PATH }}/
-          echo "✅ Files synced successfully"
-
-      - name: Update configuration on remote server (Key-based)
-        if: needs.check-connection-vars.outputs.auth_method == 'key'
-        env:
-          CONFIG_TOKEN: ${{ secrets.CONFIG_REPO_TOKEN }}
-        run: |
-          ssh -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }} \
-              ${{ secrets.EXTERNAL_SERVER_USER }}@${{ secrets.EXTERNAL_SERVER_HOST }} << 'ENDSSH'
-            cd ${{ env.DEPLOY_PATH }}
-            
-            # Set GitHub token for private repos if provided
-            if [[ -n "${{ secrets.CONFIG_REPO_TOKEN }}" ]]; then
-              git config --global credential.helper store
-              echo "https://${{ secrets.CONFIG_REPO_TOKEN }}@github.com" > ~/.git-credentials
-            fi
-            
-            echo "✅ Configuration updated"
-          ENDSSH
-
-      - name: Update configuration on remote server (Password-based)
-        if: needs.check-connection-vars.outputs.auth_method == 'password'
-        env:
-          SSHPASS: ${{ secrets.EXTERNAL_SERVER_PASSWORD }}
-          CONFIG_TOKEN: ${{ secrets.CONFIG_REPO_TOKEN }}
-        run: |
-          sshpass -e ssh -o StrictHostKeyChecking=no \
-              -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }} \
-              ${{ secrets.EXTERNAL_SERVER_USER }}@${{ secrets.EXTERNAL_SERVER_HOST }} << 'ENDSSH'
-            cd ${{ env.DEPLOY_PATH }}
-            
-            # Set GitHub token for private repos if provided
-            if [[ -n "${{ secrets.CONFIG_REPO_TOKEN }}" ]]; then
-              git config --global credential.helper store
-              echo "https://${{ secrets.CONFIG_REPO_TOKEN }}@github.com" > ~/.git-credentials
-            fi
-            
-            echo "✅ Configuration updated"
-          ENDSSH
-
-      - name: Restart services on remote server (Key-based)
+      - name: Check if silver folder exists (Key-based)
         if: needs.check-connection-vars.outputs.auth_method == 'key'
         run: |
           ssh -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }} \
               ${{ secrets.EXTERNAL_SERVER_USER }}@${{ secrets.EXTERNAL_SERVER_HOST }} << 'ENDSSH'
-            cd ${{ env.DEPLOY_PATH }}/services
-            
-            # Check if Docker is available
-            if command -v docker &> /dev/null && command -v docker-compose &> /dev/null; then
-              echo "🔄 Restarting Docker services..."
-              docker-compose down
-              docker-compose up -d
-              echo "✅ Services restarted successfully"
+            if [ -d "${{ env.DEPLOY_PATH }}" ]; then
+              echo "✅ Silver folder exists at ${{ env.DEPLOY_PATH }}"
+              ls -lah ${{ env.DEPLOY_PATH }}
             else
-              echo "⚠️  Docker/Docker Compose not found. Skipping service restart."
-              echo "Please restart services manually."
+              echo "❌ Silver folder does not exist at ${{ env.DEPLOY_PATH }}"
+              exit 1
             fi
           ENDSSH
 
-      - name: Restart services on remote server (Password-based)
+      - name: Check if silver folder exists (Password-based)
         if: needs.check-connection-vars.outputs.auth_method == 'password'
         env:
           SSHPASS: ${{ secrets.EXTERNAL_SERVER_PASSWORD }}
@@ -237,85 +132,11 @@ jobs:
           sshpass -e ssh -o StrictHostKeyChecking=no \
               -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }} \
               ${{ secrets.EXTERNAL_SERVER_USER }}@${{ secrets.EXTERNAL_SERVER_HOST }} << 'ENDSSH'
-            cd ${{ env.DEPLOY_PATH }}/services
-            
-            # Check if Docker is available
-            if command -v docker &> /dev/null && command -v docker-compose &> /dev/null; then
-              echo "🔄 Restarting Docker services..."
-              docker-compose down
-              docker-compose up -d
-              echo "✅ Services restarted successfully"
+            if [ -d "${{ env.DEPLOY_PATH }}" ]; then
+              echo "✅ Silver folder exists at ${{ env.DEPLOY_PATH }}"
+              ls -lah ${{ env.DEPLOY_PATH }}
             else
-              echo "⚠️  Docker/Docker Compose not found. Skipping service restart."
-              echo "Please restart services manually."
+              echo "❌ Silver folder does not exist at ${{ env.DEPLOY_PATH }}"
+              exit 1
             fi
           ENDSSH
-
-      - name: Verify deployment (Key-based)
-        if: needs.check-connection-vars.outputs.auth_method == 'key'
-        run: |
-          ssh -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }} \
-              ${{ secrets.EXTERNAL_SERVER_USER }}@${{ secrets.EXTERNAL_SERVER_HOST }} << 'ENDSSH'
-            cd ${{ env.DEPLOY_PATH }}
-            echo "📋 Deployment verification:"
-            echo "   - Commit: $(git rev-parse --short HEAD 2>/dev/null || echo 'N/A')"
-            echo "   - Branch: $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'N/A')"
-            echo "   - Deploy path: ${{ env.DEPLOY_PATH }}"
-            
-            if command -v docker &> /dev/null; then
-              echo ""
-              echo "🐳 Running Docker containers:"
-              docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-            fi
-            
-            echo "✅ Deployment complete!"
-          ENDSSH
-
-      - name: Verify deployment (Password-based)
-        if: needs.check-connection-vars.outputs.auth_method == 'password'
-        env:
-          SSHPASS: ${{ secrets.EXTERNAL_SERVER_PASSWORD }}
-        run: |
-          sshpass -e ssh -o StrictHostKeyChecking=no \
-              -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }} \
-              ${{ secrets.EXTERNAL_SERVER_USER }}@${{ secrets.EXTERNAL_SERVER_HOST }} << 'ENDSSH'
-            cd ${{ env.DEPLOY_PATH }}
-            echo "📋 Deployment verification:"
-            echo "   - Commit: $(git rev-parse --short HEAD 2>/dev/null || echo 'N/A')"
-            echo "   - Branch: $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'N/A')"
-            echo "   - Deploy path: ${{ env.DEPLOY_PATH }}"
-            
-            if command -v docker &> /dev/null; then
-              echo ""
-              echo "🐳 Running Docker containers:"
-              docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-            fi
-            
-            echo "✅ Deployment complete!"
-          ENDSSH
-
-      - name: Deployment summary
-        if: always()
-        run: |
-          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Server:** ${{ secrets.EXTERNAL_SERVER_HOST }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **User:** ${{ secrets.EXTERNAL_SERVER_USER }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Environment:** ${{ github.event.inputs.target_environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Deploy Path:** ${{ env.DEPLOY_PATH }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Deployment completed successfully!" >> $GITHUB_STEP_SUMMARY
-
-  notify-on-failure:
-    name: Notify on Deployment Failure
-    needs: deploy-to-external-server
-    if: failure()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Send failure notification
-        run: |
-          echo "❌ Deployment to external server failed!"
-          echo "Please check the logs for details."
-          # Add your notification logic here (Slack, email, etc.)
