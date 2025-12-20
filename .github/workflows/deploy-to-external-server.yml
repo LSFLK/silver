@@ -92,7 +92,7 @@ jobs:
 
       - name: Setup SSH (Key-based authentication)
         if: needs.check-connection-vars.outputs.auth_method == 'key'
-        uses: webfactory/ssh-agent@v0.9.0
+        uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.EXTERNAL_SERVER_SSH_KEY }}
 
