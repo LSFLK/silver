@@ -110,6 +110,9 @@ jobs:
             if [ -d "${{ env.DEPLOY_PATH }}" ]; then
               echo "✅ Silver folder exists at ${{ env.DEPLOY_PATH }}"
               
+              # Create test data directory if it doesn't exist
+              mkdir -p ${{ env.DEPLOY_PATH }}/test/load/test_data
+              
               if [ -f "${{ env.DEPLOY_PATH }}/scripts/user/create_test_users.sh" ]; then
                 cd ${{ env.DEPLOY_PATH }}/scripts/user
                 echo "🚀 Running create_test_users.sh"
@@ -118,15 +121,26 @@ jobs:
                 
                 if [ $? -eq 0 ]; then
                   echo "✅ Test users created successfully"
+                  
+                  # Copy the credentials to the test data location (replacing if exists)
                   if [ -f "${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv" ]; then
+                    # Remove old file if it exists
+                    if [ -f "${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv" ]; then
+                      echo "🔄 Replacing existing users.csv file..."
+                      rm -f ${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv
+                    fi
+                    
+                    cp ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv \
+                       ${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv
+                    
                     echo ""
                     echo "📊 Test users credentials saved to:"
-                    echo "   ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv"
+                    echo "   ${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv"
                     echo ""
-                    echo "Total users created: $(tail -n +2 ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv | wc -l)"
+                    echo "Total users created: $(tail -n +2 ${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv | wc -l)"
                     echo ""
                     echo "📝 First 5 test users:"
-                    head -n 6 ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv
+                    head -n 6 ${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv
                   fi
                 else
                   echo "❌ Failed to create test users"
@@ -153,6 +167,9 @@ jobs:
             if [ -d "${{ env.DEPLOY_PATH }}" ]; then
               echo "✅ Silver folder exists at ${{ env.DEPLOY_PATH }}"
               
+              # Create test data directory if it doesn't exist
+              mkdir -p ${{ env.DEPLOY_PATH }}/test/load/test_data
+              
               if [ -f "${{ env.DEPLOY_PATH }}/scripts/user/create_test_users.sh" ]; then
                 cd ${{ env.DEPLOY_PATH }}/scripts/user
                 echo "🚀 Running create_test_users.sh"
@@ -161,15 +178,26 @@ jobs:
                 
                 if [ $? -eq 0 ]; then
                   echo "✅ Test users created successfully"
+                  
+                  # Copy the credentials to the test data location (replacing if exists)
                   if [ -f "${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv" ]; then
+                    # Remove old file if it exists
+                    if [ -f "${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv" ]; then
+                      echo "🔄 Replacing existing users.csv file..."
+                      rm -f ${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv
+                    fi
+                    
+                    cp ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv \
+                       ${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv
+                    
                     echo ""
                     echo "📊 Test users credentials saved to:"
-                    echo "   ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv"
+                    echo "   ${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv"
                     echo ""
-                    echo "Total users created: $(tail -n +2 ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv | wc -l)"
+                    echo "Total users created: $(tail -n +2 ${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv | wc -l)"
                     echo ""
                     echo "📝 First 5 test users:"
-                    head -n 6 ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv
+                    head -n 6 ${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv
                   fi
                 else
                   echo "❌ Failed to create test users"
