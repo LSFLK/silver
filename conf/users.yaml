@@ -2,55 +2,28 @@
 #          Silver Mail Users Configuration (`users.yaml`)
 # ===============================================================
 #
-# This file defines users and role-based mailboxes for each domain.
-# Users are grouped by their domain, and role mailboxes allow multiple
-# users to access shared email addresses (e.g., info@domain, support@domain).
+# This file defines users for each domain.
+# Users are grouped by their domain.
 #
 # Example configuration:
 # domains:
 #   - domain: example.com
-#     # Role mailboxes - shared email addresses accessible by multiple users
-#     roles:
-#       - name: info                    # Creates info@example.com
-#         assigned_users:
-#           - alice                     # alice can access info@example.com
-#           - bob                       # bob can access info@example.com
-#       - name: support                 # Creates support@example.com
-#         assigned_users:
-#           - alice
-#           - charlie
-#       - name: sales                   # Creates sales@example.com
-#         assigned_users:
-#           - bob
-#     # Individual user accounts
 #     users:
 #       - username: alice
 #       - username: bob
 #       - username: charlie
 #
 #   - domain: another-domain.com
-#     roles:
-#       - name: contact
-#         assigned_users:
-#           - john
-#           - jane
 #     users:
 #       - username: john
 #       - username: jane
 #
 # Notes:
 # - Each user gets their own personal mailbox (user_db_{userID}.db)
-# - Each role mailbox gets its own database (role_db_{roleID}.db)
-# - Users assigned to a role can read/send from that role's mailbox
-# - Role names must be unique within each domain
-# - Users must exist before being assigned to roles
+# - Usernames must be unique within each domain
 
 domains:
   - domain:
-    roles:
-      - name:
-        assigned_users:
-          -
     users:
       - username:
       - username:
