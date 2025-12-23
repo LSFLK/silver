@@ -7,9 +7,10 @@
 # Silver 
 The Silver project aims to reinvent email and digital communication that is suitable for government scale deployment. We are looking to make it in two stages: 1.0 to just provide "regular" email and 2.0 to reinvent communication and collaboration.
 
-## Table of contents
+<details>
+  <summary><h3>Table of contents</h3></summary>
+  
 - [Silver](#silver)
-  - [Table of contents](#table-of-contents)
   - [Documents](#documents)
   - [Getting Started](#getting-started)
     - [Prerequisites](#prerequisites)
@@ -24,6 +25,8 @@ The Silver project aims to reinvent email and digital communication that is suit
   - [Contributing](#contributing)
   - [License](#license)
   - [Miscellaneous](#miscellaneous)
+
+</details>
 
 ## Documents
 - [Milestones](docs/Milestones-M1.md)
@@ -131,3 +134,5 @@ Distributed under the Apache 2.0 License. See [LICENSE](https://github.com/LSFLK
 ## Miscellaneous
 
 - [Interesting Email Products to Emerge Recently](docs/New-Email-Products.md)
+
+## Hello
