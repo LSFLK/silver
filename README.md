@@ -10,6 +10,7 @@
 
 <p align="center">
   •   <a href="#why-silver">Why Silver?</a> •
+  <a href="#key-features">Key Features</a> •
   <a href="#getting-started">Getting Started</a> •
   <a href="#open-source-components">Open Source Components</a> •
   <a href="#contributing">Contributing</a> •
