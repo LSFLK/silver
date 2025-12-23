@@ -101,7 +101,28 @@ bash ../scripts/user/add_user.sh
 
 ## Open Source Components
 
-Silver is built using opensource software.
+### Email Flow in Silver
+
+<table>
+<tr>
+<td width="50%">
+
+**Figure 1: Outbound Email Flow**
+
+<img src="https://github.com/user-attachments/assets/17938298-8f0c-4558-9331-6e96272cb0ba" alt="Inbound Email Flow" width="100%" />
+
+</td>
+<td width="50%">
+
+**Figure 2: Inbound Email Flow**
+
+<img src="https://github.com/user-attachments/assets/de7e032b-7dfe-42b6-950b-9b59028ef06b" alt="Outbound Email Flow" width="100%" />
+
+</td>
+</tr>
+</table>
+
+Silver is built using open-source software.
 
 - [Postfix](https://www.postfix.org/) - handles sending and receiving email.
 - [Raven](https://github.com/lsflk/raven) - handles SASL authentication, LMTP, and IMAP server for email retrieval.
