@@ -8,6 +8,16 @@
 
 Project Silver is a plan to build a new kind of email and communication system that can work at a government scale. The goal is to make email faster, smarter, and easier to manage while keeping it secure and reliable. The platform will evolve in two stages: Version 1.0 delivers reliable, standards-compliant email, while Version 2.0 reimagines communication with modern collaboration at its core.
 
+<p align="center">
+  • <a href="#getting-started">Getting Started</a> •
+  <a href="#contributing">Contributing</a> •
+  <a href="#license">License</a> •
+</p>
+
+## Why Silver?
+
+
+
 <details>
   <summary><h3>Table of contents</h3></summary>
   
@@ -135,5 +145,3 @@ Distributed under the Apache 2.0 License. See [LICENSE](https://github.com/LSFLK
 ## Miscellaneous
 
 - [Interesting Email Products to Emerge Recently](docs/New-Email-Products.md)
-
-## Hello
