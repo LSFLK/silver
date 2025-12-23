@@ -11,7 +11,7 @@
 <p align="center">
   •   <a href="#why-silver">Why Silver?</a> •
   <a href="#getting-started">Getting Started</a> •
-  <a href="#contributing">Open Source Components</a> •
+  <a href="#open-source-components">Open Source Components</a> •
   <a href="#contributing">Contributing</a> •
   <a href="#license">License</a> •
 </p>
@@ -99,7 +99,7 @@ bash ../scripts/user/add_user.sh
 
 - You can also set up a Mail User Agent (MUA) like Thunderbird to send and receive emails. Follow the instructions in [Mail User Agent Setup](docs/Mail-User-Agent-Setup.md).
 
-## Open Source Software
+## Open Source Components
 
 Silver is built using opensource software.
 
@@ -116,7 +116,3 @@ Thank you for wanting to contribute to our project. Please see [CONTRIBUTING.md]
 ## License 
 
 Distributed under the Apache 2.0 License. See [LICENSE](https://github.com/LSFLK/silver/blob/main/LICENSE) for more information.
-
-## Miscellaneous
-
-- [Interesting Email Products to Emerge Recently](docs/New-Email-Products.md)
