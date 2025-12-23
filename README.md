@@ -11,6 +11,7 @@
 <p align="center">
   •   <a href="#why-silver">Why Silver?</a> •
   <a href="#getting-started">Getting Started</a> •
+  <a href="#contributing">Open Source Components</a> •
   <a href="#contributing">Contributing</a> •
   <a href="#license">License</a> •
 </p>
