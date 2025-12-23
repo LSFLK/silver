@@ -20,13 +20,6 @@ Silver is designed to be secure, reliable, and easy to manage. It runs entirely 
 
 External firewalls are not required to filter emails, and attachments are stored separately in blob storage to save space and improve overall system performance. Silver also includes built-in observability, allowing administrators to monitor activity, detect issues early, and maintain smooth operation.
 
-
-## Documents
-- [Milestones](docs/Milestones-M1.md)
-- [“GitHub for Everything” Playbook](docs/GitHub-For-Everything.md)
-- ["Email 2.0" Vision](https://docs.google.com/document/d/1UhHqHrKbZYFzUngQCGakBcmqluxVOoHgMthrG8ySJ88/) `GoogleDoc`
-- [Repo Structure - For Email Stack](https://docs.google.com/document/d/1iRFtq-M2M4U8a_87zbNJb7XHrJsIFGZJKfUYu1rlUHY) `GoogleDoc`
-
 ## Getting Started
 ### Prerequisites
 - A dedicated Linux server with a static public IP address. You also require root access and port access control.
