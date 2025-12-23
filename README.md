@@ -21,6 +21,27 @@ Silver is designed to be secure, reliable, and easy to manage. It runs entirely 
 
 External firewalls are not required to filter emails, and attachments are stored separately in blob storage to save space and improve overall system performance. Silver also includes built-in observability, allowing administrators to monitor activity, detect issues early, and maintain smooth operation.
 
+## Key Features
+
+Silver offers powerful capabilities that set it apart from traditional email solutions:
+
+| Feature | Status |
+|---------|--------|
+| **Unmatched Cost Efficiency** – Reduce annual email expenses from $72K–$150K to near-zero infrastructure costs for 1,000 users. | ✅ Completed |
+| **Lightweight Infrastructure** – Run on minimal hardware without compromising performance | ✅ Completed |
+| **Complete Data Ownership** – Full control over storage, access, and security | ✅ Completed |
+| **Built-In Security Protection** – Enterprise-grade spam filtering and malware scanning | ✅ Completed |
+| **Professional Role-Based Identity** – Authoritative organizational email addresses | 🔨 In Progress |
+| **Smart Attachment Storage** – Separate object storage for improved performance | 🔨 In Progress |
+| **Identity Provider Integration** – Seamless integration with existing IdP systems | 📋 Planned |
+| **Disaster-Proof Backups** – Configurable backup strategies for data protection | 📋 Planned |
+| **Effortless Group Emailing** – Organize users into groups for simplified communication | 📋 Planned |
+| **Email Workflow Automation** – Route emails through predefined workflows with tracking | 📋 Planned |
+| **High-Performance Email Client** – Native IMAP and JMAP support for faster sync | 📋 Planned |
+| **Email Expiration Control** – Set expiration dates and retention policies | 📋 Planned |
+
+**[View Complete Feature List →](docs/FEATURE_LIST.md)**
+
 ## Getting Started
 ### Prerequisites
 - A dedicated Linux server with a static public IP address. You also require root access and port access control.
