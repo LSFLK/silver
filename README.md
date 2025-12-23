@@ -1,43 +1,25 @@
 # Silver
-**Modern Collaborative Email Platform**
+**_Modern Collaborative Email Platform_**
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 ![CI](https://img.shields.io/github/actions/workflow/status/LSFLK/silver/build-and-push-images.yml)
 ![Security Scan](https://img.shields.io/github/actions/workflow/status/LSFLK/silver/trivy-fs.yml?label=security)
 ![Last Commit](https://img.shields.io/github/last-commit/LSFLK/silver)
 
-Project Silver is a plan to build a new kind of email and communication system that can work at a government scale. The goal is to make email faster, smarter, and easier to manage while keeping it secure and reliable. The platform will evolve in two stages: Version 1.0 delivers reliable, standards-compliant email, while Version 2.0 reimagines communication with modern collaboration at its core.
+**Silver** aims to build a new kind of email and communication system that can work at a government scale. The goal is to make email faster, smarter, and easier to manage while keeping it secure and reliable. The platform will evolve in two stages: Version 1.0 delivers reliable, standards-compliant email, while Version 2.0 reimagines communication with modern collaboration at its core.
 
 <p align="center">
-  • <a href="#getting-started">Getting Started</a> •
+  •   <a href="#why-silver">Why Silver?</a> •
+  <a href="#getting-started">Getting Started</a> •
   <a href="#contributing">Contributing</a> •
   <a href="#license">License</a> •
 </p>
 
 ## Why Silver?
+Silver is designed to be secure, reliable, and easy to manage. It runs entirely on your own hardware, giving you full control over your data and ensuring privacy. The system is lightweight and efficient, performing well even on minimal hardware, which makes it easy to deploy in a variety of environments. Each user has a single, unified identity, so an email address and user identity are seamlessly connected. You can bring your own identity provider or use Thunder to organize your users and map your organization hierarchically.
 
+External firewalls are not required to filter emails, and attachments are stored separately in blob storage to save space and improve overall system performance. Silver also includes built-in observability, allowing administrators to monitor activity, detect issues early, and maintain smooth operation.
 
-
-<details>
-  <summary><h3>Table of contents</h3></summary>
-  
-- [Silver](#silver)
-  - [Documents](#documents)
-  - [Getting Started](#getting-started)
-    - [Prerequisites](#prerequisites)
-    - [Minimum hardware requirements](#minimum-hardware-requirements)
-    - [Software](#software)
-    - [DNS setup](#dns-setup)
-    - [Server Setup](#server-setup)
-    - [Configuration](#configuration)
-    - [Adding users](#adding-users)
-    - [Testing your setup](#testing-your-setup)
-  - [Open Source Software](#open-source-software)
-  - [Contributing](#contributing)
-  - [License](#license)
-  - [Miscellaneous](#miscellaneous)
-
-</details>
 
 ## Documents
 - [Milestones](docs/Milestones-M1.md)
