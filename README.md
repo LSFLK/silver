@@ -27,18 +27,18 @@ Silver offers powerful capabilities that set it apart from traditional email sol
 
 | Feature | Status |
 |---------|--------|
-| **Unmatched Cost Efficiency** – Reduce annual email expenses from $72K–$150K to near-zero infrastructure costs for 1,000 users. | ✅ Completed |
-| **Lightweight Infrastructure** – Run on minimal hardware without compromising performance | ✅ Completed |
-| **Complete Data Ownership** – Full control over storage, access, and security | ✅ Completed |
-| **Built-In Security Protection** – Enterprise-grade spam filtering and malware scanning | ✅ Completed |
-| **Professional Role-Based Identity** – Authoritative organizational email addresses | 🔨 In Progress |
-| **Smart Attachment Storage** – Separate object storage for improved performance | 🔨 In Progress |
-| **Identity Provider Integration** – Seamless integration with existing IdP systems | 📋 Planned |
-| **Disaster-Proof Backups** – Configurable backup strategies for data protection | 📋 Planned |
-| **Effortless Group Emailing** – Organize users into groups for simplified communication | 📋 Planned |
-| **Email Workflow Automation** – Route emails through predefined workflows with tracking | 📋 Planned |
-| **High-Performance Email Client** – Native IMAP and JMAP support for faster sync | 📋 Planned |
-| **Email Expiration Control** – Set expiration dates and retention policies | 📋 Planned |
+| **Unmatched Cost Efficiency** – Reduce enterprise email costs to near-zero infrastructure expense. | Completed |
+| **Lightweight Infrastructure** – Run on minimal hardware without compromising performance | Completed |
+| **Complete Data Ownership** – Full control over storage, access, and security | Completed |
+| **Built-In Security Protection** – Enterprise-grade spam filtering and malware scanning | Completed |
+| **Professional Role-Based Identity** – Authoritative organizational email addresses | In Progress |
+| **Smart Attachment Storage** – Separate object storage for improved performance | In Progress |
+| **Identity Provider Integration** – Seamless integration with existing IdP systems | Planned |
+| **Disaster-Proof Backups** – Configurable backup strategies for data protection | Planned |
+| **Effortless Group Emailing** – Organize users into groups for simplified communication | Planned |
+| **Email Workflow Automation** – Route emails through predefined workflows with tracking | Planned |
+| **High-Performance Email Client** – Native IMAP and JMAP support for faster sync | Planned |
+| **Email Expiration Control** – Set expiration dates and retention policies | Planned |
 
 **[View Complete Feature List →](docs/FEATURE_LIST.md)**
 
