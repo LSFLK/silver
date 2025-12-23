@@ -27,13 +27,12 @@ External firewalls are not required to filter emails, and attachments are stored
 
 ### Minimum hardware requirements
 - 4GB of memory
-- 1GB of swap
 
 ### Software 
 - Ensure you have [Git](https://git-scm.com/downloads/linux) and [Docker Engine](https://docs.docker.com/engine/install/) installed
   
 ### DNS setup
-You own <a>example.com</a> and want to send email as person@example.com.
+You own <a>example.com</a> and want to send an email as person@example.com.
 
 You will need to add a few records to your DNS control panel.
 
@@ -50,14 +49,14 @@ You will need to add a few records to your DNS control panel.
 | PTR        | 12.34.56.78 | mail.example.com                                       |
 
 > [!Tip]
-> PTR records usually are set through your hosting provider. 
+> PTR records are usually set through your hosting provider. 
 
 ### Server Setup
--  Clone the repository and navigate to the services folder.
+-  Use the below command to clone the Silver Repo and navigate to the silver folder.
 
 ```bash
 git clone https://github.com/LSFLK/silver.git
-cd silver/services
+cd silver
 ```
 
 ### Configuration
@@ -65,7 +64,7 @@ cd silver/services
 
 - Enter your domain name.
 
-- Run `bash ../scripts/setup/setup.sh` to setup the configs.
+- Run `bash ../scripts/setup/setup.sh` to set up the configs.
 
 - Run `bash ../scripts/service/start-silver.sh` to start the mail server.
 
