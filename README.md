@@ -1,29 +1,47 @@
 # Silver
-The Silver project aims to reinvent email and digital communication that is suitable for government scale deployment. We are looking to make it in two stages: 1.0 to just provide "regular" email and 2.0 to reinvent communication and collaboration.
+**_Modern Collaborative Email Platform_**
 
-## Table of contents
-- [Silver](#silver)
-  - [Table of contents](#table-of-contents)
-  - [Documents](#documents)
-  - [Getting Started](#getting-started)
-    - [Prerequisites](#prerequisites)
-    - [Minimum hardware requirements](#minimum-hardware-requirements)
-    - [Software](#software)
-    - [DNS setup](#dns-setup)
-    - [Server Setup](#server-setup)
-    - [Configuration](#configuration)
-    - [Adding users](#adding-users)
-    - [Testing your setup](#testing-your-setup)
-  - [Open Source Software](#open-source-software)
-  - [Contributing](#contributing)
-  - [License](#license)
-  - [Miscellaneous](#miscellaneous)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+![CI](https://img.shields.io/github/actions/workflow/status/LSFLK/silver/build-and-push-images.yml)
+![Security Scan](https://img.shields.io/github/actions/workflow/status/LSFLK/silver/trivy-fs.yml?label=security)
+![Last Commit](https://img.shields.io/github/last-commit/LSFLK/silver)
 
-## Documents
-- [Milestones](docs/Milestones-M1.md)
-- [“GitHub for Everything” Playbook](docs/GitHub-For-Everything.md)
-- ["Email 2.0" Vision](https://docs.google.com/document/d/1UhHqHrKbZYFzUngQCGakBcmqluxVOoHgMthrG8ySJ88/) `GoogleDoc`
-- [Repo Structure - For Email Stack](https://docs.google.com/document/d/1iRFtq-M2M4U8a_87zbNJb7XHrJsIFGZJKfUYu1rlUHY) `GoogleDoc`
+**Silver** aims to build a new kind of email and communication system that can work at a government scale. The goal is to make email faster, smarter, and easier to manage while keeping it secure and reliable. The platform will evolve in two stages: Version 1.0 delivers reliable, standards-compliant email, while Version 2.0 reimagines communication with modern collaboration at its core.
+
+<p align="center">
+  •   <a href="#why-silver">Why Silver?</a> •
+  <a href="#key-features">Key Features</a> •
+  <a href="#getting-started">Getting Started</a> •
+  <a href="#open-source-components">Open Source Components</a> •
+  <a href="#contributing">Contributing</a> •
+  <a href="#license">License</a> •
+</p>
+
+## Why Silver?
+Silver is designed to be secure, reliable, and easy to manage. It runs entirely on your own hardware, giving you full control over your data and ensuring privacy. The system is lightweight and efficient, performing well even on minimal hardware, which makes it easy to deploy in a variety of environments. Each user has a single, unified identity, so an email address and user identity are seamlessly connected. You can bring your own identity provider or use Thunder to organize your users and map your organization hierarchically.
+
+External firewalls are not required to filter emails, and attachments are stored separately in blob storage to save space and improve overall system performance. Silver also includes built-in observability, allowing administrators to monitor activity, detect issues early, and maintain smooth operation.
+
+## Key Features
+
+Silver offers powerful capabilities that set it apart from traditional email solutions:
+
+| Feature | Status |
+|---------|--------|
+| **Unmatched Cost Efficiency** – Reduce enterprise email costs to near-zero infrastructure expense. | Completed |
+| **Lightweight Infrastructure** – Run on minimal hardware without compromising performance | Completed |
+| **Complete Data Ownership** – Full control over storage, access, and security | Completed |
+| **Built-In Security Protection** – Enterprise-grade spam filtering and malware scanning | Completed |
+| **Professional Role-Based Identity** – Authoritative organizational email addresses | In Progress |
+| **Smart Attachment Storage** – Separate object storage for improved performance | In Progress |
+| **Identity Provider Integration** – Seamless integration with existing IdP systems | Planned |
+| **Disaster-Proof Backups** – Configurable backup strategies for data protection | Planned |
+| **Effortless Group Emailing** – Organize users into groups for simplified communication | Planned |
+| **Email Workflow Automation** – Route emails through predefined workflows with tracking | Planned |
+| **High-Performance Email Client** – Native IMAP and JMAP support for faster sync | Planned |
+| **Email Expiration Control** – Set expiration dates and retention policies | Planned |
+
+**[View Complete Feature List →](docs/FEATURE_LIST.md)**
 
 ## Getting Started
 ### Prerequisites
@@ -32,13 +50,12 @@ The Silver project aims to reinvent email and digital communication that is suit
 
 ### Minimum hardware requirements
 - 4GB of memory
-- 1GB of swap
 
 ### Software 
 - Ensure you have [Git](https://git-scm.com/downloads/linux) and [Docker Engine](https://docs.docker.com/engine/install/) installed
   
 ### DNS setup
-You own <a>example.com</a> and want to send email as person@example.com.
+You own <a>example.com</a> and want to send an email as person@example.com.
 
 You will need to add a few records to your DNS control panel.
 
@@ -55,14 +72,14 @@ You will need to add a few records to your DNS control panel.
 | PTR        | 12.34.56.78 | mail.example.com                                       |
 
 > [!Tip]
-> PTR records usually are set through your hosting provider. 
+> PTR records are usually set through your hosting provider. 
 
 ### Server Setup
--  Clone the repository and navigate to the services folder.
+-  Use the below command to clone the Silver Repo and navigate to the silver folder.
 
 ```bash
 git clone https://github.com/LSFLK/silver.git
-cd silver/services
+cd silver
 ```
 
 ### Configuration
@@ -70,7 +87,7 @@ cd silver/services
 
 - Enter your domain name.
 
-- Run `bash ../scripts/setup/setup.sh` to setup the configs.
+- Run `bash ../scripts/setup/setup.sh` to set up the configs.
 
 - Run `bash ../scripts/service/start-silver.sh` to start the mail server.
 
@@ -104,15 +121,37 @@ bash ../scripts/user/add_user.sh
 
 - You can also set up a Mail User Agent (MUA) like Thunderbird to send and receive emails. Follow the instructions in [Mail User Agent Setup](docs/Mail-User-Agent-Setup.md).
 
-## Open Source Software
+## Open Source Components
 
-Silver is built using opensource software.
+### Email Flow in Silver
+
+<table>
+<tr>
+<td width="50%">
+
+**Figure 1: Outbound Email Flow**
+
+<img src="https://github.com/user-attachments/assets/17938298-8f0c-4558-9331-6e96272cb0ba" alt="Inbound Email Flow" width="100%" />
+
+</td>
+<td width="50%">
+
+**Figure 2: Inbound Email Flow**
+
+<img src="https://github.com/user-attachments/assets/de7e032b-7dfe-42b6-950b-9b59028ef06b" alt="Outbound Email Flow" width="100%" />
+
+</td>
+</tr>
+</table>
+
+Silver is built using open-source software.
 
 - [Postfix](https://www.postfix.org/) - handles sending and receiving email.
 - [Raven](https://github.com/lsflk/raven) - handles SASL authentication, LMTP, and IMAP server for email retrieval.
 - [Thunder](https://github.com/asgardeo/thunder) - Identity provider and user manager
 - [Rspamd](https://rspamd.com/) - spam filtering system.
 - [ClamAV](https://docs.clamav.net/Introduction.html) -  virus scanning system.
+- [Certbot](https://certbot.eff.org/) - Client software that talks to Let’s Encrypt to generate certificates.
 
 ## Contributing
 
@@ -121,7 +160,3 @@ Thank you for wanting to contribute to our project. Please see [CONTRIBUTING.md]
 ## License 
 
 Distributed under the Apache 2.0 License. See [LICENSE](https://github.com/LSFLK/silver/blob/main/LICENSE) for more information.
-
-## Miscellaneous
-
-- [Interesting Email Products to Emerge Recently](docs/New-Email-Products.md)

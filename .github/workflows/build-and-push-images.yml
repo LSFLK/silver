@@ -13,6 +13,7 @@ env:
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
+    if: github.repository == 'lsflk/silver'
     outputs:
       smtp: ${{ steps.changes.outputs.smtp }}
       imap: ${{ steps.changes.outputs.imap }}
