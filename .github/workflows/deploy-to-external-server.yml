@@ -110,6 +110,9 @@ jobs:
             if [ -d "${{ env.DEPLOY_PATH }}" ]; then
               echo "✅ Silver folder exists at ${{ env.DEPLOY_PATH }}"
               
+              # Create test data directory if it doesn't exist
+              mkdir -p ${{ env.DEPLOY_PATH }}/test/load/test_data
+              
               if [ -f "${{ env.DEPLOY_PATH }}/scripts/user/create_test_users.sh" ]; then
                 cd ${{ env.DEPLOY_PATH }}/scripts/user
                 echo "🚀 Running create_test_users.sh"
@@ -118,15 +121,23 @@ jobs:
                 
                 if [ $? -eq 0 ]; then
                   echo "✅ Test users created successfully"
+                  
+                  # Copy the credentials to the test data location (replacing if exists)
                   if [ -f "${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv" ]; then
+                    # Remove old file if it exists
+                    if [ -f "${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv" ]; then
+                      echo "🔄 Replacing existing users.csv file..."
+                      rm -f ${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv
+                    fi
+                    
+                    cp ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv \
+                       ${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv
+                    
                     echo ""
                     echo "📊 Test users credentials saved to:"
-                    echo "   ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv"
+                    echo "   ${{ env.DEPLOY_PATH }}test/load/test_data/users.csv"
                     echo ""
-                    echo "Total users created: $(tail -n +2 ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv | wc -l)"
-                    echo ""
-                    echo "📝 First 5 test users:"
-                    head -n 6 ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv
+                    echo "Total users created: $(tail -n +2 ${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv | wc -l)"
                   fi
                 else
                   echo "❌ Failed to create test users"
@@ -153,6 +164,9 @@ jobs:
             if [ -d "${{ env.DEPLOY_PATH }}" ]; then
               echo "✅ Silver folder exists at ${{ env.DEPLOY_PATH }}"
               
+              # Create test data directory if it doesn't exist
+              mkdir -p ${{ env.DEPLOY_PATH }}/test/load/test_data
+              
               if [ -f "${{ env.DEPLOY_PATH }}/scripts/user/create_test_users.sh" ]; then
                 cd ${{ env.DEPLOY_PATH }}/scripts/user
                 echo "🚀 Running create_test_users.sh"
@@ -161,15 +175,24 @@ jobs:
                 
                 if [ $? -eq 0 ]; then
                   echo "✅ Test users created successfully"
+                  
+                  # Copy the credentials to the test data location (replacing if exists)
                   if [ -f "${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv" ]; then
+                    # Remove old file if it exists
+                    if [ -f "${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv" ]; then
+                      echo "🔄 Replacing existing users.csv file..."
+                      rm -f ${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv
+                    fi
+                    
+                    cp ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv \
+                       ${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv
+                    
                     echo ""
                     echo "📊 Test users credentials saved to:"
-                    echo "   ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv"
+                    echo "   ${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv"
                     echo ""
-                    echo "Total users created: $(tail -n +2 ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv | wc -l)"
+                    echo "Total users created: $(tail -n +2 ${{ env.DEPLOY_PATH }}/test/load/test_data/users.csv | wc -l)"
                     echo ""
-                    echo "📝 First 5 test users:"
-                    head -n 6 ${{ env.DEPLOY_PATH }}/scripts/user/test_users/test_users_credentials.csv
                   fi
                 else
                   echo "❌ Failed to create test users"
@@ -177,6 +200,446 @@ jobs:
                 fi
               else
                 echo "❌ create_test_users.sh not found"
+                exit 1
+              fi
+            else
+              echo "❌ Silver folder does not exist at ${{ env.DEPLOY_PATH }}"
+              exit 1
+            fi
+          ENDSSH
+
+  run-load-tests:
+    name: Run Load Tests
+    needs: [check-connection-vars, check-silver-folder]
+    runs-on: ubuntu-latest
+    environment: 
+      name: ${{ github.event.inputs.target_environment || 'production' }}
+    
+    steps:
+      - name: Install sshpass (for password authentication)
+        if: needs.check-connection-vars.outputs.auth_method == 'password'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sshpass
+          echo "✅ sshpass installed"
+
+      - name: Setup SSH (Key-based authentication)
+        if: needs.check-connection-vars.outputs.auth_method == 'key'
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.EXTERNAL_SERVER_SSH_KEY }}
+
+      - name: Add server to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }} -H ${{ secrets.EXTERNAL_SERVER_HOST }} >> ~/.ssh/known_hosts
+          echo "✅ Added server to known hosts"
+
+      - name: Run Load Tests (Key-based)
+        if: needs.check-connection-vars.outputs.auth_method == 'key'
+        run: |
+          ssh -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }} \
+              ${{ secrets.EXTERNAL_SERVER_USER }}@${{ secrets.EXTERNAL_SERVER_HOST }} << 'ENDSSH'
+            if [ -d "${{ env.DEPLOY_PATH }}" ]; then
+              echo "✅ Silver folder exists at ${{ env.DEPLOY_PATH }}"
+              
+              # Navigate to load test directory
+              cd ${{ env.DEPLOY_PATH }}/test/load
+              
+              # Check if Python 3 is available
+              if command -v python3 &> /dev/null; then
+                PYTHON_CMD="python3"
+              elif command -v python &> /dev/null; then
+                PYTHON_CMD="python"
+              else
+                echo "❌ Python is not installed"
+                exit 1
+              fi
+              
+              echo "✅ Using Python: $PYTHON_CMD ($($PYTHON_CMD --version))"
+              
+              # Check if requirements are installed, install if needed
+              echo "📦 Installing/updating load test dependencies..."
+              
+              # Try to install pip if not available
+              if ! $PYTHON_CMD -m pip --version &> /dev/null; then
+                echo "⚠️  pip not found, installing python3-pip via apt..."
+                sudo apt-get update -qq
+                sudo apt-get install -y python3-pip python3-venv -qq
+              fi
+              
+              # Create and use virtual environment to avoid PEP 668 issues
+              if [ ! -d ".venv" ]; then
+                echo "🔧 Creating virtual environment..."
+                $PYTHON_CMD -m venv .venv
+              fi
+              
+              # Activate virtual environment
+              source .venv/bin/activate
+              
+              # Install requirements in virtual environment
+              echo "📥 Installing packages in virtual environment..."
+              pip install --upgrade pip --quiet 2>/dev/null || true
+              pip install -r requirements.txt --quiet
+              
+              # Use the virtual environment's Python
+              PYTHON_CMD=".venv/bin/python"
+              
+              # Set environment variables
+              export MAIL_DOMAIN="${{ secrets.EXTERNAL_SERVER_HOST }}"
+              
+              # Create reports directory
+              mkdir -p reports
+              TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+              REPORT_DIR="reports/loadtest_${TIMESTAMP}"
+              mkdir -p "$REPORT_DIR"
+              
+              echo ""
+              echo "🚀 Starting Load Tests in Headless Mode..."
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "📊 Test Configuration:"
+              echo "   • Users: 10 concurrent users"
+              echo "   • Spawn Rate: 2 users/second"
+              echo "   • Duration: 60 seconds"
+              echo "   • Host: ${{ secrets.EXTERNAL_SERVER_HOST }}"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo ""
+              
+              # Run Locust in headless mode with report generation
+              if [ -f ".venv/bin/locust" ]; then
+                .venv/bin/locust \
+                  -f locustfile.py \
+                  --headless \
+                  -u 10 \
+                  -r 2 \
+                  --run-time 60s \
+                  --host https://${{ secrets.EXTERNAL_SERVER_HOST }} \
+                  --html "${REPORT_DIR}/report.html" \
+                  --csv "${REPORT_DIR}/results" \
+                  --logfile "${REPORT_DIR}/locust.log" \
+                  --loglevel INFO \
+                  2>&1 | tee "${REPORT_DIR}/console.log"
+              elif command -v locust &> /dev/null; then
+                locust \
+                  -f locustfile.py \
+                  --headless \
+                  -u 10 \
+                  -r 2 \
+                  --run-time 60s \
+                  --host https://${{ secrets.EXTERNAL_SERVER_HOST }} \
+                  --html "${REPORT_DIR}/report.html" \
+                  --csv "${REPORT_DIR}/results" \
+                  --logfile "${REPORT_DIR}/locust.log" \
+                  --loglevel INFO \
+                  2>&1 | tee "${REPORT_DIR}/console.log"
+              else
+                $PYTHON_CMD -m locust \
+                  -f locustfile.py \
+                  --headless \
+                  -u 10 \
+                  -r 2 \
+                  --run-time 60s \
+                  --host https://${{ secrets.EXTERNAL_SERVER_HOST }} \
+                  --html "${REPORT_DIR}/report.html" \
+                  --csv "${REPORT_DIR}/results" \
+                  --logfile "${REPORT_DIR}/locust.log" \
+                  --loglevel INFO \
+                  2>&1 | tee "${REPORT_DIR}/console.log"
+              fi
+              
+              TEST_EXIT_CODE=${PIPESTATUS[0]}
+              
+              echo ""
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "📈 Load Test Summary"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              
+              # Parse and display summary from CSV results
+              if [ -f "${REPORT_DIR}/results_stats.csv" ]; then
+                echo ""
+                echo "📊 Request Statistics:"
+                echo ""
+                head -n 15 "${REPORT_DIR}/results_stats.csv" | column -t -s,
+                
+                echo ""
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                
+                # Calculate success rate from Aggregated row
+                # The Aggregated row contains the total statistics across all request types
+                AGGREGATED_LINE=$(grep -i "aggregated" "${REPORT_DIR}/results_stats.csv" 2>/dev/null | tail -n 1)
+                
+                if [ -n "$AGGREGATED_LINE" ]; then
+                  # The Aggregated row has an empty first column, so columns are shifted:
+                  # Column 1: empty, Column 2: "Aggregated", Column 3: Request Count, Column 4: Failure Count
+                  # Extract request count (column 3) and failure count (column 4)
+                  TOTAL_REQUESTS=$(echo "$AGGREGATED_LINE" | awk -F',' '{print $3}' | tr -d '"' | tr -d ' ')
+                  TOTAL_FAILURES=$(echo "$AGGREGATED_LINE" | awk -F',' '{print $4}' | tr -d '"' | tr -d ' ')
+                  
+                  if [ -n "$TOTAL_REQUESTS" ] && [ "$TOTAL_REQUESTS" -gt 0 ] 2>/dev/null; then
+                    SUCCESS_RATE=$(awk "BEGIN {printf \"%.2f\", (($TOTAL_REQUESTS - $TOTAL_FAILURES) / $TOTAL_REQUESTS) * 100}")
+                    
+                    echo ""
+                    echo "✨ Overall Results:"
+                    echo "   • Total Requests: $TOTAL_REQUESTS"
+                    echo "   • Failed Requests: $TOTAL_FAILURES"
+                    echo "   • Success Rate: ${SUCCESS_RATE}%"
+                    
+                    # Use awk for comparison instead of bc (which may not be installed)
+                    if awk "BEGIN {exit !($SUCCESS_RATE >= 95)}"; then
+                      echo "   • Status: ✅ EXCELLENT"
+                    elif awk "BEGIN {exit !($SUCCESS_RATE >= 80)}"; then
+                      echo "   • Status: ⚠️  GOOD (some issues)"
+                    else
+                      echo "   • Status: ❌ NEEDS ATTENTION"
+                    fi
+                  else
+                    echo ""
+                    echo "⚠️  Could not calculate success rate - invalid numeric values"
+                  fi
+                else
+                  echo ""
+                  echo "⚠️  No aggregated statistics found in results"
+                fi
+              fi
+              
+              echo ""
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "📁 Report Files Generated:"
+              echo "   • HTML Report: ${REPORT_DIR}/report.html"
+              echo "   • CSV Stats: ${REPORT_DIR}/results_stats.csv"
+              echo "   • CSV Failures: ${REPORT_DIR}/results_failures.csv"
+              echo "   • Console Log: ${REPORT_DIR}/console.log"
+              echo "   • Locust Log: ${REPORT_DIR}/locust.log"
+              echo ""
+              echo "📍 Full path: ${{ env.DEPLOY_PATH }}/test/load/${REPORT_DIR}"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              
+              # Check if there were failures
+              if [ -f "${REPORT_DIR}/results_failures.csv" ]; then
+                FAILURE_COUNT=$(tail -n +2 "${REPORT_DIR}/results_failures.csv" | wc -l)
+                if [ "$FAILURE_COUNT" -gt 0 ]; then
+                  echo ""
+                  echo "⚠️  Failure Details:"
+                  echo ""
+                  head -n 20 "${REPORT_DIR}/results_failures.csv" | column -t -s,
+                fi
+              fi
+              
+              echo ""
+              
+              if [ $TEST_EXIT_CODE -eq 0 ]; then
+                echo "✅ Load tests completed successfully!"
+                exit 0
+              else
+                echo "❌ Load tests failed with exit code: $TEST_EXIT_CODE"
+                exit 1
+              fi
+            else
+              echo "❌ Silver folder does not exist at ${{ env.DEPLOY_PATH }}"
+              exit 1
+            fi
+          ENDSSH
+
+      - name: Run Load Tests (Password-based)
+        if: needs.check-connection-vars.outputs.auth_method == 'password'
+        env:
+          SSHPASS: ${{ secrets.EXTERNAL_SERVER_PASSWORD }}
+        run: |
+          sshpass -e ssh -o StrictHostKeyChecking=no \
+              -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }} \
+              ${{ secrets.EXTERNAL_SERVER_USER}}@${{ secrets.EXTERNAL_SERVER_HOST }} << 'ENDSSH'
+            if [ -d "${{ env.DEPLOY_PATH }}" ]; then
+              echo "✅ Silver folder exists at ${{ env.DEPLOY_PATH }}"
+              
+              # Navigate to load test directory
+              cd ${{ env.DEPLOY_PATH }}/test/load
+              
+              # Check if Python 3 is available
+              if command -v python3 &> /dev/null; then
+                PYTHON_CMD="python3"
+              elif command -v python &> /dev/null; then
+                PYTHON_CMD="python"
+              else
+                echo "❌ Python is not installed"
+                exit 1
+              fi
+              
+              echo "✅ Using Python: $PYTHON_CMD ($($PYTHON_CMD --version))"
+              
+              # Check if requirements are installed, install if needed
+              echo "📦 Installing/updating load test dependencies..."
+              
+              # Try to install pip if not available
+              if ! $PYTHON_CMD -m pip --version &> /dev/null; then
+                echo "⚠️  pip not found, installing python3-pip via apt..."
+                sudo apt-get update -qq
+                sudo apt-get install -y python3-pip python3-venv -qq
+              fi
+              
+              # Create and use virtual environment to avoid PEP 668 issues
+              if [ ! -d ".venv" ]; then
+                echo "🔧 Creating virtual environment..."
+                $PYTHON_CMD -m venv .venv
+              fi
+              
+              # Activate virtual environment
+              source .venv/bin/activate
+              
+              # Install requirements in virtual environment
+              echo "📥 Installing packages in virtual environment..."
+              pip install --upgrade pip --quiet 2>/dev/null || true
+              pip install -r requirements.txt --quiet
+              
+              # Use the virtual environment's Python
+              PYTHON_CMD=".venv/bin/python"
+              
+              # Set environment variables
+              export MAIL_DOMAIN="${{ secrets.EXTERNAL_SERVER_HOST }}"
+              
+              # Create reports directory
+              mkdir -p reports
+              TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+              REPORT_DIR="reports/loadtest_${TIMESTAMP}"
+              mkdir -p "$REPORT_DIR"
+              
+              echo ""
+              echo "🚀 Starting Load Tests in Headless Mode..."
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "📊 Test Configuration:"
+              echo "   • Users: 10 concurrent users"
+              echo "   • Spawn Rate: 2 users/second"
+              echo "   • Duration: 60 seconds"
+              echo "   • Host: ${{ secrets.EXTERNAL_SERVER_HOST }}"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo ""
+              
+              # Run Locust in headless mode with report generation
+              if [ -f ".venv/bin/locust" ]; then
+                .venv/bin/locust \
+                  -f locustfile.py \
+                  --headless \
+                  -u 10 \
+                  -r 2 \
+                  --run-time 60s \
+                  --host https://${{ secrets.EXTERNAL_SERVER_HOST }} \
+                  --html "${REPORT_DIR}/report.html" \
+                  --csv "${REPORT_DIR}/results" \
+                  --logfile "${REPORT_DIR}/locust.log" \
+                  --loglevel INFO \
+                  2>&1 | tee "${REPORT_DIR}/console.log"
+              elif command -v locust &> /dev/null; then
+                locust \
+                  -f locustfile.py \
+                  --headless \
+                  -u 10 \
+                  -r 2 \
+                  --run-time 60s \
+                  --host https://${{ secrets.EXTERNAL_SERVER_HOST }} \
+                  --html "${REPORT_DIR}/report.html" \
+                  --csv "${REPORT_DIR}/results" \
+                  --logfile "${REPORT_DIR}/locust.log" \
+                  --loglevel INFO \
+                  2>&1 | tee "${REPORT_DIR}/console.log"
+              else
+                $PYTHON_CMD -m locust \
+                  -f locustfile.py \
+                  --headless \
+                  -u 10 \
+                  -r 2 \
+                  --run-time 60s \
+                  --host https://${{ secrets.EXTERNAL_SERVER_HOST }} \
+                  --html "${REPORT_DIR}/report.html" \
+                  --csv "${REPORT_DIR}/results" \
+                  --logfile "${REPORT_DIR}/locust.log" \
+                  --loglevel INFO \
+                  2>&1 | tee "${REPORT_DIR}/console.log"
+              fi
+              
+              TEST_EXIT_CODE=${PIPESTATUS[0]}
+              
+              echo ""
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "📈 Load Test Summary"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              
+              # Parse and display summary from CSV results
+              if [ -f "${REPORT_DIR}/results_stats.csv" ]; then
+                echo ""
+                echo "📊 Request Statistics:"
+                echo ""
+                head -n 15 "${REPORT_DIR}/results_stats.csv" | column -t -s,
+                
+                echo ""
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                
+                # Calculate success rate from Aggregated row
+                # The Aggregated row contains the total statistics across all request types
+                AGGREGATED_LINE=$(grep -i "aggregated" "${REPORT_DIR}/results_stats.csv" 2>/dev/null | tail -n 1)
+                
+                if [ -n "$AGGREGATED_LINE" ]; then
+                  # The Aggregated row has an empty first column, so columns are shifted:
+                  # Column 1: empty, Column 2: "Aggregated", Column 3: Request Count, Column 4: Failure Count
+                  # Extract request count (column 3) and failure count (column 4)
+                  TOTAL_REQUESTS=$(echo "$AGGREGATED_LINE" | awk -F',' '{print $3}' | tr -d '"' | tr -d ' ')
+                  TOTAL_FAILURES=$(echo "$AGGREGATED_LINE" | awk -F',' '{print $4}' | tr -d '"' | tr -d ' ')
+                  
+                  if [ -n "$TOTAL_REQUESTS" ] && [ "$TOTAL_REQUESTS" -gt 0 ] 2>/dev/null; then
+                    SUCCESS_RATE=$(awk "BEGIN {printf \"%.2f\", (($TOTAL_REQUESTS - $TOTAL_FAILURES) / $TOTAL_REQUESTS) * 100}")
+                    
+                    echo ""
+                    echo "✨ Overall Results:"
+                    echo "   • Total Requests: $TOTAL_REQUESTS"
+                    echo "   • Failed Requests: $TOTAL_FAILURES"
+                    echo "   • Success Rate: ${SUCCESS_RATE}%"
+                    
+                    # Use awk for comparison instead of bc (which may not be installed)
+                    if awk "BEGIN {exit !($SUCCESS_RATE >= 95)}"; then
+                      echo "   • Status: ✅ EXCELLENT"
+                    elif awk "BEGIN {exit !($SUCCESS_RATE >= 80)}"; then
+                      echo "   • Status: ⚠️  GOOD (some issues)"
+                    else
+                      echo "   • Status: ❌ NEEDS ATTENTION"
+                    fi
+                  else
+                    echo ""
+                    echo "⚠️  Could not calculate success rate - invalid numeric values"
+                  fi
+                else
+                  echo ""
+                  echo "⚠️  No aggregated statistics found in results"
+                fi
+              fi
+              
+              echo ""
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "📁 Report Files Generated:"
+              echo "   • HTML Report: ${REPORT_DIR}/report.html"
+              echo "   • CSV Stats: ${REPORT_DIR}/results_stats.csv"
+              echo "   • CSV Failures: ${REPORT_DIR}/results_failures.csv"
+              echo "   • Console Log: ${REPORT_DIR}/console.log"
+              echo "   • Locust Log: ${REPORT_DIR}/locust.log"
+              echo ""
+              echo "📍 Full path: ${{ env.DEPLOY_PATH }}/test/load/${REPORT_DIR}"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              
+              # Check if there were failures
+              if [ -f "${REPORT_DIR}/results_failures.csv" ]; then
+                FAILURE_COUNT=$(tail -n +2 "${REPORT_DIR}/results_failures.csv" | wc -l)
+                if [ "$FAILURE_COUNT" -gt 0 ]; then
+                  echo ""
+                  echo "⚠️  Failure Details:"
+                  echo ""
+                  head -n 20 "${REPORT_DIR}/results_failures.csv" | column -t -s,
+                fi
+              fi
+              
+              echo ""
+              
+              if [ $TEST_EXIT_CODE -eq 0 ]; then
+                echo "✅ Load tests completed successfully!"
+                exit 0
+              else
+                echo "❌ Load tests failed with exit code: $TEST_EXIT_CODE"
                 exit 1
               fi
             else
