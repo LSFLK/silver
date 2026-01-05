@@ -15,7 +15,6 @@ services:
       - postfix-sasl:/var/spool/postfix/private
       - ./silver-config/certbot/keys/etc:/etc/letsencrypt:ro
       - ./silver-config/raven/data:/app/data:rw
-      - raven-sockets:/var/run/raven # Shared socket directory
       - postfix-spool:/var/spool/postfix
       - postfix-logs:/var/log
     networks:
@@ -38,7 +37,6 @@ services:
       - ./silver-config/raven/data:/app/data:rw
       - ./silver-config/raven/certs:/certs:ro
       - ./silver-config/raven/delivery.yaml:/etc/raven/delivery.yaml:ro
-      - raven-sockets:/var/run/raven # Shared socket directory
       - postfix-sasl:/var/spool/postfix/private
     environment:
       - DB_FILE=/app/data/databases/shared.db
@@ -307,7 +305,6 @@ volumes:
   clamav_db:
   clamav_logs:
   go-imap-data:
-  raven-sockets:
   loki-data:
   redis-data:
   thunder-db:
