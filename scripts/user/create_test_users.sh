@@ -28,7 +28,6 @@ CREDENTIALS_FILE="${OUTPUT_DIR}/test_users_credentials.csv"
 
 # User generation settings
 NUM_USERS=100
-MAX_USERS=100
 
 # Thunder settings
 THUNDER_PORT="8090"
@@ -230,7 +229,7 @@ fi
 # Get current user count
 CURRENT_USER_COUNT=$(get_container_user_count "$SMTP_CONTAINER")
 CURRENT_USER_COUNT=${CURRENT_USER_COUNT:-0}
-echo -e "${CYAN}Current users: ${GREEN}$CURRENT_USER_COUNT${NC}. Maximum allowed: $MAX_USERS${NC}"
+echo -e "${CYAN}Current users: ${GREEN}$CURRENT_USER_COUNT${NC}"
 
 # Set user count to 100 (no prompt)
 USER_COUNT=$NUM_USERS
@@ -252,13 +251,6 @@ for i in $(seq 1 "$USER_COUNT"); do
     USERNAME=$(generate_username $i)
     EMAIL="${USERNAME}@${DOMAIN}"
     PASSWORD=$(generate_password)
-    
-    # Check user limit
-    CURRENT_USER_COUNT=$(get_container_user_count "$SMTP_CONTAINER")
-    if [ "$CURRENT_USER_COUNT" -ge "$MAX_USERS" ]; then
-        echo -e "${RED}✗ Cannot add ${USERNAME}: maximum user limit ($MAX_USERS) reached. Stopping.${NC}"
-        break
-    fi
     
     # Check if user already exists in database
     USER_EXISTS=$(docker exec "$SMTP_CONTAINER" bash -c "sqlite3 /app/data/databases/shared.db \"SELECT COUNT(*) FROM users u INNER JOIN domains d ON u.domain_id = d.id WHERE u.username='${USERNAME}' AND d.domain='${DOMAIN}' AND u.enabled=1;\"" 2>/dev/null || echo "0")
@@ -335,16 +327,6 @@ echo -e "  • Total users generated: ${GREEN}$CREATED_COUNT${NC}"
 echo -e "  • Domain: ${GREEN}$DOMAIN${NC}"
 echo -e "  • Output file: ${YELLOW}$CREDENTIALS_FILE${NC}"
 echo ""
-echo -e "${BLUE}🔐 Sample Credentials:${NC}"
-echo -e "${CYAN}First 5 users:${NC}"
-head -n 6 "$CREDENTIALS_FILE" | tail -n 5 | while IFS=',' read -r username email password; do
-    echo -e "  ${YELLOW}$email${NC} : ${GREEN}$password${NC}"
-done
-echo ""
-echo -e "${YELLOW}⚠️  SECURITY WARNING:${NC}"
-echo -e "  The credentials file contains ${RED}plain text passwords${NC}!"
-echo -e "  Please store it securely and delete after initial setup."
-echo ""
 echo -e "${BLUE}📝 CSV Format:${NC}"
 echo -e "  ${CYAN}username,email,password${NC}"
 echo ""
@@ -352,4 +334,3 @@ echo -e "${BLUE}📁 Output Location:${NC}"
 echo -e "  ${GREEN}$CREDENTIALS_FILE${NC}"
 echo ""
 echo -e "${CYAN}==============================================${NC}"
-

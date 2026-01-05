@@ -647,3 +647,138 @@ jobs:
               exit 1
             fi
           ENDSSH
+
+  cleanup-test-users:
+    name: Cleanup Test Users
+    needs: [check-connection-vars, run-load-tests]
+    if: always() && needs.check-connection-vars.outputs.should_deploy == 'true'
+    runs-on: ubuntu-latest
+    environment: 
+      name: ${{ github.event.inputs.target_environment || 'production' }}
+    
+    steps:
+      - name: Install sshpass (for password authentication)
+        if: needs.check-connection-vars.outputs.auth_method == 'password'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sshpass
+          echo "✅ sshpass installed"
+
+      - name: Setup SSH (Key-based authentication)
+        if: needs.check-connection-vars.outputs.auth_method == 'key'
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.EXTERNAL_SERVER_SSH_KEY }}
+
+      - name: Add server to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }} -H ${{ secrets.EXTERNAL_SERVER_HOST }} >> ~/.ssh/known_hosts
+          echo "✅ Added server to known hosts"
+
+      - name: Remove Test Users (Key-based)
+        if: needs.check-connection-vars.outputs.auth_method == 'key'
+        run: |
+          ssh -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }} \
+              ${{ secrets.EXTERNAL_SERVER_USER }}@${{ secrets.EXTERNAL_SERVER_HOST }} << 'ENDSSH'
+            if [ -d "${{ env.DEPLOY_PATH }}" ]; then
+              echo "✅ Silver folder exists at ${{ env.DEPLOY_PATH }}"
+              
+              if [ -f "${{ env.DEPLOY_PATH }}/scripts/user/remove_test_users.sh" ]; then
+                cd ${{ env.DEPLOY_PATH }}/scripts/user
+                echo ""
+                echo "🧹 Running remove_test_users.sh"
+                echo "Removing all test users..."
+                echo ""
+                export AUTO_CONFIRM=true
+                bash remove_test_users.sh
+                
+                if [ $? -eq 0 ]; then
+                  echo ""
+                  echo "✅ Test users removed successfully"
+                else
+                  echo ""
+                  echo "⚠️  Some users may not have been removed completely"
+                  echo "Check the logs above for details"
+                fi
+                
+                # Clean up test data and reports directories
+                echo ""
+                echo "🧹 Cleaning up test directories..."
+                
+                if [ -d "${{ env.DEPLOY_PATH }}/test/load/test_data" ]; then
+                  rm -rf ${{ env.DEPLOY_PATH }}/test/load/test_data
+                  echo "✅ Removed test_data folder"
+                fi
+                
+                if [ -d "${{ env.DEPLOY_PATH }}/test/load/reports" ]; then
+                  rm -rf ${{ env.DEPLOY_PATH }}/test/load/reports
+                  echo "✅ Removed reports folder"
+                fi
+                
+                echo ""
+                echo "🎉 Cleanup completed!"
+              else
+                echo "❌ remove_test_users.sh not found"
+                exit 1
+              fi
+            else
+              echo "❌ Silver folder does not exist at ${{ env.DEPLOY_PATH }}"
+              exit 1
+            fi
+          ENDSSH
+
+      - name: Remove Test Users (Password-based)
+        if: needs.check-connection-vars.outputs.auth_method == 'password'
+        env:
+          SSHPASS: ${{ secrets.EXTERNAL_SERVER_PASSWORD }}
+        run: |
+          sshpass -e ssh -o StrictHostKeyChecking=no \
+              -p ${{ secrets.EXTERNAL_SERVER_PORT || '22' }} \
+              ${{ secrets.EXTERNAL_SERVER_USER }}@${{ secrets.EXTERNAL_SERVER_HOST }} << 'ENDSSH'
+            if [ -d "${{ env.DEPLOY_PATH }}" ]; then
+              echo "✅ Silver folder exists at ${{ env.DEPLOY_PATH }}"
+              
+              if [ -f "${{ env.DEPLOY_PATH }}/scripts/user/remove_test_users.sh" ]; then
+                cd ${{ env.DEPLOY_PATH }}/scripts/user
+                echo ""
+                echo "🧹 Running remove_test_users.sh"
+                echo "Removing all test users..."
+                echo ""
+                export AUTO_CONFIRM=true
+                bash remove_test_users.sh
+                
+                if [ $? -eq 0 ]; then
+                  echo ""
+                  echo "✅ Test users removed successfully"
+                else
+                  echo ""
+                  echo "⚠️  Some users may not have been removed completely"
+                  echo "Check the logs above for details"
+                fi
+                
+                # Clean up test data and reports directories
+                echo ""
+                echo "🧹 Cleaning up test directories..."
+                
+                if [ -d "${{ env.DEPLOY_PATH }}/test/load/test_data" ]; then
+                  rm -rf ${{ env.DEPLOY_PATH }}/test/load/test_data
+                  echo "✅ Removed test_data folder"
+                fi
+                
+                if [ -d "${{ env.DEPLOY_PATH }}/test/load/reports" ]; then
+                  rm -rf ${{ env.DEPLOY_PATH }}/test/load/reports
+                  echo "✅ Removed reports folder"
+                fi
+                
+                echo ""
+                echo "🎉 Cleanup completed!"
+              else
+                echo "❌ remove_test_users.sh not found"
+                exit 1
+              fi
+            else
+              echo "❌ Silver folder does not exist at ${{ env.DEPLOY_PATH }}"
+              exit 1
+            fi
+          ENDSSH

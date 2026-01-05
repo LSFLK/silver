@@ -1,1 +1,5 @@
 test_data
+
+reports
+.venv
+__pycache__

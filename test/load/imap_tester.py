@@ -27,41 +27,57 @@ class IMAPLoadTester(User):
         """Create a more permissive SSL context"""
         try:
             context = ssl.create_default_context()
-            # Allow older TLS versions if needed
-            context.minimum_version = ssl.TLSVersion.TLSv1_3
-            # For testing environments, you might need to disable cert verification
-            # context.check_hostname = False
-            # context.verify_mode = ssl.CERT_NONE
+            # Allow older TLS versions for better compatibility
+            context.minimum_version = ssl.TLSVersion.TLSv1_2
+            # For testing environments with self-signed certificates
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
             return context
-        except Exception:
+        except Exception as e:
+            logger.error(f"SSL context creation failed: {e}")
             return None
     
     def _try_imap_connection(self, config):
         """Try a specific IMAP configuration"""
         mail = None
         try:
+            logger.info(f"Attempting IMAP connection: {config['name']} on port {config['port']} to {self.config.IMAP_SERVER}")
+            
             if config.get("ssl", False):
-                # Direct SSL connection
+                # Direct SSL connection (port 993)
                 context = self._create_ssl_context()
+                if context is None:
+                    raise Exception("Failed to create SSL context")
+                
                 mail = imaplib.IMAP4_SSL(
                     self.config.IMAP_SERVER, 
                     config["port"],
                     ssl_context=context
                 )
+                logger.debug(f"SSL connection established on port {config['port']}")
             else:
-                # Plain connection, possibly with STARTTLS
+                # Plain connection (port 143), possibly with STARTTLS
                 mail = imaplib.IMAP4(self.config.IMAP_SERVER, config["port"])
+                logger.debug(f"Plain connection established on port {config['port']}")
+                
                 if config.get("starttls", False):
                     context = self._create_ssl_context()
+                    if context is None:
+                        raise Exception("Failed to create SSL context for STARTTLS")
                     mail.starttls(ssl_context=context)
+                    logger.debug("STARTTLS upgrade successful")
             
             # Test login
-            mail.login(self.user_account['username'], self.user_account['password'])
-            logger.info(f"IMAP connection successful using {config['name']} on port {config['port']}")
-            return mail, config
+            try:
+                mail.login(self.user_account['username'], self.user_account['password'])
+                logger.info(f"✅ IMAP login successful using {config['name']} on port {config['port']} for user {self.user_account['username']}")
+                return mail, config
+            except imaplib.IMAP4.error as login_error:
+                logger.error(f"❌ IMAP login failed on port {config['port']}: {login_error}")
+                raise
             
         except Exception as e:
-            logger.debug(f"IMAP connection failed for {config['name']}: {e}")
+            logger.warning(f"❌ IMAP connection failed for {config['name']} (port {config['port']}): {type(e).__name__}: {e}")
             if mail:
                 try: 
                     mail.logout()
