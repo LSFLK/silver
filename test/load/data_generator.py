@@ -2,6 +2,7 @@
 import os
 import random
 from faker import Faker
+from config import EmailServerConfig
 
 
 class TestDataGenerator:
@@ -9,6 +10,7 @@ class TestDataGenerator:
     
     def __init__(self):
         self.fake = Faker()
+        self.config = EmailServerConfig()
         self.email_templates = self._load_templates()
         self.attachments = self._get_attachments()
     
@@ -54,28 +56,48 @@ class TestDataGenerator:
         }
     
     def _get_attachments(self):
-        """Get list of test attachment files"""
+        """Get list of test attachment files (all under configured size limit)"""
         attachment_dir = "test_data/attachments/"
         os.makedirs(attachment_dir, exist_ok=True)
 
-        # Define files and sizes
+        # Get max size from config (default 8MB to account for base64 encoding overhead)
+        max_size = self.config.MAX_ATTACHMENT_SIZE_BYTES
+        
+        # Define files and sizes (all under the configured limit)
+        # Note: Base64 encoding adds ~33% overhead, so 8MB file becomes ~10.6MB encoded
+        # To stay safely under 10MB after encoding, we limit raw files to 8MB max
         files = {
-            "sample.pdf": 1024 * 1024,      # 1MB
-            "image.jpg": 512 * 1024,        # 500KB
-            "document.docx": 2 * 1024 * 1024, # 2MB
-            "spreadsheet.xlsx": 3 * 1024 * 1024, # 3MB
-            "large_file.zip": 10 * 1024 * 1024  # 10MB
+            "sample.pdf": 1024 * 1024,                    # 1MB
+            "image.jpg": 512 * 1024,                      # 512KB
+            "document.docx": 2 * 1024 * 1024,             # 2MB
+            "spreadsheet.xlsx": 3 * 1024 * 1024,          # 3MB
+            "presentation.pptx": 5 * 1024 * 1024,         # 5MB
+            "large_file.zip": min(max_size, 8 * 1024 * 1024)  # 8MB or max_size, whichever is smaller
         }
+
+        # Validate all files are under limit
+        for filename, size in list(files.items()):
+            if size > max_size:
+                print(f"Warning: {filename} ({size} bytes) exceeds max size ({max_size} bytes), adjusting...")
+                files[filename] = max_size
 
         # Create files if missing
         for filename, size in files.items():
             filepath = os.path.join(attachment_dir, filename)
             if not os.path.exists(filepath):
                 with open(filepath, 'wb') as f:
-                    f.write(b'0' * size)
+                    # Write random bytes instead of zeros for more realistic files
+                    f.write(os.urandom(size))
 
         # Return attachment info
-        return [{"path": os.path.join(attachment_dir, fname), "size": f"{size//1024}KB"} for fname, size in files.items()]
+        return [
+            {
+                "path": os.path.join(attachment_dir, fname), 
+                "size": f"{size//1024}KB" if size < 1024*1024 else f"{size//(1024*1024)}MB",
+                "bytes": size
+            } 
+            for fname, size in files.items()
+        ]
     
     def generate_email_content(self, email_type="random"):
         """Generate email content based on type"""
