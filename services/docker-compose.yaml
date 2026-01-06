@@ -12,7 +12,6 @@ services:
       - ./silver-config/postfix/sqlite-virtual-users.cf:/etc/postfix/sqlite-virtual-users.cf:ro
       - ./silver-config/postfix/sqlite-virtual-aliases.cf:/etc/postfix/sqlite-virtual-aliases.cf:ro
       - ../conf/silver.yaml:/etc/postfix/silver.yaml
-      - postfix-sasl:/var/spool/postfix/private
       - ./silver-config/certbot/keys/etc:/etc/letsencrypt:ro
       - ./silver-config/raven/data:/app/data:rw
       - postfix-spool:/var/spool/postfix
@@ -32,12 +31,12 @@ services:
       - "143:143"
       - "993:993"
       - "24:24"
+      - "12345:12345"
     volumes:
       - ./silver-config/raven/conf:/etc/raven:rw
       - ./silver-config/raven/data:/app/data:rw
       - ./silver-config/raven/certs:/certs:ro
       - ./silver-config/raven/delivery.yaml:/etc/raven/delivery.yaml:ro
-      - postfix-sasl:/var/spool/postfix/private
     environment:
       - DB_FILE=/app/data/databases/shared.db
     networks:
@@ -295,7 +294,6 @@ services:
       - ../conf/silver.yaml:/etc/silver/silver.yaml:ro
 
 volumes:
-  postfix-sasl:
   postfix-spool:
   postfix-logs:
   dkim-keys:
