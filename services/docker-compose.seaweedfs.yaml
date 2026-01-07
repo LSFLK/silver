@@ -71,7 +71,7 @@ services:
     networks:
       - seaweedfs-net
     volumes:
-      - ./s3-config.json:/etc/seaweedfs/s3.json:ro
+      - ./seaweedfs/s3-config.json:/etc/seaweedfs/s3.json:ro
     restart: unless-stopped
 networks:
   seaweedfs-net:
