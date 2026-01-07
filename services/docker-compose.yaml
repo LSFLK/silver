@@ -12,10 +12,8 @@ services:
       - ./silver-config/postfix/sqlite-virtual-users.cf:/etc/postfix/sqlite-virtual-users.cf:ro
       - ./silver-config/postfix/sqlite-virtual-aliases.cf:/etc/postfix/sqlite-virtual-aliases.cf:ro
       - ../conf/silver.yaml:/etc/postfix/silver.yaml
-      - postfix-sasl:/var/spool/postfix/private
       - ./silver-config/certbot/keys/etc:/etc/letsencrypt:ro
       - ./silver-config/raven/data:/app/data:rw
-      - raven-sockets:/var/run/raven # Shared socket directory
       - postfix-spool:/var/spool/postfix
       - postfix-logs:/var/log
     networks:
@@ -33,13 +31,12 @@ services:
       - "143:143"
       - "993:993"
       - "24:24"
+      - "12345:12345"
     volumes:
       - ./silver-config/raven/conf:/etc/raven:rw
       - ./silver-config/raven/data:/app/data:rw
       - ./silver-config/raven/certs:/certs:ro
       - ./silver-config/raven/delivery.yaml:/etc/raven/delivery.yaml:ro
-      - raven-sockets:/var/run/raven # Shared socket directory
-      - postfix-sasl:/var/spool/postfix/private
     environment:
       - DB_FILE=/app/data/databases/shared.db
     networks:
@@ -75,7 +72,6 @@ services:
       - rspamd_data:/var/lib/rspamd
       - rspamd_logs:/var/log/rspamd
       - ./silver-config/rspamd/:/etc/rspamd/local.d:ro
-      - clamsock:/var/run/clamav # shared socket volume
     networks:
       - mail-network
   
@@ -105,7 +101,6 @@ services:
     image: clamav/clamav:latest # Official ClamAV image
     container_name: clamav-server
     volumes:
-      - clamsock:/var/run/clamav
       - clamav_db:/var/lib/clamav
       - clamav_logs:/var/log/clamav
     networks:
@@ -128,7 +123,6 @@ services:
       dockerfile: Dockerfile
     container_name: clamav-exporter
     volumes:
-      - clamsock:/var/run/clamav:ro
       - clamav_logs:/var/log/clamav:ro
     ports:
       - "9810:9810"
@@ -297,17 +291,14 @@ services:
       - ../conf/silver.yaml:/etc/silver/silver.yaml:ro
 
 volumes:
-  postfix-sasl:
   postfix-spool:
   postfix-logs:
   dkim-keys:
   rspamd_data:
   rspamd_logs:
-  clamsock:
   clamav_db:
   clamav_logs:
   go-imap-data:
-  raven-sockets:
   loki-data:
   redis-data:
   thunder-db:
