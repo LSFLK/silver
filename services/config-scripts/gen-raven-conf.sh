@@ -13,6 +13,7 @@ GEN_DIR="${ROOT_DIR}/silver-config/raven" # Base path
 
 CONFIG_FILE="${ROOT_DIR}/../conf/silver.yaml"
 OUTPUT_FILE="${GEN_DIR}/conf/raven.yaml"
+DELIVERY_FILE="${GEN_DIR}/conf/delivery.yaml"
 MAILS_DB_PATH="${GEN_DIR}/data/databases/shared.db"
 SEAWEEDFS_ENV_FILE="${ROOT_DIR}/seaweedfs/.env"
 SEAWEEDFS_ENV_EXAMPLE="${ROOT_DIR}/seaweedfs/.env.example"
@@ -76,6 +77,34 @@ blob_storage:
 EOF
 
 echo "✅ Generated: $OUTPUT_FILE (domain: ${MAIL_DOMAIN})"
+
+if [ -f "$DELIVERY_FILE" ]; then
+	echo "ℹ️ Updating blob_storage section in delivery.yaml"
+
+	awk '
+	BEGIN { skip=0 }
+	/^blob_storage:/ { skip=1; next }
+	skip && /^[^[:space:]]/ { skip=0 }
+	!skip { print }
+	' "$DELIVERY_FILE" > "${DELIVERY_FILE}.tmp"
+
+	cat >> "${DELIVERY_FILE}.tmp" <<EOF
+
+blob_storage:
+  enabled: true
+  endpoint: "${S3_ENDPOINT}"
+  region: "${S3_REGION}"
+  bucket: "${S3_BUCKET}"
+  access_key: "${S3_ACCESS_KEY}"
+  secret_key: "${S3_SECRET_KEY}"
+  timeout: ${S3_TIMEOUT}
+EOF
+
+	mv "${DELIVERY_FILE}.tmp" "$DELIVERY_FILE"
+	echo "✅ blob_storage section updated in delivery.yaml"
+else
+	echo "⚠️ Warning: delivery.yaml not found at $DELIVERY_FILE"
+fi
 
 # --- Create shared.db if not exists ---
 if [ ! -f "$MAILS_DB_PATH" ]; then
