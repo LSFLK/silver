@@ -39,6 +39,7 @@ silver-observability
 
 # Ignore SeaweedFS configuration with credentials
 services/seaweedfs/s3-config.json
+services/seaweedfs/.env
 
 # Ignore docker-compose override files
 services/docker-compose.override.yml
