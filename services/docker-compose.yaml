@@ -36,7 +36,6 @@ services:
       - ./silver-config/raven/conf:/etc/raven:rw
       - ./silver-config/raven/data:/app/data:rw
       - ./silver-config/raven/certs:/certs:ro
-      - ./silver-config/raven/delivery.yaml:/etc/raven/delivery.yaml:ro
     environment:
       - DB_FILE=/app/data/databases/shared.db
     networks:
