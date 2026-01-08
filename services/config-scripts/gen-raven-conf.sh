@@ -14,8 +14,8 @@ GEN_DIR="${ROOT_DIR}/silver-config/raven" # Base path
 CONFIG_FILE="${ROOT_DIR}/../conf/silver.yaml"
 OUTPUT_FILE="${GEN_DIR}/conf/raven.yaml"
 MAILS_DB_PATH="${GEN_DIR}/data/databases/shared.db"
-SEAWEEDFS_ENV_FILE="${ROOT_DIR}/services/seaweedfs/.env"
-SEAWEEDFS_ENV_EXAMPLE="${ROOT_DIR}/services/seaweedfs/.env.example"
+SEAWEEDFS_ENV_FILE="${ROOT_DIR}/seaweedfs/.env"
+SEAWEEDFS_ENV_EXAMPLE="${ROOT_DIR}/seaweedfs/.env.example"
 
 # --- Extract primary (first) domain from silver.yaml ---
 # Look for the first domain entry under the domains list
