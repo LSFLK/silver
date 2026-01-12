@@ -34,11 +34,20 @@ fi
 
 # Step 1: Stop all containers using docker compose
 echo -e "\n${YELLOW}Step 1/3: Stopping Docker containers${NC}"
+echo "  - Stopping Silver mail services..."
 (cd "${SERVICES_DIR}" && docker compose down)
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Containers stopped successfully${NC}"
+    echo -e "${GREEN}  ✓ Silver services stopped successfully${NC}"
 else
-    echo -e "${RED}✗ Failed to stop containers${NC}"
+    echo -e "${RED}  ✗ Failed to stop Silver services${NC}"
+fi
+
+echo "  - Stopping SeaweedFS services..."
+(cd "${SERVICES_DIR}" && docker compose -f docker-compose.seaweedfs.yaml down)
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}  ✓ SeaweedFS services stopped successfully${NC}"
+else
+    echo -e "${RED}  ✗ Failed to stop SeaweedFS services${NC}"
 fi
 
 # Step 2: Remove all volumes

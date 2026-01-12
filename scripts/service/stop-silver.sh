@@ -6,4 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICES_DIR="$(cd "${SCRIPT_DIR}/../../services" && pwd)"
 
 # Navigate to services directory and stop docker services
+echo "Stopping Silver mail services..."
 (cd "${SERVICES_DIR}" && docker compose down)
+
+echo "Stopping SeaweedFS services..."
+(cd "${SERVICES_DIR}" && docker compose -f docker-compose.seaweedfs.yaml down)

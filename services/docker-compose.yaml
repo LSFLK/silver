@@ -36,7 +36,6 @@ services:
       - ./silver-config/raven/conf:/etc/raven:rw
       - ./silver-config/raven/data:/app/data:rw
       - ./silver-config/raven/certs:/certs:ro
-      - ./silver-config/raven/delivery.yaml:/etc/raven/delivery.yaml:ro
     environment:
       - DB_FILE=/app/data/databases/shared.db
     networks:
@@ -74,7 +73,7 @@ services:
       - ./silver-config/rspamd/:/etc/rspamd/local.d:ro
     networks:
       - mail-network
-  
+
   redis:
     image: redis:alpine
     container_name: rspamd-redis
@@ -109,13 +108,24 @@ services:
     depends_on:
       - rspamd-server
     environment:
-      - CLAMAV_NO_FRESHCLAMD=false
+      - CLAMAV_NO_FRESHCLAMD=true
     deploy:
       resources:
         limits:
           memory: 2.8G
         reservations:
           memory: 1G
+
+  clam-updater:
+    build:
+      context: ./clam-updater/clam
+      dockerfile: Dockerfile
+    container_name: clam-updater
+    volumes:
+      - clamav_db:/var/lib/clamav
+    networks:
+      - mail-network
+    restart: always
 
   clamav-exporter:
     build:
@@ -271,8 +281,8 @@ services:
       dockerfile: Dockerfile
     container_name: change-password-ui
     ports:
-      - "3001:3001"     # HTTP (redirects to HTTPS)
-      - "3443:3443"     # HTTPS
+      - "3001:3001" # HTTP (redirects to HTTPS)
+      - "3443:3443" # HTTPS
     environment:
       - PORT=3001
       - HTTPS_PORT=3443

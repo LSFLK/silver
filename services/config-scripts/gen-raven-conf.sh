@@ -13,12 +13,45 @@ GEN_DIR="${ROOT_DIR}/silver-config/raven" # Base path
 
 CONFIG_FILE="${ROOT_DIR}/../conf/silver.yaml"
 OUTPUT_FILE="${GEN_DIR}/conf/raven.yaml"
+DELIVERY_FILE="${GEN_DIR}/conf/delivery.yaml"
 MAILS_DB_PATH="${GEN_DIR}/data/databases/shared.db"
+SEAWEEDFS_ENV_FILE="${ROOT_DIR}/seaweedfs/.env"
+SEAWEEDFS_ENV_EXAMPLE="${ROOT_DIR}/seaweedfs/.env.example"
 
 # --- Extract primary (first) domain from silver.yaml ---
 # Look for the first domain entry under the domains list
 MAIL_DOMAIN=$(grep -m 1 '^\s*-\s*domain:' "$CONFIG_FILE" | sed 's/.*domain:\s*//' | xargs)
 MAIL_DOMAIN=${MAIL_DOMAIN:-example.local}
+
+# --- Load SeaweedFS credentials from .env file ---
+if [ -f "$SEAWEEDFS_ENV_FILE" ]; then
+	# Source the .env file
+	set -a  # automatically export all variables
+	source "$SEAWEEDFS_ENV_FILE"
+	set +a
+	echo "✅ Loaded SeaweedFS credentials from .env file"
+else
+	echo "⚠️  Warning: SeaweedFS .env file not found at $SEAWEEDFS_ENV_FILE"
+	if [ -f "$SEAWEEDFS_ENV_EXAMPLE" ]; then
+		echo "   Creating .env from .env.example..."
+		cp "$SEAWEEDFS_ENV_EXAMPLE" "$SEAWEEDFS_ENV_FILE"
+		set -a
+		source "$SEAWEEDFS_ENV_FILE"
+		set +a
+		echo "   ⚠️  Using example credentials. Please update $SEAWEEDFS_ENV_FILE with secure credentials!"
+	else
+		echo "   ❌ Error: .env.example not found. Using fail to prevent insecure defaults."
+		exit 1
+	fi
+fi
+
+# Set defaults if variables are not set
+S3_ACCESS_KEY=${S3_ACCESS_KEY:-raven}
+S3_SECRET_KEY=${S3_SECRET_KEY:-raven-secret}
+S3_ENDPOINT=${S3_ENDPOINT:-http://seaweedfs-s3:8333}
+S3_REGION=${S3_REGION:-us-east-1}
+S3_BUCKET=${S3_BUCKET:-email-attachments}
+S3_TIMEOUT=${S3_TIMEOUT:-30}
 
 # --- Certificate paths ---
 LETSENCRYPT_PATH="${ROOT_DIR}/silver-config/certbot/keys/etc/live/${MAIL_DOMAIN}"
@@ -31,9 +64,47 @@ mkdir -p "$(dirname "$OUTPUT_FILE")" "$(dirname "$MAILS_DB_PATH")" "$RAVEN_CERT_
 cat >"$OUTPUT_FILE" <<EOF
 domain: ${MAIL_DOMAIN}
 auth_server_url: https://thunder-server:8090/auth/credentials/authenticate
+
+# S3-Compatible Blob Storage Configuration
+blob_storage:
+  enabled: true
+  endpoint: "${S3_ENDPOINT}"
+  region: "${S3_REGION}"
+  bucket: "${S3_BUCKET}"
+  access_key: "${S3_ACCESS_KEY}"
+  secret_key: "${S3_SECRET_KEY}"
+  timeout: ${S3_TIMEOUT}  # seconds
 EOF
 
 echo "✅ Generated: $OUTPUT_FILE (domain: ${MAIL_DOMAIN})"
+
+if [ -f "$DELIVERY_FILE" ]; then
+	echo "ℹ️ Updating blob_storage section in delivery.yaml"
+
+	awk '
+	BEGIN { skip=0 }
+	/^blob_storage:/ { skip=1; next }
+	skip && /^[^[:space:]]/ { skip=0 }
+	!skip { print }
+	' "$DELIVERY_FILE" > "${DELIVERY_FILE}.tmp"
+
+	cat >> "${DELIVERY_FILE}.tmp" <<EOF
+
+blob_storage:
+  enabled: true
+  endpoint: "${S3_ENDPOINT}"
+  region: "${S3_REGION}"
+  bucket: "${S3_BUCKET}"
+  access_key: "${S3_ACCESS_KEY}"
+  secret_key: "${S3_SECRET_KEY}"
+  timeout: ${S3_TIMEOUT}
+EOF
+
+	mv "${DELIVERY_FILE}.tmp" "$DELIVERY_FILE"
+	echo "✅ blob_storage section updated in delivery.yaml"
+else
+	echo "⚠️ Warning: delivery.yaml not found at $DELIVERY_FILE"
+fi
 
 # --- Create shared.db if not exists ---
 if [ ! -f "$MAILS_DB_PATH" ]; then

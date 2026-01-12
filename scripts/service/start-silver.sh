@@ -92,11 +92,38 @@ fi
 # ================================
 echo -e "\n${YELLOW}Step 3/4: Starting Docker services${NC}"
 
+# Check and setup SeaweedFS S3 configuration
+SEAWEEDFS_CONFIG="${SERVICES_DIR}/seaweedfs/s3-config.json"
+SEAWEEDFS_EXAMPLE="${SERVICES_DIR}/seaweedfs/s3-config.json.example"
+
+if [ ! -f "$SEAWEEDFS_CONFIG" ]; then
+	echo "  - SeaweedFS S3 configuration not found. Creating from example..."
+	if [ -f "$SEAWEEDFS_EXAMPLE" ]; then
+		cp "$SEAWEEDFS_EXAMPLE" "$SEAWEEDFS_CONFIG"
+		echo -e "${YELLOW}  ⚠ WARNING: Using example S3 credentials. Update ${SEAWEEDFS_CONFIG} with secure credentials!${NC}"
+	else
+		echo -e "${RED}✗ SeaweedFS example configuration not found at ${SEAWEEDFS_EXAMPLE}${NC}"
+		exit 1
+	fi
+fi
+
+# Start SeaweedFS services first
+echo "  - Starting SeaweedFS blob storage..."
+(cd "${SERVICES_DIR}" && docker compose -f docker-compose.seaweedfs.yaml up -d)
+if [ $? -ne 0 ]; then
+	echo -e "${RED}✗ SeaweedFS docker compose failed. Please check the logs.${NC}"
+	exit 1
+fi
+echo -e "${GREEN}  ✓ SeaweedFS services started${NC}"
+
+# Start main Silver mail services
+echo "  - Starting Silver mail services..."
 (cd "${SERVICES_DIR}" && docker compose up -d)
 if [ $? -ne 0 ]; then
 	echo -e "${RED}✗ Docker compose failed. Please check the logs.${NC}"
 	exit 1
 fi
+echo -e "${GREEN}  ✓ Silver mail services started${NC}"
 
 sleep 1 # Wait a bit for services to initialize
 

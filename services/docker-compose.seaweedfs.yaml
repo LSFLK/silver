@@ -1,0 +1,82 @@
+services:
+  master:
+    image: chrislusf/seaweedfs:latest
+    container_name: seaweedfs-master
+    ports:
+      - "9333:9333"
+      - "19333:19333"
+    command: "master -ip=master -ip.bind=0.0.0.0 -port=9333"
+    networks:
+      - seaweedfs-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9333/cluster/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  volume:
+    image: chrislusf/seaweedfs:latest
+    container_name: seaweedfs-volume
+    ports:
+      - "8081:8080"
+      - "18081:18080"
+    command: 'volume -mserver="master:9333" -ip.bind=0.0.0.0 -port=8080 -max=10'
+    depends_on:
+      master:
+        condition: service_healthy
+    networks:
+      - seaweedfs-net
+    volumes:
+      - seaweedfs-volume:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  filer:
+    image: chrislusf/seaweedfs:latest
+    container_name: seaweedfs-filer
+    ports:
+      - "8888:8888"
+      - "18888:18888"
+    command: 'filer -master="master:9333" -ip.bind=0.0.0.0'
+    depends_on:
+      master:
+        condition: service_healthy
+      volume:
+        condition: service_healthy
+    networks:
+      - seaweedfs-net
+    volumes:
+      - seaweedfs-filer:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8888/"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  s3:
+    image: chrislusf/seaweedfs:latest
+    container_name: seaweedfs-s3
+    ports:
+      - "8333:8333"
+    command: 's3 -filer="filer:8888" -ip.bind=0.0.0.0 -port=8333 -config=/etc/seaweedfs/s3.json'
+    depends_on:
+      filer:
+        condition: service_healthy
+    networks:
+      - seaweedfs-net
+    volumes:
+      - ./seaweedfs/s3-config.json:/etc/seaweedfs/s3.json:ro
+    restart: unless-stopped
+networks:
+  seaweedfs-net:
+    driver: bridge
+
+volumes:
+  seaweedfs-volume:
+  seaweedfs-filer:
