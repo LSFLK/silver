@@ -32,8 +32,8 @@ Silver offers powerful capabilities that set it apart from traditional email sol
 | **Lightweight Infrastructure** – Run on minimal hardware without compromising performance | Completed |
 | **Complete Data Ownership** – Full control over storage, access, and security | Completed |
 | **Built-In Security Protection** – Enterprise-grade spam filtering and malware scanning | Completed |
+| **Smart Attachment Storage** – Separate object storage for improved performance | Completed |
 | **Professional Role-Based Identity** – Authoritative organizational email addresses | In Progress |
-| **Smart Attachment Storage** – Separate object storage for improved performance | In Progress |
 | **Identity Provider Integration** – Seamless integration with existing IdP systems | Planned |
 | **Disaster-Proof Backups** – Configurable backup strategies for data protection | Planned |
 | **Effortless Group Emailing** – Organize users into groups for simplified communication | Planned |
