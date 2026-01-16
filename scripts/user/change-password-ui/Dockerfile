@@ -1,7 +1,7 @@
 FROM node:18-alpine
 
-# Install docker CLI for executing database commands
-RUN apk add --no-cache docker-cli
+# Install docker CLI and curl for executing database commands and health checks
+RUN apk add --no-cache docker-cli curl
 
 WORKDIR /app
 
@@ -15,12 +15,12 @@ RUN npm install --production
 COPY backend/ ./backend/
 COPY frontend/ ./frontend/
 
-# Expose ports
-EXPOSE 3001 3443
+# Expose HTTPS port only
+EXPOSE 3443
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+# Health check - use HTTPS endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD curl -f -k https://localhost:3443/health || exit 1
 
 # Start the application
 CMD ["node", "backend/server.js"]
