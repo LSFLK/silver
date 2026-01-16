@@ -2,9 +2,7 @@ services:
   master:
     image: chrislusf/seaweedfs:latest
     container_name: seaweedfs-master
-    ports:
-      - "9333:9333"
-      - "19333:19333"
+    # Ports removed - internal communication only via seaweedfs-net
     command: "master -ip=master -ip.bind=0.0.0.0 -port=9333"
     networks:
       - seaweedfs-net
@@ -18,9 +16,7 @@ services:
   volume:
     image: chrislusf/seaweedfs:latest
     container_name: seaweedfs-volume
-    ports:
-      - "8081:8080"
-      - "18081:18080"
+    # Ports removed - internal communication only via seaweedfs-net
     command: 'volume -mserver="master:9333" -ip.bind=0.0.0.0 -port=8080 -max=10'
     depends_on:
       master:
@@ -39,9 +35,7 @@ services:
   filer:
     image: chrislusf/seaweedfs:latest
     container_name: seaweedfs-filer
-    ports:
-      - "8888:8888"
-      - "18888:18888"
+    # Ports removed - internal communication only via seaweedfs-net
     command: 'filer -master="master:9333" -ip.bind=0.0.0.0'
     depends_on:
       master:
@@ -73,6 +67,7 @@ services:
     volumes:
       - ./seaweedfs/s3-config.json:/etc/seaweedfs/s3.json:ro
     restart: unless-stopped
+
 networks:
   seaweedfs-net:
     driver: bridge
