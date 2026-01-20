@@ -87,9 +87,9 @@ cd silver
 
 - Enter your domain name.
 
-- Run `bash ../scripts/setup/setup.sh` to set up the configs.
+- Run `bash scripts/setup/setup.sh` to set up the configs.
 
-- Run `bash ../scripts/service/start-silver.sh` to start the mail server.
+- Run `bash scripts/service/start-silver.sh` to start the mail server.
 
 - Replace the dkim record below with the output you get after running the `setup.sh` script
 
