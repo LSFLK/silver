@@ -97,7 +97,7 @@ services:
     #   - ./unbound:/opt/unbound/etc/unbound
 
   clamav-server:
-    image: clamav/clamav:latest # Official ClamAV image
+    image: clamav/clamav:latest
     container_name: clamav-server
     volumes:
       - clamav_db:/var/lib/clamav
@@ -108,24 +108,13 @@ services:
     depends_on:
       - rspamd-server
     environment:
-      - CLAMAV_NO_FRESHCLAMD=true
+      - CLAMAV_NO_FRESHCLAMD=false
     deploy:
       resources:
         limits:
           memory: 2.8G
         reservations:
           memory: 1G
-
-  clam-updater:
-    build:
-      context: ./clam-updater/clam
-      dockerfile: Dockerfile
-    container_name: clam-updater
-    volumes:
-      - clamav_db:/var/lib/clamav
-    networks:
-      - mail-network
-    restart: always
 
   clamav-exporter:
     build:
