@@ -106,7 +106,7 @@ cd silver
 
 ```bash
 # silver/services
-bash ../scripts/user/add_user.sh
+bash scripts/user/add_user.sh
 ```
 - Follow the prompts to add a new user.
 
