@@ -150,7 +150,7 @@ Silver is built using open-source software.
 - [Raven](https://github.com/lsflk/raven) - Handles SASL authentication, LMTP, and IMAP server for email retrieval.
 - [Thunder](https://github.com/asgardeo/thunder) - Identity provider and user manager
 - [Rspamd](https://rspamd.com/) - Spam filtering system.
-- [ClamAV](https://docs.clamav.net/Introduction.html) -  Virus scanning system.
+- [ClamAV](https://docs.clamav.net/Introduction.html) - Virus scanning system.
 - [Certbot](https://certbot.eff.org/) - Client software that talks to Let’s Encrypt to generate certificates.
 
 ## Contributing
