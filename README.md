@@ -138,7 +138,7 @@ bash scripts/user/add_user.sh
 
 **Figure 2: Inbound Email Flow**
 
-<img src="https://github.com/user-attachments/assets/de7e032b-7dfe-42b6-950b-9b59028ef06b" alt="Outbound Email Flow" width="100%" />
+<img src="https://github.com/user-attachments/assets/58e81d33-6a26-4bff-92fb-663737446740" alt="Outbound Email Flow" width="100%" />
 
 </td>
 </tr>
