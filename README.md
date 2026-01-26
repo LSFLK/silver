@@ -146,11 +146,11 @@ bash scripts/user/add_user.sh
 
 Silver is built using open-source software.
 
-- [Postfix](https://www.postfix.org/) - handles sending and receiving email.
-- [Raven](https://github.com/lsflk/raven) - handles SASL authentication, LMTP, and IMAP server for email retrieval.
+- [Postfix](https://www.postfix.org/) - Handles sending and receiving email.
+- [Raven](https://github.com/lsflk/raven) - Handles SASL authentication, LMTP, and IMAP server for email retrieval.
 - [Thunder](https://github.com/asgardeo/thunder) - Identity provider and user manager
-- [Rspamd](https://rspamd.com/) - spam filtering system.
-- [ClamAV](https://docs.clamav.net/Introduction.html) -  virus scanning system.
+- [Rspamd](https://rspamd.com/) - Spam filtering system.
+- [ClamAV](https://docs.clamav.net/Introduction.html) - Virus scanning system.
 - [Certbot](https://certbot.eff.org/) - Client software that talks to Let’s Encrypt to generate certificates.
 
 ## Contributing
