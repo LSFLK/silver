@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smtp-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: smtp
+  template:
+    metadata:
+      labels:
+        app: smtp
+    spec:
+      containers:
+        - name: smtp-server
+          image: ghcr.io/lsflk/silver-smtp:main
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 25
+            - containerPort: 587
+          env:
+            - name: MYHOSTNAME
+              value: "silver-test.local"
+            - name: MYNETWORKS
+              value: "0.0.0.0/0"
+            - name: LOG_TO_STDOUT
+              value: "1"
+          volumeMounts:
+            - name: postfix-main
+              mountPath: /etc/postfix/main.cf
+            - name: postfix-master
+              mountPath: /etc/postfix/master.cf
+            - name: postfix-virtual-domains
+              mountPath: /etc/postfix/sqlite-virtual-domains.cf
+            - name: postfix-virtual-users
+              mountPath: /etc/postfix/sqlite-virtual-users.cf
+            - name: postfix-virtual-aliases
+              mountPath: /etc/postfix/sqlite-virtual-aliases.cf
+            - name: postfix-silver
+              mountPath: /etc/postfix/silver.yaml
+            - name: postfix-letsencrypt
+              mountPath: /etc/letsencrypt
+            - name: raven-data
+              mountPath: /app/data
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+      volumes:
+        - name: postfix-main
+          hostPath:
+            path: /root/mail/silver/services/silver-config/postfix/main.cf
+            type: File
+        - name: postfix-master
+          hostPath:
+            path: /root/mail/silver/services/silver-config/postfix/master.cf
+            type: File
+        - name: postfix-virtual-domains
+          hostPath:
+            path: /root/mail/silver/services/silver-config/postfix/sqlite-virtual-domains.cf
+            type: File
+        - name: postfix-virtual-users
+          hostPath:
+            path: /root/mail/silver/services/silver-config/postfix/sqlite-virtual-users.cf
+            type: File
+        - name: postfix-virtual-aliases
+          hostPath:
+            path: /root/mail/silver/services/silver-config/postfix/sqlite-virtual-aliases.cf
+            type: File
+        - name: postfix-silver
+          hostPath:
+            path: /root/mail/silver/conf/silver.yaml
+            type: File
+        - name: postfix-letsencrypt
+          hostPath:
+            path: /root/mail/silver/services/silver-config/certbot/keys/etc
+            type: Directory
+        - name: raven-data
+          hostPath:
+            path: /root/mail/silver/services/silver-config/raven/data
+            type: Directory
