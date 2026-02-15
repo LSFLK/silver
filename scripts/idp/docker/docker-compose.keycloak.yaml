@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak-server
+    environment:
+      # Admin credentials (change these in production!)
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+
+      # Database configuration (using embedded H2 for development)
+      # For production, use PostgreSQL or MySQL
+      KC_DB: dev-file
+
+      # HTTP settings - allow HTTP in development mode
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_RELATIVE_PATH: "/"
+
+      # Proxy settings - accept HTTP requests from reverse proxy
+      KC_PROXY: "edge"
+      KC_PROXY_HEADERS: "xforwarded"
+
+      # HTTPS settings (for production - uncomment when using HTTPS)
+      # Certificates are mounted from certbot
+      # KC_HTTPS_CERTIFICATE_FILE: "/opt/keycloak/certs/live/${DOMAIN}/fullchain.pem"
+      # KC_HTTPS_CERTIFICATE_KEY_FILE: "/opt/keycloak/certs/live/${DOMAIN}/privkey.pem"
+      # KC_HTTPS_PORT: "8443"
+
+      # Health checks
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+
+      # Logging
+      KC_LOG_LEVEL: "INFO"
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      # Mount certbot certificates for HTTPS (read-only)
+      # Certificates will be available at /opt/keycloak/certs/live/${domain}/
+      - ../../../services/silver-config/certbot/keys/etc:/opt/keycloak/certs:ro
+    command:
+      - start-dev
+      # For production with HTTPS, change to: start
+      # and uncomment the KC_HTTPS_* environment variables above
+    networks:
+      - mail-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health/ready || curl -f https://localhost:8443/health/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  # Optional: PostgreSQL for production use
+  # Uncomment this section and update keycloak environment variables for production
+  # keycloak-db:
+  #   image: postgres:15-alpine
+  #   container_name: keycloak-postgres
+  #   environment:
+  #     POSTGRES_DB: keycloak
+  #     POSTGRES_USER: keycloak
+  #     POSTGRES_PASSWORD: keycloak_password_change_me
+  #   volumes:
+  #     - keycloak-postgres-data:/var/lib/postgresql/data
+  #   networks:
+  #     - mail-network
+  #   restart: unless-stopped
+
+volumes:
+  keycloak-data:
+    driver: local
+  # keycloak-postgres-data:
+  #   driver: local
+
+networks:
+  mail-network:
+    external: true
