@@ -84,7 +84,7 @@ keycloak_authenticate() {
     echo "  - Requesting access token from Keycloak..."
 
     local auth_response
-    auth_response=$(curl -s -w ${curl_opts} "\n%{http_code}" ${curl_opts} -X POST \
+    auth_response=$(curl -s ${curl_opts} -w "\n%{http_code}" -X POST \
         "${protocol}://${keycloak_host}:${keycloak_port}/realms/${keycloak_realm}/protocol/openid-connect/token" \
         -H "Content-Type: application/x-www-form-urlencoded" \
         -d "client_id=admin-cli" \
