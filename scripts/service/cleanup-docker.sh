@@ -53,14 +53,12 @@ fi
 # Stop Identity Provider services
 IDP_DIR="$(cd "${SCRIPT_DIR}/../idp/docker" && pwd)"
 echo "  - Stopping Identity Provider services..."
-echo "    - Stopping Thunder..."
-if [ -f "${IDP_DIR}/docker-compose.thunder.yaml" ]; then
-    (cd "${IDP_DIR}" && docker compose -f docker-compose.thunder.yaml down)
-fi
-echo "    - Stopping Keycloak..."
-if [ -f "${IDP_DIR}/docker-compose.keycloak.yaml" ]; then
-    (cd "${IDP_DIR}" && docker compose -f docker-compose.keycloak.yaml down)
-fi
+for idp in thunder keycloak; do
+    echo "    - Stopping ${idp}..."
+    if [ -f "${IDP_DIR}/docker-compose.${idp}.yaml" ]; then
+        (cd "${IDP_DIR}" && docker compose -f "docker-compose.${idp}.yaml" down)
+    fi
+done
 echo -e "${GREEN}  ✓ Identity Provider services stopped${NC}"
 
 
