@@ -131,44 +131,6 @@ services:
     depends_on:
       - clamav-server
 
-  # Initialize database from the image
-  thunder-db-init:
-    image: ghcr.io/asgardeo/thunder:0.14.0
-    container_name: thunder-db-init
-    command: sh -c "cp -r /opt/thunder/repository/database/* /data/"
-    volumes:
-      - thunder-db:/data
-    restart: "no"
-
-  # Run setup once with the shared database
-  thunder-setup:
-    image: ghcr.io/asgardeo/thunder:0.14.0
-    container_name: thunder-setup
-    command: ./setup.sh
-    volumes:
-      - thunder-db:/opt/thunder/repository/database
-    depends_on:
-      thunder-db-init:
-        condition: service_completed_successfully
-    restart: "no"
-
-  # Run Thunder server with the shared database
-  thunder:
-    image: ghcr.io/asgardeo/thunder:0.14.0
-    container_name: thunder-server
-    depends_on:
-      thunder-setup:
-        condition: service_completed_successfully
-    ports:
-      - "127.0.0.1:8090:8090"
-    volumes:
-      - thunder-db:/opt/thunder/repository/database
-      - ./silver-config/thunder/certs/server.cert:/opt/thunder/repository/resources/security/server.cert:ro
-      - ./silver-config/thunder/certs/server.key:/opt/thunder/repository/resources/security/server.key:ro
-    networks:
-      - mail-network
-    restart: unless-stopped
-
   certbot-server:
     image: ghcr.io/lsflk/silver-certbot:main
     container_name: certbot-server
@@ -229,7 +191,7 @@ services:
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
     ports:
-      - "8080:8080"
+      - "8081:8080"
     networks:
       - mail-network
     restart: unless-stopped
@@ -277,12 +239,11 @@ services:
       - HTTPS_PORT=3443
       - ENABLE_HTTPS=true
       - ENABLE_HTTP_REDIRECT=false  # Disable HTTP redirect to prevent warnings
-      - THUNDER_API=https://thunder-server:8090
+      - KEYCLOAK_API=http://keycloak-server:8080
       - SILVER_CONFIG=/etc/silver/silver.yaml
     networks:
       - mail-network
     depends_on:
-      - thunder
       - smtp-server
     restart: unless-stopped
     volumes:
@@ -301,7 +262,6 @@ volumes:
   go-imap-data:
   loki-data:
   redis-data:
-  thunder-db:
 
 
 networks:
