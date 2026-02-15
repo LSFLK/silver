@@ -61,19 +61,13 @@ create_idp_provider() {
 
     # Load the appropriate provider implementation
     case "$provider_name" in
-        thunder)
-            if [ ! -f "${PROVIDERS_DIR}/thunder-idp.sh" ]; then
-                echo -e "${RED}✗ Thunder provider not found at ${PROVIDERS_DIR}/thunder-idp.sh${NC}" >&2
+        thunder|keycloak)
+            local provider_script="${PROVIDERS_DIR}/${provider_name}-idp.sh"
+            if [ ! -f "$provider_script" ]; then
+                echo -e "${RED}✗ ${provider_name^} provider not found at ${provider_script}${NC}" >&2
                 return 1
             fi
-            source "${PROVIDERS_DIR}/thunder-idp.sh"
-            ;;
-        keycloak)
-            if [ ! -f "${PROVIDERS_DIR}/keycloak-idp.sh" ]; then
-                echo -e "${RED}✗ Keycloak provider not found at ${PROVIDERS_DIR}/keycloak-idp.sh${NC}" >&2
-                return 1
-            fi
-            source "${PROVIDERS_DIR}/keycloak-idp.sh"
+            source "$provider_script"
             ;;
         *)
             echo -e "${RED}✗ Unknown identity provider: ${provider_name}${NC}" >&2
