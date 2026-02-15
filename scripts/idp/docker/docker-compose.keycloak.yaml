@@ -42,7 +42,7 @@ services:
       - keycloak-data:/opt/keycloak/data
       # Mount certbot certificates for HTTPS (read-only)
       # Certificates will be available at /opt/keycloak/certs/live/${domain}/
-      - ../services/silver-config/certbot/keys/etc:/opt/keycloak/certs:ro
+      - ../../../services/silver-config/certbot/keys/etc:/opt/keycloak/certs:ro
     command:
       - start-dev
       # For production with HTTPS, change to: start
