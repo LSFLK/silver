@@ -23,20 +23,6 @@ YELLOW="\033[1;33m"
 RED="\033[0;31m"
 NC="\033[0m" # No Color
 
-# ============================================
-# Helper: Build Keycloak URL
-# ============================================
-_keycloak_url() {
-    local protocol="${KEYCLOAK_PROTOCOL:-http}"
-    echo "${protocol}://$1:$2"
-}
-
-# ============================================
-# Helper: Get curl options
-# ============================================
-_curl_opts() {
-    echo "${KEYCLOAK_CURL_OPTS:-}"
-}
 
 # ============================================
 # Function: Authenticate with Keycloak and get access token
