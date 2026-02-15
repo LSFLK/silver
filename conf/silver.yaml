@@ -58,7 +58,7 @@ identity:
 #   keycloak:
 #     host: ${MAIL_DOMAIN}
 #     port: 8080
-#     admin_user: admin
-#     admin_password: admin
+#     admin_user: <your-secure-user>
+#     admin_password: <your-secure-password>
 #     realm: silver-mail
 #     client_id: silver-mail-client
