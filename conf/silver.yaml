@@ -30,3 +30,35 @@ domains:
   - domain:
     dkim-selector:
     dkim-key-size:
+
+# ===============================================================
+#          Identity Provider Configuration
+# ===============================================================
+#
+# Configure which Identity Provider (IdP) to use for user authentication
+# and management. Silver supports multiple IdP backends using a pluggable
+# architecture.
+#
+# Supported Providers:
+#   - thunder:   Thunder (WSO2) Identity Server
+#   - keycloak:  Keycloak Identity and Access Management
+#
+# Example configurations:
+
+# Option 1: Thunder (WSO2) - Default
+identity:
+  provider: thunder
+  thunder:
+    host: ${MAIL_DOMAIN} # Will use the primary domain
+    port: 8090
+    use_https: true
+# Option 2: Keycloak
+# identity:
+#   provider: keycloak
+#   keycloak:
+#     host: ${MAIL_DOMAIN}
+#     port: 8080
+#     admin_user: <your-secure-user>
+#     admin_password: <your-secure-password>
+#     realm: silver-mail
+#     client_id: silver-mail-client

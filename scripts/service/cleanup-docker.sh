@@ -33,7 +33,7 @@ if [ "$CONFIRM" != "y" ]; then
 fi
 
 # Step 1: Stop all containers using docker compose
-echo -e "\n${YELLOW}Step 1/3: Stopping Docker containers${NC}"
+echo -e "\n${YELLOW}Step 1/4: Stopping Docker containers${NC}"
 echo "  - Stopping Silver mail services..."
 (cd "${SERVICES_DIR}" && docker compose down)
 if [ $? -eq 0 ]; then
@@ -50,8 +50,20 @@ else
     echo -e "${RED}  ✗ Failed to stop SeaweedFS services${NC}"
 fi
 
+# Stop Identity Provider services
+IDP_DIR="$(cd "${SCRIPT_DIR}/../idp/docker" && pwd)"
+echo "  - Stopping Identity Provider services..."
+for idp in thunder keycloak; do
+    echo "    - Stopping ${idp}..."
+    if [ -f "${IDP_DIR}/docker-compose.${idp}.yaml" ]; then
+        (cd "${IDP_DIR}" && docker compose -f "docker-compose.${idp}.yaml" down)
+    fi
+done
+echo -e "${GREEN}  ✓ Identity Provider services stopped${NC}"
+
+
 # Step 2: Remove all volumes
-echo -e "\n${YELLOW}Step 2/3: Removing all Docker volumes${NC}"
+echo -e "\n${YELLOW}Step 2/4: Removing all Docker volumes${NC}"
 VOLUMES=$(docker volume ls -q)
 if [ -n "$VOLUMES" ]; then
     docker volume rm $VOLUMES
@@ -65,7 +77,7 @@ else
 fi
 
 # Step 3: Remove all images
-echo -e "\n${YELLOW}Step 3/3: Removing all Docker images${NC}"
+echo -e "\n${YELLOW}Step 3/4: Removing all Docker images${NC}"
 IMAGES=$(docker images -q)
 if [ -n "$IMAGES" ]; then
     docker rmi -f $IMAGES
@@ -76,6 +88,20 @@ if [ -n "$IMAGES" ]; then
     fi
 else
     echo -e "${CYAN}No images to remove${NC}"
+fi
+
+# Step 4: Clean up any remaining IdP containers
+echo -e "\n${YELLOW}Step 4/4: Cleaning up Identity Provider containers${NC}"
+IDP_CONTAINERS=$(docker ps -a --filter "name=thunder" --filter "name=keycloak" -q)
+if [ -n "$IDP_CONTAINERS" ]; then
+    docker rm -f $IDP_CONTAINERS
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✓ All IdP containers removed${NC}"
+    else
+        echo -e "${RED}✗ Some IdP containers could not be removed${NC}"
+    fi
+else
+    echo -e "${CYAN}No IdP containers to remove${NC}"
 fi
 
 echo -e "\n${GREEN}Cleanup complete!${NC}"
