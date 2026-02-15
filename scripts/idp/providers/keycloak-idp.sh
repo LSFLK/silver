@@ -105,7 +105,7 @@ keycloak_configure() {
 
     # Step 1: Authenticate with Keycloak (master realm)
     echo "  - Authenticating with Keycloak..."
-    if ! keycloak_authenticate "$keycloak_host" "$keycloak_port" "master" "admin" "admin"; then
+    if ! keycloak_authenticate "$keycloak_host" "$keycloak_port" "master" "${KEYCLOAK_ADMIN}" "${KEYCLOAK_ADMIN_PASSWORD}"; then
         echo -e "${RED}✗ Failed to authenticate with Keycloak${NC}" >&2
         return 1
     fi
