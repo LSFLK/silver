@@ -106,4 +106,4 @@ Raven into the repository.
 
 ### Full Changelog
 
-https://github.com/LSFLK/silver/commits/v0.1.0
+https://github.com/LSFLK/silver/releases/tag/v0.1.0
