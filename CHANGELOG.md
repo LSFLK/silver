@@ -72,50 +72,37 @@ https://github.com/LSFLK/silver/compare/v0.1.0...v0.2.0
 This release saves a stable working version of Silver M1 before integrating
 Raven into the repository.
 
-### What's Changed
+### Added
 
-- Docker services init. by @maneeshaxyz in https://github.com/LSFLK/silver/pull/16
-- Tests for SMTP local delivery from host machine to container. by @maneeshaxyz in https://github.com/LSFLK/silver/pull/17
-- Feat/swag setup by @maneeshaxyz in https://github.com/LSFLK/silver/pull/18
-- chore: docs. by @maneeshaxyz in https://github.com/LSFLK/silver/pull/19
-- Chore/combined containers by @maneeshaxyz in https://github.com/LSFLK/silver/pull/21
-- Chore/env change by @maneeshaxyz in https://github.com/LSFLK/silver/pull/22
-- M1: base functionality is completed by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/27
-- Feat/init scripts by @maneeshaxyz in https://github.com/LSFLK/silver/pull/28
-- Feat/init scripts by @maneeshaxyz in https://github.com/LSFLK/silver/pull/29
-- Chore/docs by @maneeshaxyz in https://github.com/LSFLK/silver/pull/30
-- Feat/webui by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/31
-- Scripts and simple webui to run the mail server by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/32
-- Refactor/docs by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/34
-- Refactor/docs and Update webui by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/35
-- docs: fixes. by @maneeshaxyz in https://github.com/LSFLK/silver/pull/36
-- Docs/doc-fixes. by @maneeshaxyz in https://github.com/LSFLK/silver/pull/37
-- Refactor/ymal file by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/39
-- chore: added yaml parsing in init.sh. by @maneeshaxyz in https://github.com/LSFLK/silver/pull/40
-- chore: fix add user init script by @maneeshaxyz in https://github.com/LSFLK/silver/pull/41
-- Feat/load test by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/42
-- fix: combined the add_user files and use only minimum details by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/43
-- feat: add quota limit for mail dir by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/44
-- Refactor/thunder endpoints by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/45
-- Refactor/thunder endpoints by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/47
-- Feat/user list by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/48
-- Feat/switch to yaml file across services. by @maneeshaxyz in https://github.com/LSFLK/silver/pull/38
-- chore: docs-merge-fixes by @maneeshaxyz in https://github.com/LSFLK/silver/pull/55
-- chore: fix docs. by @maneeshaxyz in https://github.com/LSFLK/silver/pull/56
-- Merge the dev branch into main by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/57
-- 51 restrict external access to thunder idp by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/58
-- 50 enable pop3 access while keeping a copy of emails on the server by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/65
-- 49 enable adding virtual users without rebuilding postfix container by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/61
-- Dynamic Mail User Provisioning with POP3 Protocol Support by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/66
-- Feat/issue template by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/68
-- feat: add pull request template for improved contribution guidelines by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/69
-- 70 task switch to a light weight base image by @maneeshaxyz in https://github.com/LSFLK/silver/pull/75
-- Feat/service-cleanup by @maneeshaxyz in https://github.com/LSFLK/silver/pull/64
-- chore: fix receiving lmtp. by @maneeshaxyz in https://github.com/LSFLK/silver/pull/78
-- Fix by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/79
-- chore: change maillog_file path to stdout for Docker compatibility by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/81
-- 71 task audit dockerfiles by @maneeshaxyz in https://github.com/LSFLK/silver/pull/83
-- Merge main into dev by @maneeshaxyz in https://github.com/LSFLK/silver/pull/85
+- Initial Dockerized Silver M1 services and SMTP host-to-container delivery
+  testing (`#16`, `#17`, `#27`).
+- Initial API/Web UI setup and operation scripts for running the mail server
+  (`#18`, `#31`, `#32`).
+- Bootstrap/init automation and user-facing tooling, including user listing and
+  quota controls (`#28`, `#29`, `#44`, `#48`).
+- Load testing support and related tooling (`#42`).
+- Dynamic virtual user provisioning with POP3 support (`#61`, `#65`, `#66`).
+- Repository collaboration templates for issues and pull requests (`#68`,
+  `#69`).
+
+### Changed
+
+- Consolidated container layout, improved environment defaults, and completed
+  service cleanup/hardening (`#21`, `#22`, `#64`, `#75`, `#83`).
+- Migrated service configuration toward YAML-driven flows and parsing (`#38`,
+  `#39`, `#40`).
+- Refactored Thunder endpoints and restricted external access to Thunder IDP
+  (`#45`, `#47`, `#58`).
+- Updated runtime/logging behavior for Docker compatibility and merged long-lived
+  branches to stabilize the release line (`#57`, `#81`, `#85`).
+- Expanded and refined project documentation (`#19`, `#30`, `#34`, `#35`,
+  `#36`, `#37`, `#55`, `#56`).
+
+### Fixed
+
+- Fixed user initialization and add-user script behavior (`#41`, `#43`).
+- Fixed LMTP mail receiving flow and other release-blocking defects (`#78`,
+  `#79`).
 
 ### Full Changelog
 
