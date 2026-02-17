@@ -16,7 +16,6 @@ observability improvements, and stronger operational tooling.
 
 - Raven delivery integration and related configuration updates
   (`#120`, `#121`, `#123`).
-- Role-based mail system support (`#164`).
 - Change password Web UI and backend services (`#201`, `#203`, `#206`, `#207`).
 - Load testing suite, utilities, and CI jobs (`#211`, `#213`, `#215`, `#229`,
   `#230`, `#232`, `#234`).
@@ -36,7 +35,6 @@ observability improvements, and stronger operational tooling.
   refinements (`#131`, `#144`).
 - Enhanced multi-domain certificate/domain handling and DKIM script workflows
   (`#157`, `#158`).
-- Updated Thunder integration to version `0.14.0` (`#191`).
 - Removed Unix socket usage from core Silver services (`#236`).
 
 ### Fixed
