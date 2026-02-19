@@ -265,11 +265,11 @@ services:
     restart: unless-stopped
 
   prometheus:
-    image: prom/prometheus:3.9
+    image: dhi.io/prometheus:3.9
     container_name: prometheus-local
     env_file: ".env"
     ports:
-      - 9090:9090"
+      - 9090:9090
     volumes:
       - ./silver-config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -286,11 +286,11 @@ services:
       - mail-network
 
   grafana:
-    image: grafana/grafana:2-debian13-dev
+    image: dhi.io/grafana:12-debian13-dev
     container_name: grafana-local
     env_file: ".env"
     ports:
-      - 3000:3000"
+      - 3000:3000
     volumes:
       - grafana_data:/var/lib/grafana
       - ./silver-config/grafana/provisioning:/etc/grafana/provisioning:ro
