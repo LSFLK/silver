@@ -55,7 +55,7 @@ MAIL_DOMAIN=""
 # ================================
 # Step 1: Domain Configuration
 # ================================
-echo -e "\n${YELLOW}Step 1/8: Configure domain name${NC}"
+echo -e "\n${YELLOW}Step 1/3: Configure domain name${NC}"
 
 # Extract primary (first) domain from the domains list in silver.yaml
 readonly MAIL_DOMAIN=$(grep -m 1 '^\s*-\s*domain:' "${CONFIG_FILE}" | sed 's/.*domain:\s*//' | xargs)
@@ -76,11 +76,13 @@ fi
 # ================================
 # Step 2: Config Generation
 # ================================
+echo -e "\n${YELLOW}Step 2/3: Clone configuration repository${NC}"
 
 git clone ${SILVER_CONFIG} "${SERVICES_DIR}/silver-config"
 
 # ================================
 # Step 3: Generate Service Configurations
 # ================================
+echo -e "\n${YELLOW}Step 3/3: Generate service configurations${NC}"
 
 bash ${SERVICES_DIR}/config-scripts/gen-configs.sh
