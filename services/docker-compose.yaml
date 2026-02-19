@@ -264,32 +264,6 @@ services:
       - mail-network
     restart: unless-stopped
 
-  change-password-ui:
-    build:
-      context: ../scripts/user/change-password-ui
-      dockerfile: Dockerfile
-    container_name: change-password-ui
-    ports:
-      - "3443:3443" # HTTPS - main service port
-      # - "3001:3001" # HTTP (redirects to HTTPS)
-    environment:
-      - PORT=3001
-      - HTTPS_PORT=3443
-      - ENABLE_HTTPS=true
-      - ENABLE_HTTP_REDIRECT=false  # Disable HTTP redirect to prevent warnings
-      - THUNDER_API=https://thunder-server:8090
-      - SILVER_CONFIG=/etc/silver/silver.yaml
-    networks:
-      - mail-network
-    depends_on:
-      - thunder
-      - smtp-server
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./silver-config/certbot/keys/etc:/etc/letsencrypt:ro
-      - ../conf/silver.yaml:/etc/silver/silver.yaml:ro
-
 volumes:
   postfix-spool:
   postfix-logs:
