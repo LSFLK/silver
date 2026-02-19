@@ -34,6 +34,33 @@ echo -e "${CYAN}---------------------------------------------${NC}\n"
 # Helper Functions
 # -------------------------------
 
+# Make a Thunder API call and parse response
+# Usage: thunder_api_call <url> <json_data> <description>
+# Sets global variables: API_RESPONSE_BODY and API_RESPONSE_STATUS
+thunder_api_call() {
+	local url="$1"
+	local json_data="$2"
+	local description="$3"
+	
+	local full_response=$(curl -s -w "\n%{http_code}" -X POST \
+		-H "Content-Type: application/json" \
+		-H "Accept: application/json" \
+		-H "Authorization: Bearer ${BEARER_TOKEN}" \
+		"$url" \
+		-d "$json_data")
+	
+	API_RESPONSE_BODY=$(echo "$full_response" | head -n -1)
+	API_RESPONSE_STATUS=$(echo "$full_response" | tail -n1)
+	
+	if [ "$API_RESPONSE_STATUS" -ne 200 ]; then
+		echo -e "${RED}✗ Failed to $description (HTTP $API_RESPONSE_STATUS)${NC}"
+		echo -e "${RED}Response: $API_RESPONSE_BODY${NC}"
+		return 1
+	fi
+	
+	return 0
+}
+
 # Check if Docker Compose services are running
 check_services() {
 	echo -e "${YELLOW}Checking Docker Compose services...${NC}"
@@ -442,24 +469,14 @@ while IFS= read -r line; do
 
 			# Step 1: Start USER_ONBOARDING flow
 			echo -e "${CYAN}  → Step 1: Starting USER_ONBOARDING flow...${NC}"
-			FLOW_START_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-				-H "Content-Type: application/json" \
-				-H "Accept: application/json" \
-				-H "Authorization: Bearer ${BEARER_TOKEN}" \
-				https://${THUNDER_HOST}:${THUNDER_PORT}/flow/execute \
-				-d '{"flowType":"USER_ONBOARDING","verbose":true}')
-
-			FLOW_START_BODY=$(echo "$FLOW_START_RESPONSE" | head -n -1)
-			FLOW_START_STATUS=$(echo "$FLOW_START_RESPONSE" | tail -n1)
-
-			if [ "$FLOW_START_STATUS" -ne 200 ]; then
-				echo -e "${RED}✗ Failed to start USER_ONBOARDING flow (HTTP $FLOW_START_STATUS)${NC}"
-				echo -e "${RED}Response: $FLOW_START_BODY${NC}"
+			if ! thunder_api_call "https://${THUNDER_HOST}:${THUNDER_PORT}/flow/execute" \
+				'{"flowType":"USER_ONBOARDING","verbose":true}' \
+				"start USER_ONBOARDING flow"; then
 				USER_USERNAME=""
 				continue
 			fi
 
-			FLOW_ID=$(echo "$FLOW_START_BODY" | grep -o '"flowId":"[^"]*' | sed 's/"flowId":"//')
+			FLOW_ID=$(echo "$API_RESPONSE_BODY" | grep -o '"flowId":"[^"]*' | sed 's/"flowId":"//')
 			if [ -z "$FLOW_ID" ]; then
 				echo -e "${RED}✗ Failed to extract flowId${NC}"
 				USER_USERNAME=""
@@ -470,19 +487,9 @@ while IFS= read -r line; do
 
 			# Step 2: Submit user type (emailuser maps to "Person")
 			echo -e "${CYAN}  → Step 2: Submitting user type...${NC}"
-			USERTYPE_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-				-H "Content-Type: application/json" \
-				-H "Accept: application/json" \
-				-H "Authorization: Bearer ${BEARER_TOKEN}" \
-				https://${THUNDER_HOST}:${THUNDER_PORT}/flow/execute \
-				-d "{\"flowId\":\"${FLOW_ID}\",\"inputs\":{\"userType\":\"Person\"},\"verbose\":true,\"action\":\"usertype_submit\"}")
-
-			USERTYPE_BODY=$(echo "$USERTYPE_RESPONSE" | head -n -1)
-			USERTYPE_STATUS=$(echo "$USERTYPE_RESPONSE" | tail -n1)
-
-			if [ "$USERTYPE_STATUS" -ne 200 ]; then
-				echo -e "${RED}✗ Failed to submit user type (HTTP $USERTYPE_STATUS)${NC}"
-				echo -e "${RED}Response: $USERTYPE_BODY${NC}"
+			if ! thunder_api_call "https://${THUNDER_HOST}:${THUNDER_PORT}/flow/execute" \
+				"{\"flowId\":\"${FLOW_ID}\",\"inputs\":{\"userType\":\"Person\"},\"verbose\":true,\"action\":\"usertype_submit\"}" \
+				"submit user type"; then
 				USER_USERNAME=""
 				continue
 			fi
@@ -491,19 +498,9 @@ while IFS= read -r line; do
 
 			# Step 3: Submit email address
 			echo -e "${CYAN}  → Step 3: Submitting email address...${NC}"
-			EMAIL_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-				-H "Content-Type: application/json" \
-				-H "Accept: application/json" \
-				-H "Authorization: Bearer ${BEARER_TOKEN}" \
-				https://${THUNDER_HOST}:${THUNDER_PORT}/flow/execute \
-				-d "{\"flowId\":\"${FLOW_ID}\",\"inputs\":{\"email\":\"${USER_EMAIL}\"},\"verbose\":true,\"action\":\"action_submit_email\"}")
-
-			EMAIL_BODY=$(echo "$EMAIL_RESPONSE" | head -n -1)
-			EMAIL_STATUS=$(echo "$EMAIL_RESPONSE" | tail -n1)
-
-			if [ "$EMAIL_STATUS" -ne 200 ]; then
-				echo -e "${RED}✗ Failed to submit email (HTTP $EMAIL_STATUS)${NC}"
-				echo -e "${RED}Response: $EMAIL_BODY${NC}"
+			if ! thunder_api_call "https://${THUNDER_HOST}:${THUNDER_PORT}/flow/execute" \
+				"{\"flowId\":\"${FLOW_ID}\",\"inputs\":{\"email\":\"${USER_EMAIL}\"},\"verbose\":true,\"action\":\"action_submit_email\"}" \
+				"submit email"; then
 				USER_USERNAME=""
 				continue
 			fi
@@ -511,11 +508,11 @@ while IFS= read -r line; do
 			echo -e "${GREEN}  ✓ Email submitted${NC}"
 
 			# Extract invite link from response
-			INVITE_URL=$(echo "$EMAIL_BODY" | grep -o '"inviteLink":"[^"]*' | sed 's/"inviteLink":"//;s/\\u0026/\&/g;s/\\//g')
+			INVITE_URL=$(echo "$API_RESPONSE_BODY" | grep -o '"inviteLink":"[^"]*' | sed 's/"inviteLink":"//;s/\\u0026/\&/g;s/\\//g')
 
 			if [ -z "$INVITE_URL" ]; then
 				echo -e "${RED}✗ Failed to extract invite link from response${NC}"
-				echo -e "${YELLOW}Response: $EMAIL_BODY${NC}"
+				echo -e "${YELLOW}Response: $API_RESPONSE_BODY${NC}"
 				USER_USERNAME=""
 				continue
 			fi
