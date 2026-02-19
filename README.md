@@ -87,6 +87,13 @@ cd silver
 
 - Enter your domain name.
 
+- Create your own environment file from the template and fill in the values before running setup:
+
+```bash
+cp services/.env.example services/.env
+nano services/.env
+```
+
 - Run `bash scripts/setup/setup.sh` to set up the configs.
 
 - Run `bash scripts/service/start-silver.sh` to start the mail server.

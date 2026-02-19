@@ -9,13 +9,19 @@ Build images locally to test your changes.
 cp dev/examples/docker-compose.override.yml services/docker-compose.override.yml
 ```
 
-### Step 2: Build and Run
+### Step 2: Create Environment File
+```bash
+cp services/.env.example services/.env
+nano services/.env
+```
+
+### Step 3: Build and Run
 ```bash
 bash scripts/setup/setup.sh
 bash scripts/services/start-silver.sh
 ```
 
-### Step 3: Switch Back to Production
+### Step 4: Switch Back to Production
 ```bash
 rm services/docker-compose.override.yml
 bash scripts/services/start-silver.sh
