@@ -164,8 +164,8 @@ services:
       - "8090:8090"
     volumes:
       - thunder-db:/opt/thunder/repository/database
-      - ./silver-config/thunder/certs/server.cert:/opt/thunder/repository/resources/security/server.cert
-      - ./silver-config/thunder/certs/server.key:/opt/thunder/repository/resources/security/server.key
+      - ./silver-config/thunder/certs/server.cert:/opt/thunder/repository/resources/security/server.cert:ro
+      - ./silver-config/thunder/certs/server.key:/opt/thunder/repository/resources/security/server.key:ro
       - ./silver-config/thunder/deployment.yaml:/opt/thunder/repository/conf/deployment.yaml:ro
       - ./silver-config/thunder/develop-config.js:/opt/thunder/apps/develop/config.js:ro
       - ./silver-config/thunder/gate-config.js:/opt/thunder/apps/gate/config.js:ro
