@@ -265,7 +265,7 @@ services:
     restart: unless-stopped
 
   prometheus:
-    image: dhi.io/prometheus:3.9
+    image: prom/prometheus:latest
     container_name: prometheus-local
     env_file: ".env"
     ports:
@@ -286,7 +286,7 @@ services:
       - mail-network
 
   grafana:
-    image: dhi.io/grafana:12-debian13-dev
+    image: grafana/grafana:latest
     container_name: grafana-local
     env_file: ".env"
     ports:
