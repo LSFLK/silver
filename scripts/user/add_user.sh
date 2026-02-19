@@ -531,7 +531,7 @@ while IFS= read -r line; do
 
 				# Display info
 				echo -e "${BLUE}📧 Email: ${GREEN}$USER_EMAIL${NC}"
-				echo -e "${BLUE}� Invite URL: ${YELLOW}$INVITE_URL${NC}"
+				echo -e "${BLUE}🔗 Invite URL: ${YELLOW}$INVITE_URL${NC}"
 				echo -e "${CYAN}   User must visit this URL to set their password${NC}"
 
 				ADDED_COUNT=$((ADDED_COUNT + 1))
