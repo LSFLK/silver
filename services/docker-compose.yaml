@@ -203,10 +203,10 @@ services:
     image: prom/node-exporter:latest
     container_name: node-exporter
     command:
-      - '--path.rootfs=/host'
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      - "--path.rootfs=/host"
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
     volumes:
       - /:/host:ro,rslave
     expose:
@@ -274,12 +274,12 @@ services:
       - ./silver-config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=${PROMETHEUS_RETENTION_DAYS:-30d}'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--web.enable-lifecycle'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=${PROMETHEUS_RETENTION_DAYS:-30d}"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--web.enable-lifecycle"
     restart: unless-stopped
     networks:
       - observability
@@ -299,7 +299,7 @@ services:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://${MAIL_SERVER_IP:-localhost}:3000 
+      - GF_SERVER_ROOT_URL=http://${MAIL_SERVER_IP:-localhost}:3000
     restart: unless-stopped
     networks:
       - observability
@@ -318,7 +318,7 @@ services:
       - PORT=3001
       - HTTPS_PORT=3443
       - ENABLE_HTTPS=true
-      - ENABLE_HTTP_REDIRECT=false  # Disable HTTP redirect to prevent warnings
+      - ENABLE_HTTP_REDIRECT=false # Disable HTTP redirect to prevent warnings
       - THUNDER_API=https://thunder-server:8090
       - SILVER_CONFIG=/etc/silver/silver.yaml
     networks:
@@ -346,7 +346,6 @@ volumes:
   grafana_data:
   redis-data:
   thunder-db:
-
 
 networks:
   mail-network:
