@@ -21,27 +21,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICES_DIR="$(cd "${SCRIPT_DIR}/../../services" && pwd)"
 # Conf directory contains config files
 CONF_DIR="$(cd "${SCRIPT_DIR}/../../conf" && pwd)"
-VIRTUAL_USERS_FILE="${SERVICES_DIR}/silver-config/gen/postfix/virtual-users"
-VIRTUAL_DOMAINS_FILE="${SERVICES_DIR}/silver-config/gen/postfix/virtual-domains"
 CONFIG_FILE="${CONF_DIR}/silver.yaml"
 USERS_FILE="${CONF_DIR}/users.yaml"
-PASSWORDS_DIR="${SCRIPT_DIR}/../../scripts/decrypt"
-PASSWORDS_FILE="${PASSWORDS_DIR}/user_passwords.txt"
-
-# Docker container paths
-CONTAINER_VIRTUAL_USERS_FILE="/etc/postfix/virtual-users"
-CONTAINER_VIRTUAL_DOMAINS_FILE="/etc/postfix/virtual-domains"
-
-# -------------------------------
-# Prompt for encryption key
-# -------------------------------
-echo -e "${YELLOW}Enter encryption key for storing passwords:${NC}"
-read -s ENCRYPT_KEY
-echo ""
-if [ -z "$ENCRYPT_KEY" ]; then
-	echo -e "${RED}✗ Encryption key cannot be empty${NC}"
-	exit 1
-fi
+INVITE_URLS_DIR="${SCRIPT_DIR}/../../scripts/user"
+INVITE_URLS_FILE="${INVITE_URLS_DIR}/user_invite_urls.txt"
 
 echo -e "${CYAN}---------------------------------------------${NC}"
 echo -e " 🚀 ${GREEN}Silver Mail - Bulk Add Users${NC}"
@@ -51,30 +34,31 @@ echo -e "${CYAN}---------------------------------------------${NC}\n"
 # Helper Functions
 # -------------------------------
 
-# Generate a random strong password
-generate_password() {
-	openssl rand -base64 24 | tr -d '\n' | head -c 16
-}
-
-# Simple XOR encryption
-encrypt_password() {
-	local password="$1"
-	local key="$ENCRYPT_KEY"
-	local encrypted=""
-	local i=0
-	local key_len=${#key}
-
-	while [ $i -lt ${#password} ]; do
-		local char="${password:$i:1}"
-		local key_char="${key:$((i % key_len)):1}"
-		local char_code=$(printf '%d' "'$char")
-		local key_code=$(printf '%d' "'$key_char")
-		local xor_result=$((char_code ^ key_code))
-		encrypted="${encrypted}$(printf '%02x' $xor_result)"
-		i=$((i + 1))
-	done
-
-	echo "$encrypted"
+# Make a Thunder API call and parse response
+# Usage: thunder_api_call <url> <json_data> <description>
+# Sets global variables: API_RESPONSE_BODY and API_RESPONSE_STATUS
+thunder_api_call() {
+	local url="$1"
+	local json_data="$2"
+	local description="$3"
+	
+	local full_response=$(curl -s -w "\n%{http_code}" -X POST \
+		-H "Content-Type: application/json" \
+		-H "Accept: application/json" \
+		-H "Authorization: Bearer ${BEARER_TOKEN}" \
+		"$url" \
+		-d "$json_data")
+	
+	API_RESPONSE_BODY=$(echo "$full_response" | head -n -1)
+	API_RESPONSE_STATUS=$(echo "$full_response" | tail -n1)
+	
+	if [ "$API_RESPONSE_STATUS" -ne 200 ]; then
+		echo -e "${RED}✗ Failed to $description (HTTP $API_RESPONSE_STATUS)${NC}"
+		echo -e "${RED}Response: $API_RESPONSE_BODY${NC}"
+		return 1
+	fi
+	
+	return 0
 }
 
 # Check if Docker Compose services are running
@@ -345,11 +329,11 @@ if [ "$YAML_USER_COUNT" -eq 0 ]; then
 	exit 1
 fi
 
-# Initialize passwords file
-mkdir -p "$PASSWORDS_DIR"
-echo "# Silver Mail User Passwords - Generated on $(date)" >"$PASSWORDS_FILE"
-echo "# Passwords are encrypted. Use decrypt_password.sh to view them." >>"$PASSWORDS_FILE"
-echo "" >>"$PASSWORDS_FILE"
+# Initialize invite URLs file
+mkdir -p "$INVITE_URLS_DIR"
+echo "# Silver Mail User Invite URLs - Generated on $(date)" >"$INVITE_URLS_FILE"
+echo "# Users must complete registration using these URLs to set their passwords" >>"$INVITE_URLS_FILE"
+echo "" >>"$INVITE_URLS_FILE"
 
 # -------------------------------
 # Step 4: Process domains and users
@@ -481,57 +465,78 @@ while IFS= read -r line; do
 				continue
 			fi
 
-			# Generate password
-			USER_PASSWORD=$(generate_password)
+			echo -e "\n${YELLOW}Creating user $USER_EMAIL in Thunder (Admin-Initiated Onboarding)...${NC}"
 
-			echo -e "\n${YELLOW}Creating user $USER_EMAIL in Thunder...${NC}"
+			# Step 1: Start USER_ONBOARDING flow
+			echo -e "${CYAN}  → Step 1: Starting USER_ONBOARDING flow...${NC}"
+			if ! thunder_api_call "https://${THUNDER_HOST}:${THUNDER_PORT}/flow/execute" \
+				'{"flowType":"USER_ONBOARDING","verbose":true}' \
+				"start USER_ONBOARDING flow"; then
+				USER_USERNAME=""
+				continue
+			fi
 
-			USER_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-				-H "Content-Type: application/json" \
-				-H "Accept: application/json" \
-				-H "Authorization: Bearer ${BEARER_TOKEN}" \
-				https://${THUNDER_HOST}:${THUNDER_PORT}/users \
-				-d "{
-                \"organizationUnit\": \"${ORG_UNIT_ID}\",
-                \"type\": \"emailuser\",
-                \"attributes\": {
-                  \"username\": \"$USER_USERNAME\",
-                  \"password\": \"$USER_PASSWORD\",
-                  \"email\": \"$USER_EMAIL\"
-                }
-              }")
+			FLOW_ID=$(echo "$API_RESPONSE_BODY" | grep -o '"flowId":"[^"]*' | sed 's/"flowId":"//')
+			if [ -z "$FLOW_ID" ]; then
+				echo -e "${RED}✗ Failed to extract flowId${NC}"
+				USER_USERNAME=""
+				continue
+			fi
 
-			USER_BODY=$(echo "$USER_RESPONSE" | head -n -1)
-			USER_STATUS=$(echo "$USER_RESPONSE" | tail -n1)
+			echo -e "${GREEN}  ✓ Flow started: $FLOW_ID${NC}"
 
-			if [ "$USER_STATUS" -eq 201 ] || [ "$USER_STATUS" -eq 200 ]; then
-				echo -e "${GREEN}✓ User $USER_EMAIL created successfully in Thunder (HTTP $USER_STATUS)${NC}"
+			# Step 2: Submit user type (emailuser maps to "Person")
+			echo -e "${CYAN}  → Step 2: Submitting user type...${NC}"
+			if ! thunder_api_call "https://${THUNDER_HOST}:${THUNDER_PORT}/flow/execute" \
+				"{\"flowId\":\"${FLOW_ID}\",\"inputs\":{\"userType\":\"Person\"},\"verbose\":true,\"action\":\"usertype_submit\"}" \
+				"submit user type"; then
+				USER_USERNAME=""
+				continue
+			fi
 
-				# Update virtual configuration
-				if update_container_virtual_users "$SMTP_CONTAINER" "$USER_EMAIL" "$USER_USERNAME" "$CURRENT_DOMAIN"; then
+			echo -e "${GREEN}  ✓ User type submitted${NC}"
 
-					echo -e "${GREEN}✓ User $USER_EMAIL added to SQLite database (no hash rebuild needed)${NC}"
+			# Step 3: Submit email address
+			echo -e "${CYAN}  → Step 3: Submitting email address...${NC}"
+			if ! thunder_api_call "https://${THUNDER_HOST}:${THUNDER_PORT}/flow/execute" \
+				"{\"flowId\":\"${FLOW_ID}\",\"inputs\":{\"email\":\"${USER_EMAIL}\"},\"verbose\":true,\"action\":\"action_submit_email\"}" \
+				"submit email"; then
+				USER_USERNAME=""
+				continue
+			fi
 
-					# Store encrypted password
-					ENCRYPTED_PASSWORD=$(encrypt_password "$USER_PASSWORD")
-					echo "EMAIL: $USER_EMAIL" >>"$PASSWORDS_FILE"
-					echo "ENCRYPTED: $ENCRYPTED_PASSWORD" >>"$PASSWORDS_FILE"
-					echo "" >>"$PASSWORDS_FILE"
+			echo -e "${GREEN}  ✓ Email submitted${NC}"
 
-					# Display info
-					echo -e "${BLUE}📧 Email: ${GREEN}$USER_EMAIL${NC}"
-					echo -e "${BLUE}🔐 Encrypted Password: ${YELLOW}$ENCRYPTED_PASSWORD${NC}"
-					echo -e "${CYAN}   Use './decrypt_password.sh $USER_EMAIL' to view the plain password${NC}"
+			# Extract invite link from response
+			INVITE_URL=$(echo "$API_RESPONSE_BODY" | grep -o '"inviteLink":"[^"]*' | sed 's/"inviteLink":"//;s/\\u0026/\&/g;s/\\//g')
 
-					ADDED_COUNT=$((ADDED_COUNT + 1))
-				else
-					echo -e "${RED}✗ Failed to add $USER_EMAIL to virtual configuration${NC}"
-				fi
+			if [ -z "$INVITE_URL" ]; then
+				echo -e "${RED}✗ Failed to extract invite link from response${NC}"
+				echo -e "${YELLOW}Response: $API_RESPONSE_BODY${NC}"
+				USER_USERNAME=""
+				continue
+			fi
+
+			echo -e "${GREEN}✓ User $USER_EMAIL created successfully in Thunder${NC}"
+			echo -e "${GREEN}  Invite link generated${NC}"
+
+			# Update virtual configuration (SQLite database)
+			if update_container_virtual_users "$SMTP_CONTAINER" "$USER_EMAIL" "$USER_USERNAME" "$CURRENT_DOMAIN"; then
+				echo -e "${GREEN}✓ User $USER_EMAIL added to SQLite database${NC}"
+
+				# Store invite URL
+				echo "EMAIL: $USER_EMAIL" >>"$INVITE_URLS_FILE"
+				echo "INVITE URL: $INVITE_URL" >>"$INVITE_URLS_FILE"
+				echo "" >>"$INVITE_URLS_FILE"
+
+				# Display info
+				echo -e "${BLUE}📧 Email: ${GREEN}$USER_EMAIL${NC}"
+				echo -e "${BLUE}🔗 Invite URL: ${YELLOW}$INVITE_URL${NC}"
+				echo -e "${CYAN}   User must visit this URL to set their password${NC}"
+
+				ADDED_COUNT=$((ADDED_COUNT + 1))
 			else
-				echo -e "${RED}✗ Failed to create user $USER_EMAIL in Thunder (HTTP $USER_STATUS)${NC}"
-				if [ -n "$USER_BODY" ]; then
-					echo -e "${RED}Response: $USER_BODY${NC}"
-				fi
+				echo -e "${RED}✗ Failed to add $USER_EMAIL to virtual configuration${NC}"
 			fi
 
 			USER_USERNAME=""
@@ -634,14 +639,14 @@ echo ""
 echo -e "${CYAN}User-Role Assignments:${NC}"
 docker exec "$SMTP_CONTAINER" sqlite3 /app/data/databases/shared.db "SELECT '  • ' || u.username || '@' || d.domain || ' → ' || r.email FROM user_role_assignments ura INNER JOIN users u ON ura.user_id = u.id INNER JOIN role_mailboxes r ON ura.role_mailbox_id = r.id INNER JOIN domains d ON u.domain_id = d.id WHERE ura.is_active=1;" 2>/dev/null || echo "  (none)"
 echo ""
-echo -e "${BLUE}🔐 Security Information:${NC}"
-echo -e " Encrypted passwords: ${YELLOW}$PASSWORDS_FILE${NC}"
-echo -e " Admin decryption tool: ${YELLOW}./decrypt_password.sh${NC}"
+echo -e "${BLUE}🔐 User Registration:${NC}"
+echo -e " Invite URLs saved to: ${YELLOW}$INVITE_URLS_FILE${NC}"
+echo -e " Users must visit their invite URLs to complete registration and set passwords"
 echo ""
-echo -e "${CYAN}Admin Usage Examples:${NC}"
-echo -e " View specific user password: ${YELLOW}./decrypt_password.sh user@domain.com${NC}"
-echo -e " View all passwords: ${YELLOW}./decrypt_password.sh all${NC}"
-echo -e " Decrypt hex string: ${YELLOW}./decrypt_password.sh '1a2b3c4d...'${NC}"
+echo -e "${CYAN}Next Steps:${NC}"
+echo -e " 1. Share the invite URLs with the respective users"
+echo -e " 2. Users will complete registration by setting their passwords"
+echo -e " 3. After registration, users can access their mailboxes"
 echo ""
 echo -e "${GREEN}✅ All users are active immediately - no container rebuild required!${NC}"
 echo -e "${CYAN}==============================================${NC}"

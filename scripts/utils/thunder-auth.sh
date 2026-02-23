@@ -68,18 +68,47 @@ thunder_authenticate() {
     SAMPLE_APP_ID=$(thunder_get_sample_app_id)
 
     if [ $? -ne 0 ] || [ -z "$SAMPLE_APP_ID" ]; then
+        echo -e "${RED}✗ Failed to extract Sample App ID${NC}" >&2
         return 1
     fi
 
     echo -e "${GREEN}  ✓ Sample App ID extracted: $SAMPLE_APP_ID${NC}"
 
-    # Step 2: Execute authentication flow
-    echo "  - Authenticating with Thunder API..."
+    # Step 2: Start authentication flow (get flowId)
+    echo "  - Starting authentication flow..."
+    local start_response
+    start_response=$(curl -s -w "\n%{http_code}" -X POST \
+        "https://${thunder_host}:${thunder_port}/flow/execute" \
+        -H "Content-Type: application/json" \
+        -d "{\"applicationId\":\"${SAMPLE_APP_ID}\",\"flowType\":\"AUTHENTICATION\"}")
+
+    local start_body
+    local start_status
+    start_body=$(echo "$start_response" | head -n -1)
+    start_status=$(echo "$start_response" | tail -n1)
+
+    if [ "$start_status" -ne 200 ]; then
+        echo -e "${RED}✗ Failed to start authentication flow (HTTP $start_status)${NC}" >&2
+        echo "Response: $start_body" >&2
+        return 1
+    fi
+
+    FLOW_ID=$(echo "$start_body" | grep -o '"flowId":"[^"]*' | sed 's/"flowId":"//')
+
+    if [ -z "$FLOW_ID" ]; then
+        echo -e "${RED}✗ Failed to extract flowId${NC}" >&2
+        return 1
+    fi
+
+    echo -e "${GREEN}  ✓ Flow started (flowId: $FLOW_ID)${NC}"
+
+    # Step 3: Complete authentication flow (get assertion)
+    echo "  - Completing authentication flow..."
     local auth_response
     auth_response=$(curl -s -w "\n%{http_code}" -X POST \
         "https://${thunder_host}:${thunder_port}/flow/execute" \
         -H "Content-Type: application/json" \
-        -d "{\"applicationId\":\"${SAMPLE_APP_ID}\",\"flowType\":\"AUTHENTICATION\",\"inputs\":{\"username\":\"admin\",\"password\":\"admin\",\"requested_permissions\":\"system\"}}")
+        -d "{\"flowId\":\"${FLOW_ID}\",\"inputs\":{\"username\":\"admin\",\"password\":\"admin\",\"requested_permissions\":\"system\"},\"action\":\"action_001\"}")
 
     local auth_body
     local auth_status
@@ -92,7 +121,7 @@ thunder_authenticate() {
         return 1
     fi
 
-    # Step 3: Extract Bearer token (assertion)
+    # Step 4: Extract System API token (assertion)
     BEARER_TOKEN=$(echo "$auth_body" | grep -o '"assertion":"[^"]*' | sed 's/"assertion":"//')
 
     if [ -z "$BEARER_TOKEN" ]; then
@@ -104,6 +133,7 @@ thunder_authenticate() {
 
     # Export variables for use in calling script
     export SAMPLE_APP_ID
+    export FLOW_ID
     export BEARER_TOKEN
 
     return 0
