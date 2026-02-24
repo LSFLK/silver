@@ -94,11 +94,13 @@ cp services/.env.example services/.env
 nano services/.env
 ```
 
+- Follow the instructions in the [README.md](https://github.com/LSFLK/silver/blob/main/services/seaweedfs/README.md) for setup seaweedfs's .env file and s3-config.json file.
+
 - Run `bash scripts/setup/setup.sh` to set up the configs.
 
 - Run `bash scripts/service/start-silver.sh` to start the mail server.
 
-- Replace the dkim record below with the output you get after running the `setup.sh` script
+- Replace the dkim record below with the output you get after running the `start-silver.sh` script
 
 | DNS Record | Name            | Value                                                                                                                                                                                                                                                  |
 | ---------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
