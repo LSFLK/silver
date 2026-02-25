@@ -13,7 +13,7 @@ source "$ENV_FILE"
 set +o allexport
 
 if [ -z "$GOOGLE_CHAT_WEBHOOK_URL" ]; then
-  echo "ERROR: GOOGLE_CHAT_WEBHOOK_URL is not set in .env"
+  echo "ERROR: GOOGLE_CHAT_WEBHOOK_URL is not set in .env" >&2
   exit 1
 fi
 
