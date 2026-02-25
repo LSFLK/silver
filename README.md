@@ -94,7 +94,7 @@ cp services/.env.example services/.env
 nano services/.env
 ```
 
-- Follow the instructions in the [README.md](https://github.com/LSFLK/silver/blob/main/services/seaweedfs/README.md) for setup seaweedfs's .env file and s3-config.json file.
+- Follow the manual setup instructions in the [SeaweedFS README](https://github.com/LSFLK/silver/blob/main/services/seaweedfs/README.md) to create the `.env` and `s3-config.json` files.
 
 - Run `bash scripts/setup/setup.sh` to set up the configs.
 
