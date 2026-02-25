@@ -2,8 +2,9 @@
 
 set -e
 
-ENV_FILE="/root/mail/silver/services/.env"
-CONTACT_POINTS_FILE="/root/mail/silver/services/silver-config/grafana/provisioning/alerting/contact-points.yaml"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ENV_FILE="$PROJECT_ROOT/.env"
+CONTACT_POINTS_FILE="$PROJECT_ROOT/silver-config/grafana/provisioning/alerting/contact-points.yaml"
 
 echo "Loading environment variables..."
 
