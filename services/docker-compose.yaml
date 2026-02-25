@@ -297,11 +297,14 @@ services:
       - grafana_data:/var/lib/grafana
       - ./silver-config/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./silver-config/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./silver-config/grafana/certs/grafana.crt:/etc/grafana/grafana.crt:ro
+      - ./silver-config/grafana/certs/grafana.key:/etc/grafana/grafana.key:ro
+      - ./silver-config/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://${MAIL_SERVER_IP:-localhost}:3000
+      - GF_SERVER_ROOT_URL=https://${MAIL_SERVER_IP:-localhost}:3000
     restart: unless-stopped
     networks:
       - observability
