@@ -26,4 +26,4 @@ sed -i "s|^\([[:space:]]*url:\).*|\1 $ESCAPED_URL|" "$CONTACT_POINTS_FILE"
 
 echo "Done."
 
-chown 472:472 /root/mail/silver/services/silver-config/grafana/provisioning/alerting/contact-points.yaml
+chown 472:472 /root/mail/silver/services/silver-config/grafana/provisioning/alerting/contact-points.yaml # Set ownership for Grafana user (uid:gid 472:472)
