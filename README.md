@@ -94,11 +94,13 @@ cp services/.env.example services/.env
 nano services/.env
 ```
 
+- Follow the manual setup instructions in the [SeaweedFS README](https://github.com/LSFLK/silver/blob/main/services/seaweedfs/README.md) to create the `.env` and `s3-config.json` files.
+
 - Run `bash scripts/setup/setup.sh` to set up the configs.
 
 - Run `bash scripts/service/start-silver.sh` to start the mail server.
 
-- Replace the dkim record below with the output you get after running the `setup.sh` script
+- Replace the dkim record below with the output you get after running the `start-silver.sh` script
 
 | DNS Record | Name            | Value                                                                                                                                                                                                                                                  |
 | ---------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -115,7 +117,7 @@ nano services/.env
 # silver/services
 bash scripts/user/add_user.sh
 ```
-- Follow the prompts to add a new user.
+- Once you have added the users, `user_invite_urls.txt` will be generated in `scripts/user` folder with invite links for each user. You can share these links with the respective users to set up their accounts.
 
 ### Testing your setup
 - Now that you have a working email server, you can test your configuration using the following links/scripts.

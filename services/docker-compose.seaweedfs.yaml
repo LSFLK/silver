@@ -2,10 +2,10 @@ services:
   master:
     image: chrislusf/seaweedfs:latest
     container_name: seaweedfs-master
-    # Ports removed - internal communication only via seaweedfs-net
+    # Ports removed - internal communication only via mail-network
     command: "master -ip=master -ip.bind=0.0.0.0 -port=9333"
     networks:
-      - seaweedfs-net
+      - mail-network
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9333/cluster/status"]
       interval: 5s
@@ -16,13 +16,13 @@ services:
   volume:
     image: chrislusf/seaweedfs:latest
     container_name: seaweedfs-volume
-    # Ports removed - internal communication only via seaweedfs-net
+    # Ports removed - internal communication only via mail-network
     command: 'volume -mserver="master:9333" -ip.bind=0.0.0.0 -port=8080 -max=10'
     depends_on:
       master:
         condition: service_healthy
     networks:
-      - seaweedfs-net
+      - mail-network
     volumes:
       - seaweedfs-volume:/data
     healthcheck:
@@ -35,7 +35,7 @@ services:
   filer:
     image: chrislusf/seaweedfs:latest
     container_name: seaweedfs-filer
-    # Ports removed - internal communication only via seaweedfs-net
+    # Ports removed - internal communication only via mail-network
     command: 'filer -master="master:9333" -ip.bind=0.0.0.0'
     depends_on:
       master:
@@ -43,7 +43,7 @@ services:
       volume:
         condition: service_healthy
     networks:
-      - seaweedfs-net
+      - mail-network
     volumes:
       - seaweedfs-filer:/data
     healthcheck:
@@ -63,14 +63,13 @@ services:
       filer:
         condition: service_healthy
     networks:
-      - seaweedfs-net
+      - mail-network
     volumes:
       - ./seaweedfs/s3-config.json:/etc/seaweedfs/s3.json:ro
     restart: unless-stopped
 
 networks:
-  seaweedfs-net:
-    driver: bridge
+  mail-network:
 
 volumes:
   seaweedfs-volume:
