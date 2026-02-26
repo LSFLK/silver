@@ -68,6 +68,11 @@ echo "Grafana TLS certificates installed successfully."
 # -------------------------------
 echo "Updating Grafana domain in grafana.ini..."
 
+if [[ -z "${MAIL_DOMAIN}" ]]; then
+  echo "ERROR: No domain configured in silver.yaml. Cannot update Grafana domain." >&2
+  exit 1
+fi
+
 if [[ ! -f "${GRAFANA_CONFIG_FILE}" ]]; then
   echo "ERROR: Grafana config not found at ${GRAFANA_CONFIG_FILE}" >&2
   exit 1
