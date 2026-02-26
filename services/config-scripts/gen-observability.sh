@@ -17,6 +17,9 @@ GRAFANA_CERTS_DIR="${SILVER_CONFIG}/grafana/certs"
 MAIL_DOMAIN=$(grep -m 1 '^\s*-\s*domain:' "${PROJECT_ROOT}/../conf/silver.yaml" | sed 's/.*domain:\s*//' | xargs)
 LETSENCRYPT_DIR="${SILVER_CONFIG}/certbot/keys/etc/live/${MAIL_DOMAIN}"
 
+# Grafana config
+GRAFANA_CONFIG_FILE="${SILVER_CONFIG}/grafana/grafana.ini"
+
 # -------------------------------
 # Load environment variables
 # -------------------------------
@@ -59,3 +62,19 @@ chmod 440 "${GRAFANA_CERTS_DIR}/grafana.key"
 chmod 444 "${GRAFANA_CERTS_DIR}/grafana.crt"
 
 echo "Grafana TLS certificates installed successfully."
+
+# -------------------------------
+# Update Grafana domain (<MAIL_DOMAIN>)
+# -------------------------------
+echo "Updating Grafana domain in grafana.ini..."
+
+if [[ ! -f "${GRAFANA_CONFIG_FILE}" ]]; then
+  echo "ERROR: Grafana config not found at ${GRAFANA_CONFIG_FILE}" >&2
+  exit 1
+fi
+
+sed -i "s|<MAIL_DOMAIN>|${MAIL_DOMAIN}|g" "${GRAFANA_CONFIG_FILE}"
+
+chown 472:472 "${GRAFANA_CONFIG_FILE}"
+
+echo "Grafana domain updated to ${MAIL_DOMAIN}"
