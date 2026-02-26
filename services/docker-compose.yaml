@@ -239,7 +239,7 @@ services:
     restart: unless-stopped
 
   loki:
-    image: grafana/loki:main-d94ee60
+    image: grafana/loki:3.6.7
     container_name: loki
     command: -config.file=/etc/loki/loki-config.yaml
     volumes:
