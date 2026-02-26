@@ -64,8 +64,9 @@ services:
     image: rspamd/rspamd:latest
     container_name: rspamd-server
     hostname: rspamd
+    expose:
+      - "11332"
     ports:
-      - "11332:11332"
       - "11334:11334"
     volumes:
       - rspamd_data:/var/lib/rspamd
