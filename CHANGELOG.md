@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1]
+
+This release focuses on making improvements to the observability of silver.
+
+## What's Changed
+### Added
+* Update thunder idp to latest version to support admin initiated user registration via url flow by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/265
+* Move observability services into mail stack and update configur… by @maneeshaxyz in https://github.com/LSFLK/silver/pull/264
+* Add Grafana domain update functionality in gen-observability script by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/275
+
+### Removed
+* Remove Change Password UI by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/267
+
+### Fixed
+* Fix observability bugs by @maneeshaxyz in https://github.com/LSFLK/silver/pull/270
+* Fixed the issue of not saving the attachments in the blob storage. by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/268
+* Fix observability port issue by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/273
+* Loki not working correctly issue resolved. by @maneeshaxyz in https://github.com/LSFLK/silver/pull/277
+* Secure the rspamd web UI dashboard by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/279
+
+**Full Changelog**: https://github.com/LSFLK/silver/compare/v.0.2.0...v.0.2.1
+
 ## [0.2.0] - Raven Integration and Platform Hardening
 
 This release introduces Raven-based mail architecture, major security and
