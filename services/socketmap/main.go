@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -24,7 +25,10 @@ var (
 )
 
 // Simple in-memory cache for testing
-var cache = make(map[string]cacheEntry)
+var (
+	cache      = make(map[string]cacheEntry)
+	cacheMutex sync.RWMutex
+)
 
 type cacheEntry struct {
 	exists  bool
@@ -266,8 +270,12 @@ func userExists(email string) bool {
 	log.Printf("    ┌─ User Lookup ───────────────────")
 	log.Printf("    │ Email: %s", email)
 	
-	// Check cache first
-	if entry, found := cache[email]; found && time.Now().Before(entry.expires) {
+	// Check cache first (read lock)
+	cacheMutex.RLock()
+	entry, found := cache[email]
+	cacheMutex.RUnlock()
+	
+	if found && time.Now().Before(entry.expires) {
 		log.Printf("    │ ✓ CACHE HIT")
 		log.Printf("    │ Cached result: exists=%v", entry.exists)
 		log.Printf("    │ Expires: %s", entry.expires.Format("15:04:05"))
@@ -284,11 +292,13 @@ func userExists(email string) bool {
 
 	log.Printf("    │ Database result: exists=%v", exists)
 	
-	// Cache the result for 60 seconds
+	// Cache the result for 60 seconds (write lock)
+	cacheMutex.Lock()
 	cache[email] = cacheEntry{
 		exists:  exists,
 		expires: time.Now().Add(60 * time.Second),
 	}
+	cacheMutex.Unlock()
 	
 	log.Printf("    │ Cached for 60 seconds")
 	log.Printf("    └─────────────────────────────────")
@@ -346,9 +356,13 @@ func domainExists(domain string) bool {
 	log.Printf("    ┌─ Domain Lookup ─────────────────")
 	log.Printf("    │ Domain: %s", domain)
 	
-	// Check cache first
+	// Check cache first (read lock)
 	cacheKey := "domain:" + domain
-	if entry, found := cache[cacheKey]; found && time.Now().Before(entry.expires) {
+	cacheMutex.RLock()
+	entry, found := cache[cacheKey]
+	cacheMutex.RUnlock()
+	
+	if found && time.Now().Before(entry.expires) {
 		log.Printf("    │ ✓ CACHE HIT")
 		log.Printf("    │ Cached result: exists=%v", entry.exists)
 		log.Printf("    │ Expires: %s", entry.expires.Format("15:04:05"))
@@ -365,11 +379,13 @@ func domainExists(domain string) bool {
 
 	log.Printf("    │ Database result: exists=%v", exists)
 	
-	// Cache the result for 300 seconds (5 minutes)
+	// Cache the result for 300 seconds (5 minutes) (write lock)
+	cacheMutex.Lock()
 	cache[cacheKey] = cacheEntry{
 		exists:  exists,
 		expires: time.Now().Add(300 * time.Second),
 	}
+	cacheMutex.Unlock()
 	
 	log.Printf("    │ Cached for 300 seconds")
 	log.Printf("    └─────────────────────────────────")
@@ -407,15 +423,25 @@ func resolveAlias(address string) string {
 	log.Printf("    ┌─ Alias Lookup ──────────────────")
 	log.Printf("    │ Address: %s", address)
 	
-	// Check cache first
+	// Check cache first (read lock)
+	// Note: For aliases, we need to query the DB anyway since we need the destination
+	// But we can cache NOTFOUND results to avoid repeated lookups
 	cacheKey := "alias:" + address
-	if entry, found := cache[cacheKey]; found && time.Now().Before(entry.expires) {
+	cacheMutex.RLock()
+	entry, found := cache[cacheKey]
+	cacheMutex.RUnlock()
+	
+	if found && time.Now().Before(entry.expires) {
 		log.Printf("    │ ✓ CACHE HIT")
-		// For aliases, we store the destination in exists field (hacky but works)
-		// Actually, we need a better cache structure for this
 		log.Printf("    │ Expires: %s", entry.expires.Format("15:04:05"))
 		log.Printf("    └─────────────────────────────────")
-		// Return empty string for now from cache, will fix cache structure
+		// If cached as not found, return empty string
+		// For actual aliases, we still need to query (cache only stores exists flag)
+		// This is a limitation of the current cache structure
+		if !entry.exists {
+			return ""
+		}
+		// Fall through to query for the actual destination
 	}
 
 	log.Printf("    │ ✗ CACHE MISS or uncached")
@@ -427,13 +453,15 @@ func resolveAlias(address string) string {
 
 	log.Printf("    │ Database result: destination=%s", destination)
 	
-	// Cache the result for 300 seconds (5 minutes)
+	// Cache the result for 300 seconds (5 minutes) (write lock)
 	// Note: This cache structure is simplified - in production use a proper cache
 	// that can store the destination address
+	cacheMutex.Lock()
 	cache[cacheKey] = cacheEntry{
 		exists:  destination != "",
 		expires: time.Now().Add(300 * time.Second),
 	}
+	cacheMutex.Unlock()
 	
 	log.Printf("    │ Cached for 300 seconds")
 	log.Printf("    └─────────────────────────────────")
