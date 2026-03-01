@@ -2,13 +2,17 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -54,10 +58,9 @@ func readNetstring(reader *bufio.Reader) (string, error) {
 	
 	log.Printf("      Netstring length: %d", length)
 	
-	// Read exactly 'length' bytes of data
+	// Read exactly 'length' bytes of data using io.ReadFull
 	data := make([]byte, length)
-	_, err = reader.Read(data)
-	if err != nil {
+	if _, err := io.ReadFull(reader, data); err != nil {
 		return "", fmt.Errorf("failed to read data: %w", err)
 	}
 	
@@ -80,6 +83,11 @@ func writeNetstring(conn net.Conn, data string) error {
 	return err
 }
 
+// Track active connections for graceful shutdown
+var (
+	activeConnections sync.WaitGroup
+)
+
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.Printf("===========================================")
@@ -95,27 +103,70 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to bind to %s:%s: %v", HOST, PORT, err)
 	}
-	defer listener.Close()
 
 	log.Printf("✓ Socketmap service listening on %s:%s", HOST, PORT)
 	log.Printf("✓ Ready to accept connections from Postfix")
 	log.Printf("===========================================")
 
-	connectionCount := 0
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			log.Printf("⚠ Error accepting connection: %v", err)
-			continue
-		}
+	// Setup graceful shutdown
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-		connectionCount++
-		log.Printf("")
-		log.Printf("═══════════════════════════════════════")
-		log.Printf("Connection #%d from %s", connectionCount, conn.RemoteAddr())
-		log.Printf("═══════════════════════════════════════")
-		go handleConnection(conn)
+	// Accept connections in a goroutine
+	connectionCount := 0
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				select {
+				case <-ctx.Done():
+					// Shutdown in progress, exit gracefully
+					return
+				default:
+					log.Printf("⚠ Error accepting connection: %v", err)
+					continue
+				}
+			}
+
+			connectionCount++
+			log.Printf("")
+			log.Printf("═══════════════════════════════════════")
+			log.Printf("Connection #%d from %s", connectionCount, conn.RemoteAddr())
+			log.Printf("═══════════════════════════════════════")
+			
+			activeConnections.Add(1)
+			go func(c net.Conn) {
+				defer activeConnections.Done()
+				handleConnection(c)
+			}(conn)
+		}
+	}()
+
+	// Wait for shutdown signal
+	<-ctx.Done()
+	log.Printf("")
+	log.Printf("===========================================")
+	log.Printf("Received shutdown signal, closing listener...")
+	log.Printf("===========================================")
+	
+	// Close listener to stop accepting new connections
+	listener.Close()
+	
+	// Wait for active connections to complete (with timeout)
+	done := make(chan struct{})
+	go func() {
+		activeConnections.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		log.Printf("All connections closed gracefully")
+	case <-time.After(30 * time.Second):
+		log.Printf("Shutdown timeout reached, forcing exit")
 	}
+
+	log.Printf("Socketmap service stopped")
 }
 
 func handleConnection(conn net.Conn) {
