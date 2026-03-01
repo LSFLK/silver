@@ -14,14 +14,24 @@ COPY main.go ./
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o socketmap .
 
 # Final stage
-FROM alpine:latest
+FROM alpine:3.19
 
-RUN apk --no-cache add ca-certificates
+# Install ca-certificates and netcat for healthcheck
+RUN apk --no-cache add ca-certificates netcat-openbsd
+
+# Create a non-root user and group
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
 
 # Copy binary from builder
 COPY --from=builder /build/socketmap .
+
+# Set ownership for the app directory and binary
+RUN chown -R appuser:appgroup /app
+
+# Switch to the non-root user
+USER appuser
 
 # Expose socketmap port
 EXPOSE 9100

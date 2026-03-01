@@ -19,11 +19,16 @@ services:
     networks:
       - mail-network
     depends_on:
-      - opendkim-server
-      - rspamd-server
-      - certbot-server
-      - raven-server
-      - socketmap-server
+      opendkim-server:
+        condition: service_started
+      rspamd-server:
+        condition: service_started
+      certbot-server:
+        condition: service_started
+      raven-server:
+        condition: service_started
+      socketmap-server:
+        condition: service_healthy
 
   raven-server:
     image: ghcr.io/lsflk/raven:latest
@@ -57,6 +62,12 @@ services:
     environment:
       - SOCKETMAP_HOST=0.0.0.0
       - SOCKETMAP_PORT=9100
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9100"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
     deploy:
       resources:
         limits:
