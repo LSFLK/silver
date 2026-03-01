@@ -1,0 +1,548 @@
+package main
+
+import (
+	"bufio"
+	"context"
+	"fmt"
+	"io"
+	"log"
+	"net"
+	"os"
+	"os/signal"
+	"strconv"
+	"strings"
+	"sync"
+	"syscall"
+	"time"
+)
+
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+var (
+	HOST = getEnv("SOCKETMAP_HOST", "127.0.0.1")
+	PORT = getEnv("SOCKETMAP_PORT", "9100")
+)
+
+// Simple in-memory cache for testing
+var (
+	cache      = make(map[string]cacheEntry)
+	cacheMutex sync.RWMutex
+)
+
+type cacheEntry struct {
+	exists  bool
+	expires time.Time
+}
+
+// readNetstring reads a netstring from the reader
+// Netstring format: <length>:<data>,
+// Example: "5:hello," represents the string "hello"
+func readNetstring(reader *bufio.Reader) (string, error) {
+	// Read length prefix (digits before ':')
+	lengthStr, err := reader.ReadString(':')
+	if err != nil {
+		return "", fmt.Errorf("failed to read length: %w", err)
+	}
+	
+	// Remove the ':' and parse length
+	lengthStr = strings.TrimSuffix(lengthStr, ":")
+	length, err := strconv.Atoi(lengthStr)
+	if err != nil {
+		return "", fmt.Errorf("invalid length: %w", err)
+	}
+	
+	log.Printf("      Netstring length: %d", length)
+	
+	// Read exactly 'length' bytes of data using io.ReadFull
+	data := make([]byte, length)
+	if _, err := io.ReadFull(reader, data); err != nil {
+		return "", fmt.Errorf("failed to read data: %w", err)
+	}
+	
+	// Read and verify the trailing comma
+	comma, err := reader.ReadByte()
+	if err != nil {
+		return "", fmt.Errorf("failed to read comma: %w", err)
+	}
+	if comma != ',' {
+		return "", fmt.Errorf("expected comma, got %c", comma)
+	}
+	
+	return string(data), nil
+}
+
+// writeNetstring writes a netstring to the connection
+func writeNetstring(conn net.Conn, data string) error {
+	netstr := fmt.Sprintf("%d:%s,", len(data), data)
+	_, err := conn.Write([]byte(netstr))
+	return err
+}
+
+// Track active connections for graceful shutdown
+var (
+	activeConnections sync.WaitGroup
+)
+
+func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.Printf("===========================================")
+	log.Printf("Starting socketmap service")
+	log.Printf("===========================================")
+	log.Printf("Configuration:")
+	log.Printf("  HOST: %s", HOST)
+	log.Printf("  PORT: %s", PORT)
+	log.Printf("  Bind Address: %s:%s", HOST, PORT)
+	log.Printf("===========================================")
+
+	listener, err := net.Listen("tcp", HOST+":"+PORT)
+	if err != nil {
+		log.Fatalf("Failed to bind to %s:%s: %v", HOST, PORT, err)
+	}
+
+	log.Printf("✓ Socketmap service listening on %s:%s", HOST, PORT)
+	log.Printf("✓ Ready to accept connections from Postfix")
+	log.Printf("===========================================")
+
+	// Setup graceful shutdown
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	// Accept connections in a goroutine
+	connectionCount := 0
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				select {
+				case <-ctx.Done():
+					// Shutdown in progress, exit gracefully
+					return
+				default:
+					log.Printf("⚠ Error accepting connection: %v", err)
+					continue
+				}
+			}
+
+			connectionCount++
+			log.Printf("")
+			log.Printf("═══════════════════════════════════════")
+			log.Printf("Connection #%d from %s", connectionCount, conn.RemoteAddr())
+			log.Printf("═══════════════════════════════════════")
+			
+			activeConnections.Add(1)
+			go func(c net.Conn) {
+				defer activeConnections.Done()
+				handleConnection(c)
+			}(conn)
+		}
+	}()
+
+	// Wait for shutdown signal
+	<-ctx.Done()
+	log.Printf("")
+	log.Printf("===========================================")
+	log.Printf("Received shutdown signal, closing listener...")
+	log.Printf("===========================================")
+	
+	// Close listener to stop accepting new connections
+	listener.Close()
+	
+	// Wait for active connections to complete (with timeout)
+	done := make(chan struct{})
+	go func() {
+		activeConnections.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		log.Printf("All connections closed gracefully")
+	case <-time.After(30 * time.Second):
+		log.Printf("Shutdown timeout reached, forcing exit")
+	}
+
+	log.Printf("Socketmap service stopped")
+}
+
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
+	defer log.Printf("Connection closed: %s", conn.RemoteAddr())
+
+	log.Printf("  Connection established, using netstring protocol...")
+	reader := bufio.NewReader(conn)
+
+	for {
+		// Set read timeout to prevent hanging connections
+		conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+
+		log.Printf("  Waiting to read netstring from connection...")
+		
+		// Read request using netstring protocol
+		request, err := readNetstring(reader)
+		if err != nil {
+			if err.Error() != "EOF" && !strings.Contains(err.Error(), "EOF") {
+				log.Printf("⚠ Error reading netstring from %s: %v", conn.RemoteAddr(), err)
+				log.Printf("  Possible causes:")
+				log.Printf("  1. Client sent non-netstring data")
+				log.Printf("  2. Connection interrupted")
+				log.Printf("  3. Protocol version mismatch")
+			} else {
+				log.Printf("  Connection closed by client (EOF)")
+			}
+			return
+		}
+
+		// Log raw request received
+		log.Printf("← Received netstring: %q (length: %d)", request, len(request))
+		
+		if request == "" {
+			log.Printf("⚠ Received empty request, skipping...")
+			continue
+		}
+		
+		log.Printf("  Processing request: %q", request)
+
+		// Process the request
+		response := processRequest(request)
+		log.Printf("→ Preparing response: %q", response)
+
+		// Send response using netstring protocol
+		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+		err = writeNetstring(conn, response)
+		if err != nil {
+			log.Printf("⚠ Error writing netstring to %s: %v", conn.RemoteAddr(), err)
+			return
+		}
+		log.Printf("  Successfully sent netstring response (length: %d)", len(response))
+	}
+}
+
+func processRequest(line string) string {
+	log.Printf("  ┌─ Processing Request ─────────────────")
+	log.Printf("  │ Raw input: %q", line)
+	
+	parts := strings.Fields(line)
+	log.Printf("  │ Split into %d parts: %v", len(parts), parts)
+
+	// Postfix socketmap protocol sends: <mapname> <key>
+	// NOT: get <mapname> <key>
+	if len(parts) != 2 {
+		log.Printf("  │ ⚠ INVALID REQUEST FORMAT")
+		log.Printf("  │ Expected: <mapname> <key>")
+		log.Printf("  │ Got: %d parts", len(parts))
+		log.Printf("  └─────────────────────────────────────")
+		return "PERM invalid request format"
+	}
+
+	mapname := parts[0]
+	key := parts[1]
+
+	log.Printf("  │ Map:     %q", mapname)
+	log.Printf("  │ Key:     %q", key)
+
+	// Route to appropriate handler based on map name
+	switch mapname {
+	case "user-exists":
+		return handleUserExistsMap(key)
+	case "virtual-domains":
+		return handleVirtualDomainsMap(key)
+	case "virtual-aliases":
+		return handleVirtualAliasesMap(key)
+	default:
+		log.Printf("  │ ⚠ UNKNOWN MAP")
+		log.Printf("  │ Supported maps: user-exists, virtual-domains, virtual-aliases")
+		log.Printf("  │ Got: %q", mapname)
+		log.Printf("  └─────────────────────────────────────")
+		return "NOTFOUND"
+	}
+}
+
+func handleUserExistsMap(key string) string {
+	// Check if user exists
+	log.Printf("  │ Checking if user exists...")
+	exists := userExists(key)
+
+	if exists {
+		log.Printf("  │ ✓ USER FOUND: %s", key)
+		log.Printf("  │ Response: OK %s", key)
+		log.Printf("  └─────────────────────────────────────")
+		return fmt.Sprintf("OK %s", key)
+	}
+
+	log.Printf("  │ ✗ USER NOT FOUND: %s", key)
+	log.Printf("  │ Response: NOTFOUND")
+	log.Printf("  └─────────────────────────────────────")
+	return "NOTFOUND"
+}
+
+func handleVirtualDomainsMap(domain string) string {
+	// Check if domain is valid
+	log.Printf("  │ Checking if domain is valid...")
+	exists := domainExists(domain)
+
+	if exists {
+		log.Printf("  │ ✓ DOMAIN FOUND: %s", domain)
+		log.Printf("  │ Response: OK")
+		log.Printf("  └─────────────────────────────────────")
+		// Return OK for valid domains (Postfix just needs OK response)
+		return "OK"
+	}
+
+	log.Printf("  │ ✗ DOMAIN NOT FOUND: %s", domain)
+	log.Printf("  │ Response: NOTFOUND")
+	log.Printf("  └─────────────────────────────────────")
+	return "NOTFOUND"
+}
+
+func handleVirtualAliasesMap(address string) string {
+	// Check if alias exists and return destination
+	log.Printf("  │ Checking if alias exists...")
+	destination := resolveAlias(address)
+
+	if destination != "" {
+		log.Printf("  │ ✓ ALIAS FOUND: %s -> %s", address, destination)
+		log.Printf("  │ Response: OK %s", destination)
+		log.Printf("  └─────────────────────────────────────")
+		return fmt.Sprintf("OK %s", destination)
+	}
+
+	log.Printf("  │ ✗ ALIAS NOT FOUND: %s", address)
+	log.Printf("  │ Response: NOTFOUND")
+	log.Printf("  └─────────────────────────────────────")
+	return "NOTFOUND"
+}
+
+func userExists(email string) bool {
+	log.Printf("    ┌─ User Lookup ───────────────────")
+	log.Printf("    │ Email: %s", email)
+	
+	// Check cache first (read lock)
+	cacheMutex.RLock()
+	entry, found := cache[email]
+	cacheMutex.RUnlock()
+	
+	if found && time.Now().Before(entry.expires) {
+		log.Printf("    │ ✓ CACHE HIT")
+		log.Printf("    │ Cached result: exists=%v", entry.exists)
+		log.Printf("    │ Expires: %s", entry.expires.Format("15:04:05"))
+		log.Printf("    └─────────────────────────────────")
+		return entry.exists
+	}
+
+	log.Printf("    │ ✗ CACHE MISS")
+	log.Printf("    │ Querying user database...")
+
+	// For testing: accept users from specific domains
+	// In production, this would call your IdP/database
+	exists := checkUserInTestDB(email)
+
+	log.Printf("    │ Database result: exists=%v", exists)
+	
+	// Cache the result for 60 seconds (write lock)
+	cacheMutex.Lock()
+	cache[email] = cacheEntry{
+		exists:  exists,
+		expires: time.Now().Add(60 * time.Second),
+	}
+	cacheMutex.Unlock()
+	
+	log.Printf("    │ Cached for 60 seconds")
+	log.Printf("    └─────────────────────────────────")
+
+	return exists
+}
+
+func checkUserInTestDB(email string) bool {
+	// Simple test logic: accept specific test users
+	// Replace this with your actual user validation logic
+	
+	log.Printf("      ┌─ Test DB Lookup ─────────────")
+	log.Printf("      │ Checking: %s", email)
+
+	testUsers := []string{
+		"test@example.com",
+		"user@example.com",
+		"admin@example.com",
+		"postmaster@example.com",
+	}
+
+	// Check specific test users
+	for _, user := range testUsers {
+		if strings.EqualFold(email, user) {
+			log.Printf("      │ ✓ Matched test user: %s", user)
+			log.Printf("      └──────────────────────────────")
+			return true
+		}
+	}
+	log.Printf("      │ Not in test users list")
+
+	// Accept any user from allowed domains (for testing)
+	allowedDomains := []string{
+		"example.com",
+		"test.com",
+	}
+
+	log.Printf("      │ Checking allowed domains...")
+	for _, domain := range allowedDomains {
+		if strings.HasSuffix(strings.ToLower(email), "@"+domain) {
+			// For testing: accept all users from these domains
+			log.Printf("      │ ✓ Matched domain: %s", domain)
+			log.Printf("      └──────────────────────────────")
+			return true
+		}
+	}
+	
+	log.Printf("      │ ✗ Not in allowed domains")
+	log.Printf("      │ Allowed: %v", allowedDomains)
+	log.Printf("      └──────────────────────────────")
+	return false
+}
+
+func domainExists(domain string) bool {
+	log.Printf("    ┌─ Domain Lookup ─────────────────")
+	log.Printf("    │ Domain: %s", domain)
+	
+	// Check cache first (read lock)
+	cacheKey := "domain:" + domain
+	cacheMutex.RLock()
+	entry, found := cache[cacheKey]
+	cacheMutex.RUnlock()
+	
+	if found && time.Now().Before(entry.expires) {
+		log.Printf("    │ ✓ CACHE HIT")
+		log.Printf("    │ Cached result: exists=%v", entry.exists)
+		log.Printf("    │ Expires: %s", entry.expires.Format("15:04:05"))
+		log.Printf("    └─────────────────────────────────")
+		return entry.exists
+	}
+
+	log.Printf("    │ ✗ CACHE MISS")
+	log.Printf("    │ Querying domain database...")
+
+	// For testing: accept specific domains
+	// In production, this would query your domain configuration
+	exists := checkDomainInTestDB(domain)
+
+	log.Printf("    │ Database result: exists=%v", exists)
+	
+	// Cache the result for 300 seconds (5 minutes) (write lock)
+	cacheMutex.Lock()
+	cache[cacheKey] = cacheEntry{
+		exists:  exists,
+		expires: time.Now().Add(300 * time.Second),
+	}
+	cacheMutex.Unlock()
+	
+	log.Printf("    │ Cached for 300 seconds")
+	log.Printf("    └─────────────────────────────────")
+
+	return exists
+}
+
+func checkDomainInTestDB(domain string) bool {
+	log.Printf("      ┌─ Test Domain DB Lookup ──────")
+	log.Printf("      │ Checking: %s", domain)
+
+	// For testing: accept specific domains
+	// In production, read from silver.yaml or database
+	allowedDomains := []string{
+		"example.com",
+		"test.com",
+		"localhost",
+	}
+
+	for _, allowed := range allowedDomains {
+		if strings.EqualFold(domain, allowed) {
+			log.Printf("      │ ✓ Matched domain: %s", allowed)
+			log.Printf("      └──────────────────────────────")
+			return true
+		}
+	}
+	
+	log.Printf("      │ ✗ Not in allowed domains")
+	log.Printf("      │ Allowed: %v", allowedDomains)
+	log.Printf("      └──────────────────────────────")
+	return false
+}
+
+func resolveAlias(address string) string {
+	log.Printf("    ┌─ Alias Lookup ──────────────────")
+	log.Printf("    │ Address: %s", address)
+	
+	// Check cache first (read lock)
+	// Note: For aliases, we need to query the DB anyway since we need the destination
+	// But we can cache NOTFOUND results to avoid repeated lookups
+	cacheKey := "alias:" + address
+	cacheMutex.RLock()
+	entry, found := cache[cacheKey]
+	cacheMutex.RUnlock()
+	
+	if found && time.Now().Before(entry.expires) {
+		log.Printf("    │ ✓ CACHE HIT")
+		log.Printf("    │ Expires: %s", entry.expires.Format("15:04:05"))
+		log.Printf("    └─────────────────────────────────")
+		// If cached as not found, return empty string
+		// For actual aliases, we still need to query (cache only stores exists flag)
+		// This is a limitation of the current cache structure
+		if !entry.exists {
+			return ""
+		}
+		// Fall through to query for the actual destination
+	}
+
+	log.Printf("    │ ✗ CACHE MISS or uncached")
+	log.Printf("    │ Querying alias database...")
+
+	// For testing: check if alias exists and return destination
+	// In production, this would query your alias configuration
+	destination := checkAliasInTestDB(address)
+
+	log.Printf("    │ Database result: destination=%s", destination)
+	
+	// Cache the result for 300 seconds (5 minutes) (write lock)
+	// Note: This cache structure is simplified - in production use a proper cache
+	// that can store the destination address
+	cacheMutex.Lock()
+	cache[cacheKey] = cacheEntry{
+		exists:  destination != "",
+		expires: time.Now().Add(300 * time.Second),
+	}
+	cacheMutex.Unlock()
+	
+	log.Printf("    │ Cached for 300 seconds")
+	log.Printf("    └─────────────────────────────────")
+
+	return destination
+}
+
+func checkAliasInTestDB(address string) string {
+	log.Printf("      ┌─ Test Alias DB Lookup ───────")
+	log.Printf("      │ Checking: %s", address)
+
+	// For testing: define some common aliases
+	// In production, read from configuration or database
+	aliases := map[string]string{
+		"postmaster@example.com": "admin@example.com",
+		"abuse@example.com":      "admin@example.com",
+		"hostmaster@example.com": "admin@example.com",
+		"webmaster@example.com":  "admin@example.com",
+		"info@example.com":       "admin@example.com",
+		"support@test.com":       "help@test.com",
+	}
+
+	// Check if alias exists
+	if destination, found := aliases[strings.ToLower(address)]; found {
+		log.Printf("      │ ✓ Alias found: %s -> %s", address, destination)
+		log.Printf("      └──────────────────────────────")
+		return destination
+	}
+	
+	log.Printf("      │ ✗ Alias not found")
+	log.Printf("      └──────────────────────────────")
+	return ""
+}

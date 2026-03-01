@@ -19,10 +19,16 @@ services:
     networks:
       - mail-network
     depends_on:
-      - opendkim-server
-      - rspamd-server
-      - certbot-server
-      - raven-server
+      opendkim-server:
+        condition: service_started
+      rspamd-server:
+        condition: service_started
+      certbot-server:
+        condition: service_started
+      raven-server:
+        condition: service_started
+      socketmap-server:
+        condition: service_healthy
 
   raven-server:
     image: ghcr.io/lsflk/raven:latest
@@ -42,6 +48,32 @@ services:
       - mail-network
     restart: unless-stopped
     user: "0:0"
+
+  socketmap-server:
+    build:
+      context: ./socketmap
+      dockerfile: Dockerfile
+    container_name: socketmap-server
+    expose:
+      - "9100"
+    networks:
+      - mail-network
+    restart: unless-stopped
+    environment:
+      - SOCKETMAP_HOST=0.0.0.0
+      - SOCKETMAP_PORT=9100
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9100"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
 
   opendkim-server:
     image: ghcr.io/lsflk/silver-dkim:main
