@@ -358,47 +358,42 @@ func userExists(email string) bool {
 }
 
 func checkUserInTestDB(email string) bool {
-	// Simple test logic: accept specific test users
-	// Replace this with your actual user validation logic
-	
 	log.Printf("      ┌─ Test DB Lookup ─────────────")
 	log.Printf("      │ Checking: %s", email)
 
-	testUsers := []string{
+	// Define SPECIFIC valid mailboxes - not just domains!
+	// In production, replace this with database/YAML query
+	validMailboxes := []string{
+		// example.com domain users
 		"test@example.com",
 		"user@example.com",
 		"admin@example.com",
 		"postmaster@example.com",
+		
+		// test.com domain users
+		"user@test.com",
+		"admin@test.com",
+		
+		// aravindahwk.org domain users
+		"user1@aravindahwk.org",
+		"user2@aravindahwk.org",
+		"admin@aravindahwk.org",
+		"postmaster@aravindahwk.org",
+		"abuse@aravindahwk.org",
+		"hostmaster@aravindahwk.org",
 	}
 
-	// Check specific test users
-	for _, user := range testUsers {
-		if strings.EqualFold(email, user) {
-			log.Printf("      │ ✓ Matched test user: %s", user)
-			log.Printf("      └──────────────────────────────")
-			return true
-		}
-	}
-	log.Printf("      │ Not in test users list")
-
-	// Accept any user from allowed domains (for testing)
-	allowedDomains := []string{
-		"example.com",
-		"test.com",
-	}
-
-	log.Printf("      │ Checking allowed domains...")
-	for _, domain := range allowedDomains {
-		if strings.HasSuffix(strings.ToLower(email), "@"+domain) {
-			// For testing: accept all users from these domains
-			log.Printf("      │ ✓ Matched domain: %s", domain)
+	// Check if the exact email address exists
+	for _, mailbox := range validMailboxes {
+		if strings.EqualFold(email, mailbox) {
+			log.Printf("      │ ✓ Matched mailbox: %s", mailbox)
 			log.Printf("      └──────────────────────────────")
 			return true
 		}
 	}
 	
-	log.Printf("      │ ✗ Not in allowed domains")
-	log.Printf("      │ Allowed: %v", allowedDomains)
+	log.Printf("      │ ✗ User not found")
+	log.Printf("      │ Valid mailboxes: %d configured", len(validMailboxes))
 	log.Printf("      └──────────────────────────────")
 	return false
 }
@@ -454,6 +449,7 @@ func checkDomainInTestDB(domain string) bool {
 		"example.com",
 		"test.com",
 		"localhost",
+		"aravindahwk.org",
 	}
 
 	for _, allowed := range allowedDomains {

@@ -95,6 +95,16 @@ smtp_tls_loglevel = 1
 
 
 smtpd_relay_restrictions = permit_mynetworks permit_sasl_authenticated defer_unauth_destination
+
+# Recipient restrictions - ENFORCE USER VALIDATION
+# This ensures virtual_mailbox_maps is actually queried for recipient validation
+smtpd_recipient_restrictions =
+    permit_mynetworks
+    permit_sasl_authenticated
+    reject_unauth_destination
+    reject_unlisted_recipient
+    reject_non_fqdn_recipient
+
 myhostname = ${MAIL_HOSTNAME}
 alias_maps = hash:/etc/aliases
 alias_database = hash:/etc/aliases
@@ -115,9 +125,16 @@ smtpd_sasl_path = inet:raven:12345
 smtpd_sasl_auth_enable = yes
 smtpd_sasl_security_options = noanonymous
 broken_sasl_auth_clients = yes
+
+# Virtual mailbox configuration - socketmap based
 virtual_mailbox_domains = socketmap:inet:socketmap-server:9100:virtual-domains
 virtual_mailbox_maps = socketmap:inet:socketmap-server:9100:user-exists
 virtual_alias_maps = socketmap:inet:socketmap-server:9100:virtual-aliases
+
+# Set mailbox base to tell Postfix we're managing mailboxes
+# This ensures reject_unlisted_recipient properly checks virtual_mailbox_maps
+virtual_mailbox_base = /var/mail/virtual
+
 virtual_transport = lmtp:raven:24
 milter_protocol = 6
 milter_default_action = accept
