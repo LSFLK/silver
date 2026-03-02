@@ -268,10 +268,15 @@ func handleUserExistsMap(key string) string {
 	exists := userExists(key)
 
 	if exists {
+		// For virtual_mailbox_maps, Postfix expects a mailbox pathname
+		// The actual path doesn't matter since we use virtual_transport = lmtp
+		// But we must return SOMETHING for Postfix to consider the user valid
+		mailboxPath := key // Just return the email address as the "path"
+		
 		log.Printf("  │ ✓ USER FOUND: %s", key)
-		log.Printf("  │ Response: OK %s", key)
+		log.Printf("  │ Response: OK %s", mailboxPath)
 		log.Printf("  └─────────────────────────────────────")
-		return fmt.Sprintf("OK %s", key)
+		return fmt.Sprintf("OK %s", mailboxPath)
 	}
 
 	log.Printf("  │ ✗ USER NOT FOUND: %s", key)
