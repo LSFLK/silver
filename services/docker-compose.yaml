@@ -187,6 +187,29 @@ services:
     networks:
       - mail-network
 
+  metadata-service:
+    build:
+      context: ./metadata-service
+      dockerfile: Dockerfile
+    container_name: metadata-service
+    ports:
+      - "8888:8888"
+    volumes:
+      - clamav_db:/var/lib/clamav:ro
+    environment:
+      - PORT=8888
+      - CLAMAV_DB_PATH=/var/lib/clamav
+      - EXTERNAL_API_URL=${EXTERNAL_API_URL}
+      - PUSH_INTERVAL_SECONDS=${PUSH_INTERVAL_SECONDS:-60}
+      - ENABLE_PUSH_SERVICE=${ENABLE_PUSH_SERVICE:-true}
+      - API_KEY=${API_KEY}
+    networks:
+      - mail-network
+      - observability
+    restart: unless-stopped
+    depends_on:
+      - clamav-server
+
   postfix-exporter:
     image: chatwork/kumina-postfix-exporter:latest
     container_name: postfix-exporter
