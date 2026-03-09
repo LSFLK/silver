@@ -295,7 +295,7 @@ func handleVirtualDomainsMap(domain string) string {
 		log.Printf("  │ Response: OK")
 		log.Printf("  └─────────────────────────────────────")
 		// Return OK for valid domains (Postfix just needs OK response)
-		return "OK"
+		return "OK 1"
 	}
 
 	log.Printf("  │ ✗ DOMAIN NOT FOUND: %s", domain)
