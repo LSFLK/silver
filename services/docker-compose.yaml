@@ -188,9 +188,7 @@ services:
       - mail-network
 
   metadata-service:
-    build:
-      context: ./metadata-service
-      dockerfile: Dockerfile
+    image: ghcr.io/lsflk/silver-metadata-service:main
     container_name: metadata-service
     ports:
       - "8888:8888"
