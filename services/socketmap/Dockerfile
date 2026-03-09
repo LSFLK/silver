@@ -16,11 +16,14 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o socketmap .
 # Final stage
 FROM alpine:3.19
 
-# Install ca-certificates and netcat for healthcheck
-RUN apk --no-cache add ca-certificates netcat-openbsd
+# Install ca-certificates, netcat for healthcheck, and docker-cli for reading logs
+RUN apk --no-cache add ca-certificates netcat-openbsd docker-cli
 
 # Create a non-root user and group
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+# Add appuser to docker group to allow docker socket access
+RUN addgroup appuser docker || true
 
 WORKDIR /app
 

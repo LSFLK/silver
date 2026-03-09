@@ -149,27 +149,38 @@ func getHTTPClient() *http.Client {
 	}
 }
 
-// getSampleAppIDFromLogs extracts Sample App ID from Thunder setup container logs
-func getSampleAppIDFromLogs() (string, error) {
-	log.Printf("  │ Extracting Sample App ID from thunder-setup logs...")
+// getSampleAppIDFromThunderSetup extracts Sample App ID from thunder-setup container
+// This mimics the thunder_get_sample_app_id() function from thunder-auth.sh
+func getSampleAppIDFromThunderSetup() (string, error) {
+	log.Printf("  │ Extracting Sample App ID from thunder-setup container...")
 	
-	// Execute docker logs command to get Sample App ID
+	// Execute: docker logs thunder-setup 2>&1 | grep 'Sample App ID:' | head -n1
 	cmd := exec.Command("docker", "logs", "thunder-setup")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("failed to read thunder-setup logs: %w", err)
+		// Check if docker command doesn't exist
+		if strings.Contains(err.Error(), "executable file not found") {
+			return "", fmt.Errorf("docker command not available in PATH")
+		}
+		// Docker command exists but failed - might be permission issue
+		log.Printf("  │ ⚠ Warning: docker logs command failed: %v", err)
+		log.Printf("  │ This might be due to:")
+		log.Printf("  │   - thunder-setup container doesn't exist")
+		log.Printf("  │   - No permission to access Docker")
+		log.Printf("  │   - Running inside a container without Docker socket")
 	}
 	
-	// Search for Sample App ID pattern
+	// Search for "Sample App ID:" in logs (case-insensitive)
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
 		if strings.Contains(line, "Sample App ID:") {
-			// Extract UUID pattern (e.g., 019cd1e1-a123-73e7-9ce8-98ea46c9a640)
+			// Extract UUID pattern: [a-f0-9-]{36}
+			// Example: 019cd1e1-a123-73e7-9ce8-98ea46c9a640
 			re := regexp.MustCompile(`[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`)
-			matches := re.FindString(line)
-			if matches != "" {
-				log.Printf("  │ ✓ Sample App ID extracted: %s", matches)
-				return matches, nil
+			match := re.FindString(line)
+			if match != "" {
+				log.Printf("  │ ✓ Sample App ID extracted: %s", match)
+				return match, nil
 			}
 		}
 	}
@@ -181,19 +192,33 @@ func getSampleAppIDFromLogs() (string, error) {
 func authenticateWithThunder() (*ThunderAuth, error) {
 	log.Printf("  ┌─ Thunder Authentication ─────────")
 	
-	// Step 1: Get Sample App ID from environment or extract from logs
+	// Step 1: Get Sample App ID
+	// Priority: 1) Environment variable, 2) Extract from thunder-setup logs
 	sampleAppID := getEnv("THUNDER_SAMPLE_APP_ID", "")
-	if sampleAppID == "" {
-		log.Printf("  │ THUNDER_SAMPLE_APP_ID not set, extracting from logs...")
+	
+	if sampleAppID != "" {
+		log.Printf("  │ Using Sample App ID from environment variable")
+		log.Printf("  │ Sample App ID: %s", sampleAppID)
+	} else {
+		log.Printf("  │ THUNDER_SAMPLE_APP_ID not set")
+		log.Printf("  │ Attempting to extract from thunder-setup container logs...")
+		
 		var err error
-		sampleAppID, err = getSampleAppIDFromLogs()
+		sampleAppID, err = getSampleAppIDFromThunderSetup()
 		if err != nil {
-			log.Printf("  │ ✗ Failed to get Sample App ID: %v", err)
+			log.Printf("  │ ✗ Failed to extract Sample App ID: %v", err)
+			log.Printf("  │")
+			log.Printf("  │ Please ensure Thunder setup container has completed successfully")
+			log.Printf("  │")
+			log.Printf("  │ To fix this issue:")
+			log.Printf("  │ 1. Check thunder-setup logs: docker logs thunder-setup")
+			log.Printf("  │ 2. Extract App ID manually and set environment:")
+			log.Printf("  │    export THUNDER_SAMPLE_APP_ID=$(docker logs thunder-setup 2>&1 | grep 'Sample App ID:' | grep -o '[a-f0-9-]\\{36\\}')")
+			log.Printf("  │ 3. Or if running in Docker, mount the Docker socket:")
+			log.Printf("  │    volumes: ['/var/run/docker.sock:/var/run/docker.sock']")
 			log.Printf("  └───────────────────────────────────")
 			return nil, fmt.Errorf("failed to get Sample App ID: %w", err)
 		}
-	} else {
-		log.Printf("  │ Using Sample App ID from environment")
 	}
 	
 	client := getHTTPClient()
