@@ -2,13 +2,19 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,19 +30,65 @@ func getEnv(key, defaultValue string) string {
 }
 
 var (
-	HOST = getEnv("SOCKETMAP_HOST", "127.0.0.1")
-	PORT = getEnv("SOCKETMAP_PORT", "9100")
+	HOST                  = getEnv("SOCKETMAP_HOST", "127.0.0.1")
+	PORT                  = getEnv("SOCKETMAP_PORT", "9100")
+	THUNDER_HOST          = getEnv("THUNDER_HOST", "thunder-server")
+	THUNDER_PORT          = getEnv("THUNDER_PORT", "8090")
+	CACHE_TTL_SECONDS     = getEnvInt("CACHE_TTL_SECONDS", 300)       // 5 minutes default
+	TOKEN_REFRESH_SECONDS = getEnvInt("TOKEN_REFRESH_SECONDS", 3300)  // 55 minutes default
 )
 
-// Simple in-memory cache for testing
+func getEnvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intVal, err := strconv.Atoi(value); err == nil {
+			return intVal
+		}
+	}
+	return defaultValue
+}
+
+// Cache structures
 var (
 	cache      = make(map[string]cacheEntry)
 	cacheMutex sync.RWMutex
 )
 
 type cacheEntry struct {
-	exists  bool
-	expires time.Time
+	exists     bool
+	data       string      // For storing additional data (e.g., alias destination)
+	expires    time.Time
+	lastUpdate time.Time
+}
+
+// Thunder authentication state
+var (
+	thunderAuth      *ThunderAuth
+	thunderAuthMutex sync.RWMutex
+)
+
+type ThunderAuth struct {
+	SampleAppID  string
+	FlowID       string
+	BearerToken  string
+	ExpiresAt    time.Time
+	LastRefresh  time.Time
+}
+
+// Thunder API response structures
+type FlowStartResponse struct {
+	FlowID string `json:"flowId"`
+}
+
+type FlowCompleteResponse struct {
+	Assertion string `json:"assertion"`
+}
+
+type OrgUnitResponse struct {
+	ID          string  `json:"id"`
+	Handle      string  `json:"handle"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	Parent      *string `json:"parent"`
 }
 
 // readNetstring reads a netstring from the reader
@@ -81,6 +133,266 @@ func writeNetstring(conn net.Conn, data string) error {
 	netstr := fmt.Sprintf("%d:%s,", len(data), data)
 	_, err := conn.Write([]byte(netstr))
 	return err
+}
+
+// ============================================
+// Thunder IDP Integration Functions
+// ============================================
+
+// getHTTPClient returns an HTTP client with TLS verification disabled for self-signed certs
+func getHTTPClient() *http.Client {
+	return &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+}
+
+// getSampleAppIDFromLogs extracts Sample App ID from Thunder setup container logs
+func getSampleAppIDFromLogs() (string, error) {
+	log.Printf("  │ Extracting Sample App ID from thunder-setup logs...")
+	
+	// Execute docker logs command to get Sample App ID
+	cmd := exec.Command("docker", "logs", "thunder-setup")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to read thunder-setup logs: %w", err)
+	}
+	
+	// Search for Sample App ID pattern
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "Sample App ID:") {
+			// Extract UUID pattern (e.g., 019cd1e1-a123-73e7-9ce8-98ea46c9a640)
+			re := regexp.MustCompile(`[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`)
+			matches := re.FindString(line)
+			if matches != "" {
+				log.Printf("  │ ✓ Sample App ID extracted: %s", matches)
+				return matches, nil
+			}
+		}
+	}
+	
+	return "", fmt.Errorf("Sample App ID not found in thunder-setup logs")
+}
+
+// authenticateWithThunder performs the full authentication flow with Thunder IDP
+func authenticateWithThunder() (*ThunderAuth, error) {
+	log.Printf("  ┌─ Thunder Authentication ─────────")
+	
+	// Step 1: Get Sample App ID from environment or extract from logs
+	sampleAppID := getEnv("THUNDER_SAMPLE_APP_ID", "")
+	if sampleAppID == "" {
+		log.Printf("  │ THUNDER_SAMPLE_APP_ID not set, extracting from logs...")
+		var err error
+		sampleAppID, err = getSampleAppIDFromLogs()
+		if err != nil {
+			log.Printf("  │ ✗ Failed to get Sample App ID: %v", err)
+			log.Printf("  └───────────────────────────────────")
+			return nil, fmt.Errorf("failed to get Sample App ID: %w", err)
+		}
+	} else {
+		log.Printf("  │ Using Sample App ID from environment")
+	}
+	
+	client := getHTTPClient()
+	baseURL := fmt.Sprintf("https://%s:%s", THUNDER_HOST, THUNDER_PORT)
+	
+	// Step 2: Start authentication flow
+	log.Printf("  │ Starting authentication flow...")
+	flowPayload := map[string]interface{}{
+		"applicationId": sampleAppID,
+		"flowType":      "AUTHENTICATION",
+	}
+	flowData, _ := json.Marshal(flowPayload)
+	
+	resp, err := client.Post(baseURL+"/flow/execute", "application/json", bytes.NewBuffer(flowData))
+	if err != nil {
+		log.Printf("  │ ✗ Failed to start flow: %v", err)
+		log.Printf("  └───────────────────────────────────")
+		return nil, fmt.Errorf("failed to start flow: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != 200 {
+		log.Printf("  │ ✗ Flow start failed (HTTP %d)", resp.StatusCode)
+		log.Printf("  └───────────────────────────────────")
+		return nil, fmt.Errorf("flow start failed with status %d", resp.StatusCode)
+	}
+	
+	var flowResp FlowStartResponse
+	if err := json.NewDecoder(resp.Body).Decode(&flowResp); err != nil {
+		log.Printf("  │ ✗ Failed to parse flow response: %v", err)
+		log.Printf("  └───────────────────────────────────")
+		return nil, fmt.Errorf("failed to parse flow response: %w", err)
+	}
+	
+	log.Printf("  │ ✓ Flow started (ID: %s)", flowResp.FlowID)
+	
+	// Step 3: Complete authentication flow
+	log.Printf("  │ Completing authentication...")
+	authPayload := map[string]interface{}{
+		"flowId": flowResp.FlowID,
+		"inputs": map[string]string{
+			"username":             "admin",
+			"password":             "admin",
+			"requested_permissions": "system",
+		},
+		"action": "action_001",
+	}
+	authData, _ := json.Marshal(authPayload)
+	
+	resp2, err := client.Post(baseURL+"/flow/execute", "application/json", bytes.NewBuffer(authData))
+	if err != nil {
+		log.Printf("  │ ✗ Failed to complete auth: %v", err)
+		log.Printf("  └───────────────────────────────────")
+		return nil, fmt.Errorf("failed to complete auth: %w", err)
+	}
+	defer resp2.Body.Close()
+	
+	if resp2.StatusCode != 200 {
+		log.Printf("  │ ✗ Auth completion failed (HTTP %d)", resp2.StatusCode)
+		log.Printf("  └───────────────────────────────────")
+		return nil, fmt.Errorf("auth completion failed with status %d", resp2.StatusCode)
+	}
+	
+	var authResp FlowCompleteResponse
+	if err := json.NewDecoder(resp2.Body).Decode(&authResp); err != nil {
+		log.Printf("  │ ✗ Failed to parse auth response: %v", err)
+		log.Printf("  └───────────────────────────────────")
+		return nil, fmt.Errorf("failed to parse auth response: %w", err)
+	}
+	
+	log.Printf("  │ ✓ Authentication successful")
+	log.Printf("  └───────────────────────────────────")
+	
+	auth := &ThunderAuth{
+		SampleAppID:  sampleAppID,
+		FlowID:       flowResp.FlowID,
+		BearerToken:  authResp.Assertion,
+		ExpiresAt:    time.Now().Add(time.Duration(TOKEN_REFRESH_SECONDS) * time.Second),
+		LastRefresh:  time.Now(),
+	}
+	
+	return auth, nil
+}
+
+// getThunderAuth returns a valid Thunder auth token, refreshing if needed
+func getThunderAuth() (*ThunderAuth, error) {
+	thunderAuthMutex.RLock()
+	auth := thunderAuth
+	thunderAuthMutex.RUnlock()
+	
+	// Check if we have a valid token
+	if auth != nil && time.Now().Before(auth.ExpiresAt) {
+		return auth, nil
+	}
+	
+	// Need to authenticate or refresh
+	thunderAuthMutex.Lock()
+	defer thunderAuthMutex.Unlock()
+	
+	// Double-check after acquiring write lock
+	if thunderAuth != nil && time.Now().Before(thunderAuth.ExpiresAt) {
+		return thunderAuth, nil
+	}
+	
+	// Authenticate
+	newAuth, err := authenticateWithThunder()
+	if err != nil {
+		return nil, err
+	}
+	
+	thunderAuth = newAuth
+	return thunderAuth, nil
+}
+
+// validateDomainWithThunder checks if a domain exists in Thunder IDP
+func validateDomainWithThunder(domain string) (bool, error) {
+	log.Printf("      ┌─ Thunder Domain Validation ──")
+	log.Printf("      │ Domain: %s", domain)
+	
+	// Get authentication token
+	auth, err := getThunderAuth()
+	if err != nil {
+		log.Printf("      │ ⚠ Auth failed: %v", err)
+		log.Printf("      └──────────────────────────────")
+		return false, err
+	}
+	
+	// Parse domain into OU path
+	// Example: silver.openmail.lk -> openmail.lk/silver
+	parts := strings.Split(domain, ".")
+	if len(parts) < 2 {
+		log.Printf("      │ ✗ Invalid domain format")
+		log.Printf("      └──────────────────────────────")
+		return false, nil
+	}
+	
+	// Build OU path: root is last two parts (e.g., openmail.lk)
+	// subdomain parts become child OUs
+	var ouPath string
+	if len(parts) == 2 {
+		// Simple domain like openmail.lk
+		ouPath = domain
+	} else {
+		// Multi-level domain like silver.openmail.lk
+		// Root OU: openmail.lk, Child OU: silver
+		rootDomain := strings.Join(parts[len(parts)-2:], ".")
+		subdomains := parts[:len(parts)-2]
+		ouPath = rootDomain + "/" + strings.Join(subdomains, "/")
+	}
+	
+	log.Printf("      │ OU Path: %s", ouPath)
+	
+	// Query Thunder API
+	client := getHTTPClient()
+	url := fmt.Sprintf("https://%s:%s/organization-units/tree/%s", THUNDER_HOST, THUNDER_PORT, ouPath)
+	
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		log.Printf("      │ ✗ Failed to create request: %v", err)
+		log.Printf("      └──────────────────────────────")
+		return false, err
+	}
+	
+	req.Header.Set("Authorization", "Bearer "+auth.BearerToken)
+	req.Header.Set("Content-Type", "application/json")
+	
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("      │ ✗ Request failed: %v", err)
+		log.Printf("      └──────────────────────────────")
+		return false, err
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode == 404 {
+		log.Printf("      │ ✗ Domain not found in Thunder")
+		log.Printf("      └──────────────────────────────")
+		return false, nil
+	}
+	
+	if resp.StatusCode != 200 {
+		log.Printf("      │ ⚠ Unexpected status: %d", resp.StatusCode)
+		log.Printf("      └──────────────────────────────")
+		return false, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+	
+	var ouResp OrgUnitResponse
+	if err := json.NewDecoder(resp.Body).Decode(&ouResp); err != nil {
+		log.Printf("      │ ✗ Failed to parse response: %v", err)
+		log.Printf("      └──────────────────────────────")
+		return false, err
+	}
+	
+	log.Printf("      │ ✓ Domain found in Thunder")
+	log.Printf("      │ OU ID: %s", ouResp.ID)
+	log.Printf("      │ OU Name: %s", ouResp.Name)
+	log.Printf("      └──────────────────────────────")
+	
+	return true, nil
 }
 
 // Track active connections for graceful shutdown
@@ -331,32 +643,43 @@ func userExists(email string) bool {
 	entry, found := cache[email]
 	cacheMutex.RUnlock()
 	
-	if found && time.Now().Before(entry.expires) {
-		log.Printf("    │ ✓ CACHE HIT")
-		log.Printf("    │ Cached result: exists=%v", entry.exists)
-		log.Printf("    │ Expires: %s", entry.expires.Format("15:04:05"))
-		log.Printf("    └─────────────────────────────────")
-		return entry.exists
+	now := time.Now()
+	
+	if found {
+		// Cache hit - check if still valid
+		if now.Before(entry.expires) {
+			log.Printf("    │ ✓ CACHE HIT (fresh)")
+			log.Printf("    │ Cached result: exists=%v", entry.exists)
+			log.Printf("    │ Expires: %s", entry.expires.Format("15:04:05"))
+			log.Printf("    └─────────────────────────────────")
+			return entry.exists
+		}
+		
+		// Cache expired - check if we should refresh
+		cacheAge := now.Sub(entry.lastUpdate).Seconds()
+		log.Printf("    │ ✓ CACHE HIT (stale)")
+		log.Printf("    │ Age: %.0f seconds", cacheAge)
+		log.Printf("    │ Refreshing from database...")
+	} else {
+		log.Printf("    │ ✗ CACHE MISS")
+		log.Printf("    │ Querying user database...")
 	}
 
-	log.Printf("    │ ✗ CACHE MISS")
-	log.Printf("    │ Querying user database...")
-
-	// For testing: accept users from specific domains
-	// In production, this would call your IdP/database
+	// Query database for user
 	exists := checkUserInTestDB(email)
 
 	log.Printf("    │ Database result: exists=%v", exists)
 	
-	// Cache the result for 60 seconds (write lock)
+	// Update cache (write lock)
 	cacheMutex.Lock()
 	cache[email] = cacheEntry{
-		exists:  exists,
-		expires: time.Now().Add(60 * time.Second),
+		exists:     exists,
+		expires:    now.Add(time.Duration(CACHE_TTL_SECONDS) * time.Second),
+		lastUpdate: now,
 	}
 	cacheMutex.Unlock()
 	
-	log.Printf("    │ Cached for 60 seconds")
+	log.Printf("    │ Cached for %d seconds", CACHE_TTL_SECONDS)
 	log.Printf("    └─────────────────────────────────")
 
 	return exists
@@ -413,32 +736,49 @@ func domainExists(domain string) bool {
 	entry, found := cache[cacheKey]
 	cacheMutex.RUnlock()
 	
-	if found && time.Now().Before(entry.expires) {
-		log.Printf("    │ ✓ CACHE HIT")
-		log.Printf("    │ Cached result: exists=%v", entry.exists)
-		log.Printf("    │ Expires: %s", entry.expires.Format("15:04:05"))
-		log.Printf("    └─────────────────────────────────")
-		return entry.exists
+	now := time.Now()
+	
+	if found {
+		// Cache hit - check if still valid
+		if now.Before(entry.expires) {
+			log.Printf("    │ ✓ CACHE HIT (fresh)")
+			log.Printf("    │ Cached result: exists=%v", entry.exists)
+			log.Printf("    │ Expires: %s", entry.expires.Format("15:04:05"))
+			log.Printf("    └─────────────────────────────────")
+			return entry.exists
+		}
+		
+		// Cache expired but exists - check if we should refresh
+		cacheAge := now.Sub(entry.lastUpdate).Seconds()
+		log.Printf("    │ ✓ CACHE HIT (stale)")
+		log.Printf("    │ Age: %.0f seconds", cacheAge)
+		log.Printf("    │ Refreshing from IDP...")
+	} else {
+		log.Printf("    │ ✗ CACHE MISS")
+		log.Printf("    │ Querying IDP...")
 	}
 
-	log.Printf("    │ ✗ CACHE MISS")
-	log.Printf("    │ Querying domain database...")
+	// Query Thunder IDP for domain validation
+	exists, err := validateDomainWithThunder(domain)
+	if err != nil {
+		log.Printf("    │ ⚠ IDP query failed: %v", err)
+		log.Printf("    │ Falling back to test DB...")
+		// Fallback to test DB if Thunder is unavailable
+		exists = checkDomainInTestDB(domain)
+	}
 
-	// For testing: accept specific domains
-	// In production, this would query your domain configuration
-	exists := checkDomainInTestDB(domain)
-
-	log.Printf("    │ Database result: exists=%v", exists)
+	log.Printf("    │ IDP result: exists=%v", exists)
 	
-	// Cache the result for 300 seconds (5 minutes) (write lock)
+	// Update cache (write lock)
 	cacheMutex.Lock()
 	cache[cacheKey] = cacheEntry{
-		exists:  exists,
-		expires: time.Now().Add(300 * time.Second),
+		exists:     exists,
+		expires:    now.Add(time.Duration(CACHE_TTL_SECONDS) * time.Second),
+		lastUpdate: now,
 	}
 	cacheMutex.Unlock()
 	
-	log.Printf("    │ Cached for 300 seconds")
+	log.Printf("    │ Cached for %d seconds", CACHE_TTL_SECONDS)
 	log.Printf("    └─────────────────────────────────")
 
 	return exists
@@ -476,46 +816,49 @@ func resolveAlias(address string) string {
 	log.Printf("    │ Address: %s", address)
 	
 	// Check cache first (read lock)
-	// Note: For aliases, we need to query the DB anyway since we need the destination
-	// But we can cache NOTFOUND results to avoid repeated lookups
 	cacheKey := "alias:" + address
 	cacheMutex.RLock()
 	entry, found := cache[cacheKey]
 	cacheMutex.RUnlock()
 	
-	if found && time.Now().Before(entry.expires) {
-		log.Printf("    │ ✓ CACHE HIT")
-		log.Printf("    │ Expires: %s", entry.expires.Format("15:04:05"))
-		log.Printf("    └─────────────────────────────────")
-		// If cached as not found, return empty string
-		// For actual aliases, we still need to query (cache only stores exists flag)
-		// This is a limitation of the current cache structure
-		if !entry.exists {
-			return ""
+	now := time.Now()
+	
+	if found {
+		// Cache hit - check if still valid
+		if now.Before(entry.expires) {
+			log.Printf("    │ ✓ CACHE HIT (fresh)")
+			log.Printf("    │ Destination: %s", entry.data)
+			log.Printf("    │ Expires: %s", entry.expires.Format("15:04:05"))
+			log.Printf("    └─────────────────────────────────")
+			return entry.data
 		}
-		// Fall through to query for the actual destination
+		
+		// Cache expired - refresh
+		cacheAge := now.Sub(entry.lastUpdate).Seconds()
+		log.Printf("    │ ✓ CACHE HIT (stale)")
+		log.Printf("    │ Age: %.0f seconds", cacheAge)
+		log.Printf("    │ Refreshing from database...")
+	} else {
+		log.Printf("    │ ✗ CACHE MISS")
+		log.Printf("    │ Querying alias database...")
 	}
 
-	log.Printf("    │ ✗ CACHE MISS or uncached")
-	log.Printf("    │ Querying alias database...")
-
-	// For testing: check if alias exists and return destination
-	// In production, this would query your alias configuration
+	// Query database for alias
 	destination := checkAliasInTestDB(address)
 
 	log.Printf("    │ Database result: destination=%s", destination)
 	
-	// Cache the result for 300 seconds (5 minutes) (write lock)
-	// Note: This cache structure is simplified - in production use a proper cache
-	// that can store the destination address
+	// Update cache (write lock)
 	cacheMutex.Lock()
 	cache[cacheKey] = cacheEntry{
-		exists:  destination != "",
-		expires: time.Now().Add(300 * time.Second),
+		exists:     destination != "",
+		data:       destination,
+		expires:    now.Add(time.Duration(CACHE_TTL_SECONDS) * time.Second),
+		lastUpdate: now,
 	}
 	cacheMutex.Unlock()
 	
-	log.Printf("    │ Cached for 300 seconds")
+	log.Printf("    │ Cached for %d seconds", CACHE_TTL_SECONDS)
 	log.Printf("    └─────────────────────────────────")
 
 	return destination
