@@ -905,16 +905,20 @@ func userExists(email string) bool {
 
 	log.Printf("    │ IDP result: exists=%v", exists)
 	
-	// Update cache (write lock)
-	cacheMutex.Lock()
-	cache[cacheKey] = cacheEntry{
-		exists:     exists,
-		expires:    now.Add(time.Duration(CACHE_TTL_SECONDS) * time.Second),
-		lastUpdate: now,
+	// Only cache positive results (exists=true)
+	if exists {
+		cacheMutex.Lock()
+		cache[cacheKey] = cacheEntry{
+			exists:     true,
+			expires:    now.Add(time.Duration(CACHE_TTL_SECONDS) * time.Second),
+			lastUpdate: now,
+		}
+		cacheMutex.Unlock()
+		log.Printf("    │ ✓ Cached positive result for %d seconds", CACHE_TTL_SECONDS)
+	} else {
+		log.Printf("    │ ℹ Negative result NOT cached (will query IDP next time)")
 	}
-	cacheMutex.Unlock()
 	
-	log.Printf("    │ Cached for %d seconds", CACHE_TTL_SECONDS)
 	log.Printf("    └─────────────────────────────────")
 
 	return exists
@@ -962,16 +966,20 @@ func domainExists(domain string) bool {
 
 	log.Printf("    │ IDP result: exists=%v", exists)
 	
-	// Update cache (write lock)
-	cacheMutex.Lock()
-	cache[cacheKey] = cacheEntry{
-		exists:     exists,
-		expires:    now.Add(time.Duration(CACHE_TTL_SECONDS) * time.Second),
-		lastUpdate: now,
+	// Only cache positive results (exists=true)
+	if exists {
+		cacheMutex.Lock()
+		cache[cacheKey] = cacheEntry{
+			exists:     true,
+			expires:    now.Add(time.Duration(CACHE_TTL_SECONDS) * time.Second),
+			lastUpdate: now,
+		}
+		cacheMutex.Unlock()
+		log.Printf("    │ ✓ Cached positive result for %d seconds", CACHE_TTL_SECONDS)
+	} else {
+		log.Printf("    │ ℹ Negative result NOT cached (will query IDP next time)")
 	}
-	cacheMutex.Unlock()
 	
-	log.Printf("    │ Cached for %d seconds", CACHE_TTL_SECONDS)
 	log.Printf("    └─────────────────────────────────")
 
 	return exists
