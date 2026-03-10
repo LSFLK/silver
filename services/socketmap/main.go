@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -13,12 +12,10 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"os/signal"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -90,6 +87,28 @@ type OrgUnitResponse struct {
 	Description string  `json:"description"`
 	Parent      *string `json:"parent"`
 }
+
+// Thunder Users API response structures
+type UsersResponse struct {
+	TotalResults int          `json:"totalResults"`
+	StartIndex   int          `json:"startIndex"`
+	Count        int          `json:"count"`
+	Users        []ThunderUser `json:"users"`
+	Links        []interface{} `json:"links"`
+}
+
+type ThunderUser struct {
+	ID               string                 `json:"id"`
+	OrganizationUnit string                 `json:"organizationUnit"`
+	Type             string                 `json:"type"`
+	Attributes       map[string]interface{} `json:"attributes"`
+}
+
+// Cache for OU ID lookups (domain -> OU ID mapping)
+var (
+	ouCache      = make(map[string]string) // domain -> OU ID
+	ouCacheMutex sync.RWMutex
+)
 
 // readNetstring reads a netstring from the reader
 // Netstring format: <length>:<data>,
@@ -417,7 +436,187 @@ func validateDomainWithThunder(domain string) (bool, error) {
 	log.Printf("      │ OU Name: %s", ouResp.Name)
 	log.Printf("      └──────────────────────────────")
 	
+	// Cache the OU ID for future user lookups
+	ouCacheMutex.Lock()
+	ouCache[domain] = ouResp.ID
+	ouCacheMutex.Unlock()
+	
 	return true, nil
+}
+
+// getOrgUnitIDForDomain retrieves the OU ID for a domain from Thunder or cache
+func getOrgUnitIDForDomain(domain string) (string, error) {
+	// Check cache first
+	ouCacheMutex.RLock()
+	ouID, found := ouCache[domain]
+	ouCacheMutex.RUnlock()
+	
+	if found {
+		return ouID, nil
+	}
+	
+	// Need to query Thunder to get OU ID
+	log.Printf("      │ Fetching OU ID for domain: %s", domain)
+	
+	// Get authentication token
+	auth, err := getThunderAuth()
+	if err != nil {
+		return "", err
+	}
+	
+	// Parse domain into OU path
+	parts := strings.Split(domain, ".")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("invalid domain format")
+	}
+	
+	// Build OU path
+	var ouPath string
+	if len(parts) == 2 {
+		ouPath = domain
+	} else {
+		rootDomain := strings.Join(parts[len(parts)-2:], ".")
+		subdomains := parts[:len(parts)-2]
+		ouPath = rootDomain + "/" + strings.Join(subdomains, "/")
+	}
+	
+	// Query Thunder API for OU
+	client := getHTTPClient()
+	url := fmt.Sprintf("https://%s:%s/organization-units/tree/%s", THUNDER_HOST, THUNDER_PORT, ouPath)
+	
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+	
+	req.Header.Set("Authorization", "Bearer "+auth.BearerToken)
+	req.Header.Set("Content-Type", "application/json")
+	
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("OU not found or error: %d", resp.StatusCode)
+	}
+	
+	var ouResp OrgUnitResponse
+	if err := json.NewDecoder(resp.Body).Decode(&ouResp); err != nil {
+		return "", err
+	}
+	
+	// Cache the result
+	ouCacheMutex.Lock()
+	ouCache[domain] = ouResp.ID
+	ouCacheMutex.Unlock()
+	
+	log.Printf("      │ ✓ OU ID cached: %s", ouResp.ID)
+	
+	return ouResp.ID, nil
+}
+
+// validateUserWithThunder checks if a user exists in Thunder IDP
+func validateUserWithThunder(email string) (bool, error) {
+	log.Printf("      ┌─ Thunder User Validation ─────")
+	log.Printf("      │ Email: %s", email)
+	
+	// Parse email to get username and domain
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		log.Printf("      │ ✗ Invalid email format")
+		log.Printf("      └──────────────────────────────")
+		return false, nil
+	}
+	
+	username := parts[0]
+	domain := parts[1]
+	
+	log.Printf("      │ Username: %s", username)
+	log.Printf("      │ Domain: %s", domain)
+	
+	// Get authentication token
+	auth, err := getThunderAuth()
+	if err != nil {
+		log.Printf("      │ ⚠ Auth failed: %v", err)
+		log.Printf("      └──────────────────────────────")
+		return false, err
+	}
+	
+	// Get the OU ID for the domain
+	ouID, err := getOrgUnitIDForDomain(domain)
+	if err != nil {
+		log.Printf("      │ ⚠ Failed to get OU ID: %v", err)
+		log.Printf("      └──────────────────────────────")
+		return false, err
+	}
+	
+	log.Printf("      │ OU ID: %s", ouID)
+	
+	// Query Thunder Users API with filter
+	client := getHTTPClient()
+	filter := fmt.Sprintf("username eq \"%s\"", username)
+	url := fmt.Sprintf("https://%s:%s/users?filter=%s", THUNDER_HOST, THUNDER_PORT, filter)
+	
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		log.Printf("      │ ✗ Failed to create request: %v", err)
+		log.Printf("      └──────────────────────────────")
+		return false, err
+	}
+	
+	req.Header.Set("Authorization", "Bearer "+auth.BearerToken)
+	req.Header.Set("Content-Type", "application/json")
+	
+	log.Printf("      │ Query: %s", url)
+	
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("      │ ✗ Request failed: %v", err)
+		log.Printf("      └──────────────────────────────")
+		return false, err
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != 200 {
+		log.Printf("      │ ⚠ Unexpected status: %d", resp.StatusCode)
+		log.Printf("      └──────────────────────────────")
+		return false, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+	
+	var usersResp UsersResponse
+	if err := json.NewDecoder(resp.Body).Decode(&usersResp); err != nil {
+		log.Printf("      │ ✗ Failed to parse response: %v", err)
+		log.Printf("      └──────────────────────────────")
+		return false, err
+	}
+	
+	log.Printf("      │ Total results: %d", usersResp.TotalResults)
+	
+	if usersResp.TotalResults == 0 {
+		log.Printf("      │ ✗ User not found in Thunder")
+		log.Printf("      └──────────────────────────────")
+		return false, nil
+	}
+	
+	// Validate that the user belongs to the correct OU
+	for _, user := range usersResp.Users {
+		log.Printf("      │ Found user ID: %s", user.ID)
+		log.Printf("      │ User OU: %s", user.OrganizationUnit)
+		
+		if user.OrganizationUnit == ouID {
+			log.Printf("      │ ✓ User found and OU matches!")
+			log.Printf("      └──────────────────────────────")
+			return true, nil
+		} else {
+			log.Printf("      │ ⚠ OU mismatch (expected: %s, got: %s)", ouID, user.OrganizationUnit)
+		}
+	}
+	
+	log.Printf("      │ ✗ User found but OU doesn't match")
+	log.Printf("      └──────────────────────────────")
+	return false, nil
 }
 
 // Track active connections for graceful shutdown
@@ -426,84 +625,80 @@ var (
 )
 
 func main() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	log.Printf("===========================================")
-	log.Printf("Starting socketmap service")
-	log.Printf("===========================================")
-	log.Printf("Configuration:")
-	log.Printf("  HOST: %s", HOST)
-	log.Printf("  PORT: %s", PORT)
-	log.Printf("  Bind Address: %s:%s", HOST, PORT)
-	log.Printf("===========================================")
+	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
+	log.Println("╔════════════════════════════════════════════════════════════╗")
+	log.Println("║       Socketmap Service - Postfix Virtual Mailbox Maps    ║")
+	log.Println("╚════════════════════════════════════════════════════════════╝")
+	log.Println("")
 
-	listener, err := net.Listen("tcp", HOST+":"+PORT)
+	// Authenticate with Thunder at startup
+	log.Println("┌─ Thunder Authentication ─────────")
+	auth, err := authenticateWithThunder()
 	if err != nil {
-		log.Fatalf("Failed to bind to %s:%s: %v", HOST, PORT, err)
+		log.Printf("│ ⚠ Initial authentication failed: %v", err)
+		log.Printf("│ Service will attempt to authenticate on first request")
+		log.Println("└───────────────────────────────────")
+	} else {
+		thunderAuthMutex.Lock()
+		thunderAuth = auth
+		thunderAuthMutex.Unlock()
+		log.Println("└───────────────────────────────────")
 	}
+	log.Println("")
 
-	log.Printf("✓ Socketmap service listening on %s:%s", HOST, PORT)
-	log.Printf("✓ Ready to accept connections from Postfix")
-	log.Printf("===========================================")
-
-	// Setup graceful shutdown
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
-	// Accept connections in a goroutine
-	connectionCount := 0
+	// Start token refresh goroutine
 	go func() {
-		for {
-			conn, err := listener.Accept()
+		ticker := time.NewTicker(time.Duration(TOKEN_REFRESH_SECONDS) * time.Second)
+		defer ticker.Stop()
+		
+		for range ticker.C {
+			log.Println("⏰ Token refresh timer triggered")
+			_, err := authenticateWithThunder()
 			if err != nil {
-				select {
-				case <-ctx.Done():
-					// Shutdown in progress, exit gracefully
-					return
-				default:
-					log.Printf("⚠ Error accepting connection: %v", err)
-					continue
-				}
+				log.Printf("⚠ Token refresh failed: %v", err)
 			}
-
-			connectionCount++
-			log.Printf("")
-			log.Printf("═══════════════════════════════════════")
-			log.Printf("Connection #%d from %s", connectionCount, conn.RemoteAddr())
-			log.Printf("═══════════════════════════════════════")
-			
-			activeConnections.Add(1)
-			go func(c net.Conn) {
-				defer activeConnections.Done()
-				handleConnection(c)
-			}(conn)
 		}
 	}()
 
-	// Wait for shutdown signal
-	<-ctx.Done()
-	log.Printf("")
-	log.Printf("===========================================")
-	log.Printf("Received shutdown signal, closing listener...")
-	log.Printf("===========================================")
-	
-	// Close listener to stop accepting new connections
-	listener.Close()
-	
-	// Wait for active connections to complete (with timeout)
-	done := make(chan struct{})
-	go func() {
-		activeConnections.Wait()
-		close(done)
-	}()
+	// Determine the bind address
+	bindAddr := fmt.Sprintf("%s:%s", HOST, PORT)
+	log.Printf("Starting socketmap service on %s", bindAddr)
+	log.Printf("Configuration:")
+	log.Printf("  • Thunder Host: %s:%s", THUNDER_HOST, THUNDER_PORT)
+	log.Printf("  • Cache TTL: %d seconds", CACHE_TTL_SECONDS)
+	log.Printf("  • Token Refresh: %d seconds", TOKEN_REFRESH_SECONDS)
+	log.Println("")
 
-	select {
-	case <-done:
-		log.Printf("All connections closed gracefully")
-	case <-time.After(30 * time.Second):
-		log.Printf("Shutdown timeout reached, forcing exit")
+	// Create listener
+	listener, err := net.Listen("tcp", bindAddr)
+	if err != nil {
+		log.Fatalf("✗ Failed to start listener: %v", err)
 	}
+	defer listener.Close()
 
-	log.Printf("Socketmap service stopped")
+	log.Printf("✓ Socketmap service listening on %s", bindAddr)
+	log.Println("Ready to accept connections from Postfix")
+	log.Println("")
+
+	// Accept connections
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Printf("⚠ Error accepting connection: %v", err)
+			continue
+		}
+
+		log.Printf("╔════════════════════════════════════════════════╗")
+		log.Printf("║ New connection from %s", conn.RemoteAddr())
+		log.Printf("╚════════════════════════════════════════════════╝")
+
+		// Handle connection in goroutine
+		activeConnections.Add(1)
+		go func() {
+			defer activeConnections.Done()
+			handleConnection(conn)
+		}()
+	}
 }
 
 func handleConnection(conn net.Conn) {
@@ -664,8 +859,9 @@ func userExists(email string) bool {
 	log.Printf("    │ Email: %s", email)
 	
 	// Check cache first (read lock)
+	cacheKey := "user:" + email
 	cacheMutex.RLock()
-	entry, found := cache[email]
+	entry, found := cache[cacheKey]
 	cacheMutex.RUnlock()
 	
 	now := time.Now()
@@ -684,20 +880,25 @@ func userExists(email string) bool {
 		cacheAge := now.Sub(entry.lastUpdate).Seconds()
 		log.Printf("    │ ✓ CACHE HIT (stale)")
 		log.Printf("    │ Age: %.0f seconds", cacheAge)
-		log.Printf("    │ Refreshing from database...")
+		log.Printf("    │ Refreshing from IDP...")
 	} else {
 		log.Printf("    │ ✗ CACHE MISS")
-		log.Printf("    │ Querying user database...")
+		log.Printf("    │ Querying IDP...")
 	}
 
-	// Query database for user
-	exists := checkUserInTestDB(email)
+	// Query Thunder IDP for user validation
+	exists, err := validateUserWithThunder(email)
+	if err != nil {
+		log.Printf("    │ ⚠ IDP query failed: %v", err)
+		log.Printf("    │ User not found - Thunder unavailable")
+		exists = false
+	}
 
-	log.Printf("    │ Database result: exists=%v", exists)
+	log.Printf("    │ IDP result: exists=%v", exists)
 	
 	// Update cache (write lock)
 	cacheMutex.Lock()
-	cache[email] = cacheEntry{
+	cache[cacheKey] = cacheEntry{
 		exists:     exists,
 		expires:    now.Add(time.Duration(CACHE_TTL_SECONDS) * time.Second),
 		lastUpdate: now,
@@ -708,47 +909,6 @@ func userExists(email string) bool {
 	log.Printf("    └─────────────────────────────────")
 
 	return exists
-}
-
-func checkUserInTestDB(email string) bool {
-	log.Printf("      ┌─ Test DB Lookup ─────────────")
-	log.Printf("      │ Checking: %s", email)
-
-	// Define SPECIFIC valid mailboxes - not just domains!
-	// In production, replace this with database/YAML query
-	validMailboxes := []string{
-		// example.com domain users
-		"test@example.com",
-		"user@example.com",
-		"admin@example.com",
-		"postmaster@example.com",
-		
-		// test.com domain users
-		"user@test.com",
-		"admin@test.com",
-		
-		// aravindahwk.org domain users
-		"user1@aravindahwk.org",
-		"user2@aravindahwk.org",
-		"admin@aravindahwk.org",
-		"postmaster@aravindahwk.org",
-		"abuse@aravindahwk.org",
-		"hostmaster@aravindahwk.org",
-	}
-
-	// Check if the exact email address exists
-	for _, mailbox := range validMailboxes {
-		if strings.EqualFold(email, mailbox) {
-			log.Printf("      │ ✓ Matched mailbox: %s", mailbox)
-			log.Printf("      └──────────────────────────────")
-			return true
-		}
-	}
-	
-	log.Printf("      │ ✗ User not found")
-	log.Printf("      │ Valid mailboxes: %d configured", len(validMailboxes))
-	log.Printf("      └──────────────────────────────")
-	return false
 }
 
 func domainExists(domain string) bool {
@@ -787,9 +947,8 @@ func domainExists(domain string) bool {
 	exists, err := validateDomainWithThunder(domain)
 	if err != nil {
 		log.Printf("    │ ⚠ IDP query failed: %v", err)
-		log.Printf("    │ Falling back to test DB...")
-		// Fallback to test DB if Thunder is unavailable
-		exists = checkDomainInTestDB(domain)
+		log.Printf("    │ Domain not found - Thunder unavailable")
+		exists = false
 	}
 
 	log.Printf("    │ IDP result: exists=%v", exists)
@@ -807,33 +966,6 @@ func domainExists(domain string) bool {
 	log.Printf("    └─────────────────────────────────")
 
 	return exists
-}
-
-func checkDomainInTestDB(domain string) bool {
-	log.Printf("      ┌─ Test Domain DB Lookup ──────")
-	log.Printf("      │ Checking: %s", domain)
-
-	// For testing: accept specific domains
-	// In production, read from silver.yaml or database
-	allowedDomains := []string{
-		"example.com",
-		"test.com",
-		"localhost",
-		"aravindahwk.org",
-	}
-
-	for _, allowed := range allowedDomains {
-		if strings.EqualFold(domain, allowed) {
-			log.Printf("      │ ✓ Matched domain: %s", allowed)
-			log.Printf("      └──────────────────────────────")
-			return true
-		}
-	}
-	
-	log.Printf("      │ ✗ Not in allowed domains")
-	log.Printf("      │ Allowed: %v", allowedDomains)
-	log.Printf("      └──────────────────────────────")
-	return false
 }
 
 func resolveAlias(address string) string {
@@ -893,25 +1025,26 @@ func checkAliasInTestDB(address string) string {
 	log.Printf("      ┌─ Test Alias DB Lookup ───────")
 	log.Printf("      │ Checking: %s", address)
 
-	// For testing: define some common aliases
-	// In production, read from configuration or database
-	aliases := map[string]string{
-		"postmaster@example.com": "admin@example.com",
-		"abuse@example.com":      "admin@example.com",
-		"hostmaster@example.com": "admin@example.com",
-		"webmaster@example.com":  "admin@example.com",
-		"info@example.com":       "admin@example.com",
-		"support@test.com":       "help@test.com",
+	// Parse address to get domain
+	parts := strings.Split(strings.ToLower(address), "@")
+	if len(parts) != 2 {
+		log.Printf("      │ ✗ Invalid email format")
+		log.Printf("      └──────────────────────────────")
+		return ""
 	}
-
-	// Check if alias exists
-	if destination, found := aliases[strings.ToLower(address)]; found {
-		log.Printf("      │ ✓ Alias found: %s -> %s", address, destination)
+	
+	localPart := parts[0]
+	domain := parts[1]
+	
+	// Only handle postmaster@domain → admin@domain
+	if localPart == "postmaster" {
+		destination := fmt.Sprintf("admin@%s", domain)
+		log.Printf("      │ ✓ Postmaster alias: %s → %s", address, destination)
 		log.Printf("      └──────────────────────────────")
 		return destination
 	}
-	
-	log.Printf("      │ ✗ Alias not found")
+
+	log.Printf("      │ ✗ No alias found (only postmaster@domain supported)")
 	log.Printf("      └──────────────────────────────")
 	return ""
 }
