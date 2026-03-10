@@ -1,3 +1,3 @@
-module github.com/lsf/silver/socketmap
+module socketmap
 
 go 1.21
