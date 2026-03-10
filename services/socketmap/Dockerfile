@@ -7,8 +7,10 @@ WORKDIR /build
 COPY go.mod ./
 RUN go mod download
 
-# Copy source code
+# Copy source code (including all packages)
 COPY main.go ./
+COPY config/ ./config/
+COPY internal/ ./internal/
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o socketmap .

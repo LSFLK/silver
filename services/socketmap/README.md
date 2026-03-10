@@ -1,16 +1,25 @@
-# Socketmap Service for Virtual Mailbox Maps
+# Socketmap Service - Postfix Virtual Mailbox Maps
 
-A simple Go socketmap service for testing Postfix `virtual_mailbox_maps` lookups.
+A Go-based socketmap service for Postfix virtual mailbox maps integrated with Thunder IDP.
 
 ## What It Does
 
-This service implements the Postfix socketmap protocol to validate email addresses for virtual mailbox delivery. It replaces traditional file/SQL-based `virtual_mailbox_maps` lookups with a network service.
+This service implements the Postfix socketmap protocol to provide dynamic virtual mailbox maps backed by the Thunder Identity Provider (IDP). It validates users, domains, and aliases in real-time by querying Thunder's organization units and user database.
+
+**Key Features:**
+- ✅ Real-time user validation via Thunder IDP
+- ✅ Domain validation via Thunder organization units
+- ✅ Alias resolution support
+- ✅ Thread-safe caching with configurable TTL
+- ✅ Automatic Thunder authentication and token refresh
+- ✅ Netstring protocol implementation
+- ✅ Production-ready modular architecture
 
 **Important:** This service uses the **netstring protocol** as required by Postfix socketmap. Netstring format: `<length>:<data>,`
 
 Example:
-- Request: `32:get user-exists test@example.com,`
-- Response: `19:OK test@example.com,`
+- Request: `18:user-exists user@domain.com,`
+- Response: `23:OK user@domain.com,`
 
 ## Deployment Options
 
@@ -49,29 +58,34 @@ You should see:
 
 ### 2. Test Manually
 
-Open another terminal and test the protocol:
+Open another terminal and use the test script:
 
 ```bash
-# Test an existing user
-printf "get user-exists test@example.com\n" | nc 127.0.0.1 9100
+# Test user validation (requires Thunder IDP running)
+printf "18:user-exists admin@openmail.lk,\n" | nc 127.0.0.1 9100
 
-# Test a non-existent user
-printf "get user-exists unknown@example.com\n" | nc 127.0.0.1 9100
+# Test domain validation
+printf "24:virtual-domains openmail.lk,\n" | nc 127.0.0.1 9100
 
-# Test invalid format
-printf "invalid request\n" | nc 127.0.0.1 9100
+# Test alias resolution
+printf "33:virtual-aliases postmaster@openmail.lk,\n" | nc 127.0.0.1 9100
 ```
+
+**Note:** The service validates against Thunder IDP, so ensure Thunder is running and accessible.
 
 ### 3. Configure Postfix
 
 Add to `/etc/postfix/main.cf`:
 
 ```
-# Domain ownership (required)
-virtual_mailbox_domains = example.com, test.com
+# Domain ownership - use socketmap for dynamic domain validation
+virtual_mailbox_domains = socketmap:inet:127.0.0.1:9100:virtual-domains
 
-# Replace traditional map with socketmap
+# User validation - use socketmap for dynamic user validation
 virtual_mailbox_maps = socketmap:inet:127.0.0.1:9100:user-exists
+
+# Alias resolution - use socketmap for dynamic alias resolution
+virtual_alias_maps = socketmap:inet:127.0.0.1:9100:virtual-aliases
 
 # Your virtual transport
 virtual_transport = lmtp:inet:mailstore:24
@@ -85,108 +99,234 @@ postfix reload
 ### 4. Test with Postfix
 
 ```bash
-# Test address validation
-postmap -q "test@example.com" socketmap:inet:127.0.0.1:9100:user-exists
+# Test user validation
+postmap -q "admin@openmail.lk" socketmap:inet:127.0.0.1:9100:user-exists
+
+# Test domain validation
+postmap -q "openmail.lk" socketmap:inet:127.0.0.1:9100:virtual-domains
+
+# Test alias resolution
+postmap -q "postmaster@openmail.lk" socketmap:inet:127.0.0.1:9100:virtual-aliases
 
 # Test SMTP flow
 telnet localhost 25
 > EHLO test
 > MAIL FROM:<sender@test.com>
-> RCPT TO:<test@example.com>
+> RCPT TO:<admin@openmail.lk>
 ```
 
-## Protocol Details
+## Configuration
 
-### Request Format
-```
-get <mapname> <key>\n
-```
+The service is configured via environment variables:
 
-Example:
-```
-get user-exists user@example.com
-```
-
-### Response Format
-
-| Response | Meaning | SMTP Result |
+| Variable | Default | Description |
 |----------|---------|-------------|
-| `OK <value>` | User exists | RCPT accepted |
-| `NOTFOUND` | User doesn't exist | 550 5.1.1 User unknown |
-| `TEMP <reason>` | Temporary failure | 451 4.3.0 Try again later |
-| `PERM <reason>` | Permanent error | 550 5.3.0 |
+| `SOCKETMAP_HOST` | `127.0.0.1` | Bind address |
+| `SOCKETMAP_PORT` | `9100` | Bind port |
+| `THUNDER_HOST` | `thunder-server` | Thunder IDP hostname |
+| `THUNDER_PORT` | `8090` | Thunder IDP port |
+| `CACHE_TTL_SECONDS` | `300` | Cache TTL (5 minutes) |
+| `TOKEN_REFRESH_SECONDS` | `3300` | Token refresh interval (55 minutes) |
+| `THUNDER_SAMPLE_APP_ID` | (auto-detect) | Thunder application ID |
 
-## Test Users
+Example Docker Compose configuration:
+```yaml
+socketmap-server:
+  environment:
+    - SOCKETMAP_HOST=0.0.0.0
+    - SOCKETMAP_PORT=9100
+    - THUNDER_HOST=thunder-server
+    - THUNDER_PORT=8090
+    - CACHE_TTL_SECONDS=300
+    - TOKEN_REFRESH_SECONDS=3300
+```
 
-For testing purposes, the service accepts:
+## Supported Maps
 
-**Specific users:**
-- test@example.com
-- user@example.com
-- admin@example.com
-- postmaster@example.com
+### 1. user-exists (Virtual Mailbox Maps)
+Validates if a user exists in Thunder IDP.
 
-**All users from these domains:**
-- @example.com
-- @test.com
+**Input:** `user-exists user@domain.com`
+**Output:** 
+- `OK user@domain.com` - User exists
+- `NOTFOUND` - User doesn't exist
+
+**Caching:** Only positive results (user exists) are cached for 5 minutes.
+
+### 2. virtual-domains (Domain Validation)
+Validates if a domain exists as a Thunder organization unit.
+
+**Input:** `virtual-domains domain.com`
+**Output:** 
+- `OK 1` - Domain exists
+- `NOTFOUND` - Domain doesn't exist
+
+**Caching:** Only positive results (domain exists) are cached for 5 minutes.
+
+### 3. virtual-aliases (Alias Resolution)
+Resolves email aliases.
+
+**Input:** `virtual-aliases alias@domain.com`
+**Output:** 
+- `OK target@domain.com` - Alias resolved
+- `NOTFOUND` - No alias found
+
+**Current Implementation:** Test implementation supporting `postmaster@domain` → `admin@domain`
+
+**Caching:** Both positive and negative results cached for 5 minutes.
 
 ## Logs
 
-The service provides detailed logging:
+The service provides detailed logging with visual hierarchy:
 
 ```
-2026/02/27 10:01:23 New connection from 127.0.0.1:54321
-2026/02/27 10:01:23 ← Received: "get user-exists test@example.com"
-2026/02/27 10:01:23   Command: get, Map: user-exists, Key: test@example.com
-2026/02/27 10:01:23   Cache MISS for test@example.com - checking user database
-2026/02/27 10:01:23 ✓ User found: test@example.com
-2026/02/27 10:01:23 → Sending: "OK test@example.com"
+╔════════════════════════════════════════════════════════════╗
+║       Socketmap Service - Postfix Virtual Mailbox Maps    ║
+╚════════════════════════════════════════════════════════════╝
+
+┌─ Thunder Authentication ─────────
+│ Using Sample App ID from environment variable
+│ Sample App ID: 019cd1e1-a123-73e7-9ce8-98ea46c9a640
+│ Starting authentication flow...
+│ ✓ Flow started (ID: ...)
+│ Completing authentication...
+│ ✓ Authentication successful
+└───────────────────────────────────
+
+Starting socketmap service on 0.0.0.0:9100
+Configuration:
+  • Thunder Host: thunder-server:8090
+  • Cache TTL: 300 seconds
+  • Token Refresh: 3300 seconds
+
+✓ Socketmap service listening on 0.0.0.0:9100
+Ready to accept connections from Postfix
+
+╔════════════════════════════════════════════════╗
+║ New connection from 172.18.0.5:45678
+╚════════════════════════════════════════════════╝
+  Connection established, using netstring protocol...
+  Waiting to read netstring from connection...
+← Received netstring: "user-exists admin@openmail.lk" (length: 31)
+  Processing request: "user-exists admin@openmail.lk"
+  ┌─ Processing Request ─────────────────
+  │ Raw input: "user-exists admin@openmail.lk"
+  │ Split into 2 parts: [user-exists admin@openmail.lk]
+  │ Map:     "user-exists"
+  │ Key:     "admin@openmail.lk"
+  │ Checking if user exists...
+    ┌─ User Lookup ───────────────────
+    │ Email: admin@openmail.lk
+    │ ✗ CACHE MISS
+    │ Querying IDP...
+      ┌─ Thunder User Validation ─────
+      │ Email: admin@openmail.lk
+      │ Username: admin
+      │ Domain: openmail.lk
+      │ OU ID: 019cd1e1-...
+      │ Query: https://thunder-server:8090/users?filter=...
+      │ Total results: 1
+      │ Found user ID: 019cd1e1-...
+      │ User OU: 019cd1e1-...
+      │ ✓ User found and OU matches!
+      └──────────────────────────────
+    │ IDP result: exists=true
+    │ ✓ Cached positive result for 300 seconds
+    └─────────────────────────────────
+  │ ✓ USER FOUND: admin@openmail.lk
+  │ Response: OK admin@openmail.lk
+  └─────────────────────────────────────
+→ Preparing response: "OK admin@openmail.lk"
+  Successfully sent netstring response (length: 23)
 ```
 
-## Customization
+## Architecture
 
-To modify user validation logic, edit the `checkUserInTestDB()` function in `main.go`:
+For detailed architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
-```go
-func checkUserInTestDB(email string) bool {
-    // Add your validation logic here
-    // Examples:
-    // - Call external API
-    // - Query database
-    // - Check LDAP
-    // - Validate against file
-    
-    return true // or false
-}
+**High-level flow:**
+```
+SMTP Client
+    ↓
+Postfix (RCPT TO)
+    ↓
+virtual_mailbox_maps lookup
+    ↓
+Socketmap (0.0.0.0:9100) - Netstring Protocol
+    ↓
+Cache Check (5min TTL)
+    ├─ HIT → Return cached result
+    └─ MISS → Query Thunder IDP
+               ↓
+         Thunder API (HTTPS)
+               ↓
+         Validate User/Domain
+               ↓
+         Cache Result (if positive)
+               ↓
+         Return OK/NOTFOUND
+    ↓
+250 OK / 550 User unknown
 ```
 
-## Production Considerations
+**Project Structure:**
+```
+socketmap/
+├── main.go                    # Entry point
+├── config/                    # Configuration
+├── internal/
+│   ├── cache/                 # Caching layer
+│   ├── protocol/              # Netstring protocol
+│   ├── thunder/               # Thunder IDP integration
+│   ├── handler/               # Business logic
+│   └── server/                # TCP server
+└── [Documentation]
+```
 
-This is a **test-only** service. For production:
-
-1. **Add proper IdP integration** (Keycloak, LDAP, database)
-2. **Implement timeouts** for external calls (≤200ms)
-3. **Add circuit breaker** for IdP failures
-4. **Use connection pooling**
-5. **Add metrics and monitoring**
-6. **Consider Unix socket** instead of TCP
-7. **Implement graceful shutdown**
-8. **Add negative caching**
-9. **Rate limiting**
-10. **TLS if not localhost**
+See [INDEX.md](INDEX.md) for complete documentation guide.
 
 ## Troubleshooting
 
-### Service not starting
+### Docker Build Fails
+```bash
+# Ensure all source files are present
+ls -la config/ internal/
+
+# Check go.mod module name
+cat go.mod  # Should be: module socketmap
+
+# Rebuild without cache
+docker compose build --no-cache socketmap-server
+```
+
+### Service Not Starting
 ```bash
 # Check if port is already in use
 lsof -i :9100
 
-# Kill existing process
-kill $(lsof -t -i:9100)
+# Check Thunder connectivity
+curl -k https://thunder-server:8090/health
+
+# Check environment variables
+docker compose config | grep socketmap -A 20
 ```
 
-### Postfix not connecting
+### Thunder Authentication Fails
+```bash
+# Check Thunder is running
+docker ps | grep thunder
+
+# Check Thunder logs
+docker logs thunder-server
+
+# Verify Sample App ID
+docker logs thunder-setup 2>&1 | grep "Sample App ID"
+
+# Set manually if needed
+export THUNDER_SAMPLE_APP_ID="your-app-id-here"
+```
+
+### Postfix Not Connecting
 ```bash
 # Check Postfix logs
 tail -f /var/log/mail.log
@@ -196,34 +336,49 @@ telnet 127.0.0.1 9100
 
 # Verify Postfix config
 postconf virtual_mailbox_maps
+postconf virtual_mailbox_domains
 ```
 
-### No logs appearing
-- Ensure service is running: `ps aux | grep socketmap`
-- Check file permissions
-- Verify Postfix is actually performing lookups
+### Cache Issues
+```bash
+# Cache is working if you see:
+# "✓ CACHE HIT (fresh)" in logs
 
-## Architecture
-
-```
-SMTP Client
-    ↓
-Postfix (RCPT TO)
-    ↓
-virtual_mailbox_maps lookup
-    ↓
-Socketmap (127.0.0.1:9100)
-    ↓
-User validation logic
-    ↓
-OK / NOTFOUND
-    ↓
-250 OK / 550 User unknown
+# To clear cache, restart the service:
+docker compose restart socketmap-server
 ```
 
 ## Performance
 
-- **Cache TTL:** 60 seconds
+- **Cache TTL:** 300 seconds (5 minutes)
+- **Token Refresh:** 3300 seconds (55 minutes)
 - **Connection timeout:** 30 seconds
 - **Write timeout:** 5 seconds
-- **Concurrent connections:** Unlimited (Go handles this efficiently)
+- **Concurrent connections:** Handled efficiently via goroutines
+- **Cache Strategy:** Only positive results cached (ensures new users are immediately accessible)
+
+## Documentation
+
+- **[INDEX.md](INDEX.md)** - Documentation navigation
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Technical architecture
+- **[REFACTORING_SUMMARY.md](REFACTORING_SUMMARY.md)** - Refactoring details
+- **[VISUAL_COMPARISON.md](VISUAL_COMPARISON.md)** - Structure comparison
+
+## Development
+
+```bash
+# Build locally
+go build -o socketmap
+
+# Run locally
+./socketmap
+
+# Run tests (when implemented)
+go test ./...
+
+# Format code
+go fmt ./...
+
+# Vet code
+go vet ./...
+```
