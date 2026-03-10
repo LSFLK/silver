@@ -555,21 +555,30 @@ func validateUserWithThunder(email string) (bool, error) {
 	log.Printf("      │ OU ID: %s", ouID)
 	
 	// Query Thunder Users API with filter
+	// Filter format: username eq "user1"
+	// Must be URL encoded: username%20eq%20%22user1%22
 	client := getHTTPClient()
 	filter := fmt.Sprintf("username eq \"%s\"", username)
-	url := fmt.Sprintf("https://%s:%s/users?filter=%s", THUNDER_HOST, THUNDER_PORT, filter)
 	
-	req, err := http.NewRequest("GET", url, nil)
+	// Use net/url to properly encode the filter parameter
+	baseURL := fmt.Sprintf("https://%s:%s/users", THUNDER_HOST, THUNDER_PORT)
+	
+	req, err := http.NewRequest("GET", baseURL, nil)
 	if err != nil {
 		log.Printf("      │ ✗ Failed to create request: %v", err)
 		log.Printf("      └──────────────────────────────")
 		return false, err
 	}
 	
+	// Add the filter as a query parameter (will be automatically URL encoded)
+	q := req.URL.Query()
+	q.Add("filter", filter)
+	req.URL.RawQuery = q.Encode()
+	
+	log.Printf("      │ Query: %s", req.URL.String())
+	
 	req.Header.Set("Authorization", "Bearer "+auth.BearerToken)
 	req.Header.Set("Content-Type", "application/json")
-	
-	log.Printf("      │ Query: %s", url)
 	
 	resp, err := client.Do(req)
 	if err != nil {
