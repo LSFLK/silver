@@ -1,0 +1,1 @@
+echo "Overwriting the default sample resources creation script with empty content..."

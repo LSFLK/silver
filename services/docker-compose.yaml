@@ -175,7 +175,7 @@ services:
 
   # Initialize database from the image
   thunder-db-init:
-    image: ghcr.io/asgardeo/thunder:0.22.0
+    image: ghcr.io/asgardeo/thunder:0.24.0
     container_name: thunder-db-init
     command: sh -c "cp -r /opt/thunder/repository/database/* /data/"
     volumes:
@@ -184,12 +184,13 @@ services:
 
   # Run setup once with the shared database
   thunder-setup:
-    image: ghcr.io/asgardeo/thunder:0.22.0
+    image: ghcr.io/asgardeo/thunder:0.24.0
     container_name: thunder-setup
     command: ./setup.sh
     volumes:
       - thunder-db:/opt/thunder/repository/database
       - ./silver-config/thunder/deployment.yaml:/opt/thunder/repository/conf/deployment.yaml:ro
+      - ./../scripts/thunder/02-sample-resources.sh:/opt/thunder/bootstrap/02-sample-resources.sh
     depends_on:
       thunder-db-init:
         condition: service_completed_successfully
@@ -197,7 +198,7 @@ services:
 
   # Run Thunder server with the shared database
   thunder:
-    image: ghcr.io/asgardeo/thunder:0.22.0
+    image: ghcr.io/asgardeo/thunder:0.24.0
     container_name: thunder-server
     depends_on:
       thunder-setup:
