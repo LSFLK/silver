@@ -18,11 +18,11 @@ var (
 	thunderAuthMutex sync.RWMutex
 )
 
-// getSampleAppIDFromThunderSetup extracts Sample App ID from thunder-setup container
-func getSampleAppIDFromThunderSetup() (string, error) {
-	log.Printf("  │ Extracting Sample App ID from thunder-setup container...")
+// getDevelopAppIDFromThunderSetup extracts DEVELOP App ID from thunder-setup container
+func getDevelopAppIDFromThunderSetup() (string, error) {
+	log.Printf("  │ Extracting DEVELOP_APP_ID from thunder-setup container...")
 	
-	// Execute: docker logs thunder-setup 2>&1 | grep 'Sample App ID:' | head -n1
+	// Execute: docker logs thunder-setup 2>&1 | grep 'DEVELOP_APP_ID:' | head -n1
 	cmd := exec.Command("docker", "logs", "thunder-setup")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -38,52 +38,52 @@ func getSampleAppIDFromThunderSetup() (string, error) {
 		log.Printf("  │   - Running inside a container without Docker socket")
 	}
 	
-	// Search for "Sample App ID:" in logs (case-insensitive)
+	// Search for "DEVELOP_APP_ID:" in logs (case-insensitive)
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
-		if strings.Contains(line, "Sample App ID:") {
+		if strings.Contains(line, "DEVELOP_APP_ID:") {
 			// Extract UUID pattern: [a-f0-9-]{36}
 			re := regexp.MustCompile(`[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`)
 			match := re.FindString(line)
 			if match != "" {
-				log.Printf("  │ ✓ Sample App ID extracted: %s", match)
+				log.Printf("  │ ✓ DEVELOP_APP_ID extracted: %s", match)
 				return match, nil
 			}
 		}
 	}
 	
-	return "", fmt.Errorf("Sample App ID not found in thunder-setup logs")
+	return "", fmt.Errorf("DEVELOP_APP_ID not found in thunder-setup logs")
 }
 
 // Authenticate performs the full authentication flow with Thunder IDP
 func Authenticate(host, port string, tokenRefreshSeconds int) (*Auth, error) {
 	log.Printf("  ┌─ Thunder Authentication ─────────")
 	
-	// Step 1: Get Sample App ID
-	sampleAppID := os.Getenv("THUNDER_SAMPLE_APP_ID")
+	// Step 1: Get DEVELOP App ID
+	developAppID := os.Getenv("THUNDER_DEVELOP_APP_ID")
 	
-	if sampleAppID != "" {
-		log.Printf("  │ Using Sample App ID from environment variable")
-		log.Printf("  │ Sample App ID: %s", sampleAppID)
+	if developAppID != "" {
+		log.Printf("  │ Using DEVELOP App ID from environment variable")
+		log.Printf("  │ DEVELOP_APP_ID: %s", developAppID)
 	} else {
-		log.Printf("  │ THUNDER_SAMPLE_APP_ID not set")
+		log.Printf("  │ THUNDER_DEVELOP_APP_ID not set")
 		log.Printf("  │ Attempting to extract from thunder-setup container logs...")
 		
 		var err error
-		sampleAppID, err = getSampleAppIDFromThunderSetup()
+		developAppID, err = getDevelopAppIDFromThunderSetup()
 		if err != nil {
-			log.Printf("  │ ✗ Failed to extract Sample App ID: %v", err)
+			log.Printf("  │ ✗ Failed to extract DEVELOP_APP_ID: %v", err)
 			log.Printf("  │")
 			log.Printf("  │ Please ensure Thunder setup container has completed successfully")
 			log.Printf("  │")
 			log.Printf("  │ To fix this issue:")
 			log.Printf("  │ 1. Check thunder-setup logs: docker logs thunder-setup")
 			log.Printf("  │ 2. Extract App ID manually and set environment:")
-			log.Printf("  │    export THUNDER_SAMPLE_APP_ID=$(docker logs thunder-setup 2>&1 | grep 'Sample App ID:' | grep -o '[a-f0-9-]\\{36\\}')")
+			log.Printf("  │    export THUNDER_DEVELOP_APP_ID=$(docker logs thunder-setup 2>&1 | grep 'DEVELOP_APP_ID:' | grep -o '[a-f0-9-]\\{36\\}')")
 			log.Printf("  │ 3. Or if running in Docker, mount the Docker socket:")
 			log.Printf("  │    volumes: ['/var/run/docker.sock:/var/run/docker.sock']")
 			log.Printf("  └───────────────────────────────────")
-			return nil, fmt.Errorf("failed to get Sample App ID: %w", err)
+			return nil, fmt.Errorf("failed to get DEVELOP App ID: %w", err)
 		}
 	}
 	
@@ -93,7 +93,7 @@ func Authenticate(host, port string, tokenRefreshSeconds int) (*Auth, error) {
 	// Step 2: Start authentication flow
 	log.Printf("  │ Starting authentication flow...")
 	flowPayload := map[string]interface{}{
-		"applicationId": sampleAppID,
+		"applicationId": developAppID,
 		"flowType":      "AUTHENTICATION",
 	}
 	flowData, err := json.Marshal(flowPayload)
@@ -164,7 +164,7 @@ func Authenticate(host, port string, tokenRefreshSeconds int) (*Auth, error) {
 	log.Printf("  └───────────────────────────────────")
 	
 	auth := &Auth{
-		SampleAppID:  sampleAppID,
+		DevelopAppID:  developAppID,
 		FlowID:       flowResp.FlowID,
 		BearerToken:  authResp.Assertion,
 		ExpiresAt:    time.Now().Add(time.Duration(tokenRefreshSeconds) * time.Second),

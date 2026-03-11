@@ -10,7 +10,7 @@
 # Usage:
 #   source "$(dirname "$0")/../utils/thunder-auth.sh"
 #   thunder_authenticate "$THUNDER_HOST" "$THUNDER_PORT"
-#   # Now you can use: $SAMPLE_APP_ID, $BEARER_TOKEN
+#   # Now you can use: $DEVELOP_APP_ID, $BEARER_TOKEN
 #
 #   thunder_get_org_unit "$THUNDER_HOST" "$THUNDER_PORT" "$BEARER_TOKEN" "silver"
 #   # Now you can use: $ORG_UNIT_ID
@@ -24,19 +24,19 @@ RED="\033[0;31m"
 NC="\033[0m" # No Color
 
 # ============================================
-# Function: Extract Sample App ID from Thunder setup logs
+# Function: Extract DEVELOP App ID from Thunder setup logs
 # ============================================
-thunder_get_sample_app_id() {
-    local sample_app_id
-    sample_app_id=$(docker logs thunder-setup 2>&1 | grep 'Sample App ID:' | head -n1 | grep -o '[a-f0-9-]\{36\}')
+thunder_get_develop_app_id() {
+    local develop_app_id
+    develop_app_id=$(docker logs thunder-setup 2>&1 | grep 'DEVELOP_APP_ID:' | head -n1 | grep -o '[a-f0-9-]\{36\}')
 
-    if [ -z "$sample_app_id" ]; then
-        echo -e "${RED}✗ Failed to extract Sample App ID from Thunder setup logs${NC}" >&2
+    if [ -z "$develop_app_id" ]; then
+        echo -e "${RED}✗ Failed to extract DEVELOP_APP_ID from Thunder setup logs${NC}" >&2
         echo "Please ensure Thunder setup container has completed successfully." >&2
         return 1
     fi
 
-    echo "$sample_app_id"
+    echo "$develop_app_id"
     return 0
 }
 
@@ -49,7 +49,7 @@ thunder_get_sample_app_id() {
 # Returns:
 #   0 on success, 1 on failure
 # Exports:
-#   SAMPLE_APP_ID - The application ID extracted from logs
+#   DEVELOP_APP_ID - The application ID extracted from logs
 #   BEARER_TOKEN - The authentication token
 # ============================================
 thunder_authenticate() {
@@ -63,16 +63,16 @@ thunder_authenticate() {
 
     echo -e "${YELLOW}Authenticating with Thunder...${NC}"
 
-    # Step 1: Extract Sample App ID
-    echo "  - Extracting Sample App ID from Thunder setup logs..."
-    SAMPLE_APP_ID=$(thunder_get_sample_app_id)
+    # Step 1: Extract DEVELOP App ID
+    echo "  - Extracting DEVELOP_APP_ID from Thunder setup logs..."
+    DEVELOP_APP_ID=$(thunder_get_develop_app_id)
 
-    if [ $? -ne 0 ] || [ -z "$SAMPLE_APP_ID" ]; then
-        echo -e "${RED}✗ Failed to extract Sample App ID${NC}" >&2
+    if [ $? -ne 0 ] || [ -z "$DEVELOP_APP_ID" ]; then
+        echo -e "${RED}✗ Failed to extract DEVELOP_APP_ID${NC}" >&2
         return 1
     fi
 
-    echo -e "${GREEN}  ✓ Sample App ID extracted: $SAMPLE_APP_ID${NC}"
+    echo -e "${GREEN}  ✓ DEVELOP_APP_ID extracted: $DEVELOP_APP_ID${NC}"
 
     # Step 2: Start authentication flow (get flowId)
     echo "  - Starting authentication flow..."
@@ -80,7 +80,7 @@ thunder_authenticate() {
     start_response=$(curl -s -w "\n%{http_code}" -X POST \
         "https://${thunder_host}:${thunder_port}/flow/execute" \
         -H "Content-Type: application/json" \
-        -d "{\"applicationId\":\"${SAMPLE_APP_ID}\",\"flowType\":\"AUTHENTICATION\"}")
+        -d "{\"applicationId\":\"${DEVELOP_APP_ID}\",\"flowType\":\"AUTHENTICATION\"}")
 
     local start_body
     local start_status
@@ -132,7 +132,7 @@ thunder_authenticate() {
     echo -e "${GREEN}  ✓ Authentication successful${NC}"
 
     # Export variables for use in calling script
-    export SAMPLE_APP_ID
+    export DEVELOP_APP_ID
     export FLOW_ID
     export BEARER_TOKEN
 

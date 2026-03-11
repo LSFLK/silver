@@ -66,7 +66,7 @@ services:
     environment:
       - SOCKETMAP_HOST=0.0.0.0
       - SOCKETMAP_PORT=9100
-      # THUNDER_SAMPLE_APP_ID not required - auto-extracted from thunder-setup logs
+      # THUNDER_DEVELOP_APP_ID not required - auto-extracted from thunder-setup logs
       - THUNDER_HOST=thunder-server
       - THUNDER_PORT=8090
       - CACHE_TTL_SECONDS=300

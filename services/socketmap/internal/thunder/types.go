@@ -6,7 +6,7 @@ import (
 
 // Auth holds Thunder authentication state
 type Auth struct {
-	SampleAppID  string
+	DevelopAppID  string
 	FlowID       string
 	BearerToken  string
 	ExpiresAt    time.Time
