@@ -191,6 +191,9 @@ services:
       - thunder-db:/opt/thunder/repository/database
       - ./silver-config/thunder/deployment.yaml:/opt/thunder/repository/conf/deployment.yaml:ro
       - ./../scripts/thunder/02-sample-resources.sh:/opt/thunder/bootstrap/02-sample-resources.sh
+    environment:
+      - THUNDER_ADMIN_USERNAME=${THUNDER_ADMIN_USERNAME:-admin}
+      - THUNDER_ADMIN_PASSWORD=${THUNDER_ADMIN_PASSWORD:-admin}
     depends_on:
       thunder-db-init:
         condition: service_completed_successfully
