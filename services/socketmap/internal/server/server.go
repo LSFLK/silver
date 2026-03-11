@@ -2,10 +2,11 @@ package server
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
