@@ -32,6 +32,34 @@ func sanitizeDomainPart(part string) error {
 	return nil
 }
 
+// buildOUPath constructs an OU path from a domain, validating all parts
+func buildOUPath(domain string) (string, error) {
+	// Parse domain into parts
+	parts := strings.Split(domain, ".")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("invalid domain format: minimum 2 parts required")
+	}
+	
+	// Validate all domain parts to prevent path traversal attacks
+	for _, part := range parts {
+		if err := sanitizeDomainPart(part); err != nil {
+			return "", fmt.Errorf("invalid domain part: %v", err)
+		}
+	}
+	
+	// Build OU path
+	var ouPath string
+	if len(parts) == 2 {
+		ouPath = domain
+	} else {
+		rootDomain := strings.Join(parts[len(parts)-2:], ".")
+		subdomains := parts[:len(parts)-2]
+		ouPath = rootDomain + "/" + strings.Join(subdomains, "/")
+	}
+	
+	return ouPath, nil
+}
+
 // Cache for OU ID lookups (domain -> OU ID mapping)
 var (
 	ouCache      = make(map[string]string)
@@ -51,31 +79,12 @@ func ValidateDomain(domain, host, port string, tokenRefreshSeconds int) (bool, e
 		return false, err
 	}
 	
-	// Parse domain into OU path
-	parts := strings.Split(domain, ".")
-	if len(parts) < 2 {
-		log.Printf("      │ ✗ Invalid domain format")
+	// Build OU path
+	ouPath, err := buildOUPath(domain)
+	if err != nil {
+		log.Printf("      │ ✗ Invalid domain: %v", err)
 		log.Printf("      └──────────────────────────────")
 		return false, nil
-	}
-	
-	// Validate all domain parts to prevent path traversal attacks
-	for _, part := range parts {
-		if err := sanitizeDomainPart(part); err != nil {
-			log.Printf("      │ ✗ Invalid domain part: %v", err)
-			log.Printf("      └──────────────────────────────")
-			return false, nil
-		}
-	}
-	
-	// Build OU path
-	var ouPath string
-	if len(parts) == 2 {
-		ouPath = domain
-	} else {
-		rootDomain := strings.Join(parts[len(parts)-2:], ".")
-		subdomains := parts[:len(parts)-2]
-		ouPath = rootDomain + "/" + strings.Join(subdomains, "/")
 	}
 	
 	log.Printf("      │ OU Path: %s", ouPath)
@@ -154,27 +163,10 @@ func GetOrgUnitIDForDomain(domain, host, port string, tokenRefreshSeconds int) (
 		return "", err
 	}
 	
-	// Parse domain into OU path
-	parts := strings.Split(domain, ".")
-	if len(parts) < 2 {
-		return "", fmt.Errorf("invalid domain format")
-	}
-	
-	// Validate all domain parts to prevent path traversal attacks
-	for _, part := range parts {
-		if err := sanitizeDomainPart(part); err != nil {
-			return "", fmt.Errorf("invalid domain part: %v", err)
-		}
-	}
-	
 	// Build OU path
-	var ouPath string
-	if len(parts) == 2 {
-		ouPath = domain
-	} else {
-		rootDomain := strings.Join(parts[len(parts)-2:], ".")
-		subdomains := parts[:len(parts)-2]
-		ouPath = rootDomain + "/" + strings.Join(subdomains, "/")
+	ouPath, err := buildOUPath(domain)
+	if err != nil {
+		return "", err
 	}
 	
 	// Query Thunder API for OU
