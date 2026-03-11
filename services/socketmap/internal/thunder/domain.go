@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -48,12 +49,17 @@ func buildOUPath(domain string) (string, error) {
 	}
 	
 	// Build OU path
+	// So we need to reverse the subdomain parts
 	var ouPath string
 	if len(parts) == 2 {
 		ouPath = domain
 	} else {
 		rootDomain := strings.Join(parts[len(parts)-2:], ".")
 		subdomains := parts[:len(parts)-2]
+		
+		// Reverse the subdomain parts
+		slices.Reverse(subdomains)
+		
 		ouPath = rootDomain + "/" + strings.Join(subdomains, "/")
 	}
 	
