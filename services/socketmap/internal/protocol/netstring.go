@@ -27,6 +27,16 @@ func ReadNetstring(reader *bufio.Reader) (string, error) {
 		return "", fmt.Errorf("invalid length: %w", err)
 	}
 	
+	// Validate length to prevent memory exhaustion attacks
+	// Maximum allowed netstring size: 10MB (reasonable limit for email-related data)
+	const maxNetstringLength = 10 * 1024 * 1024
+	if length < 0 {
+		return "", fmt.Errorf("invalid length: negative value %d", length)
+	}
+	if length > maxNetstringLength {
+		return "", fmt.Errorf("invalid length: %d exceeds maximum allowed size of %d bytes", length, maxNetstringLength)
+	}
+	
 	log.Printf("      Netstring length: %d", length)
 	
 	// Read exactly 'length' bytes of data using io.ReadFull
