@@ -83,14 +83,14 @@ func (s *Server) handleConnection(conn net.Conn) {
 		// Read request using netstring protocol
 		request, err := protocol.ReadNetstring(reader)
 		if err != nil {
-			if err.Error() != "EOF" && !strings.Contains(err.Error(), "EOF") {
+			if errors.Is(err, io.EOF) {
+				log.Printf("  Connection closed by client (EOF)")
+			} else {
 				log.Printf("⚠ Error reading netstring from %s: %v", conn.RemoteAddr(), err)
 				log.Printf("  Possible causes:")
 				log.Printf("  1. Client sent non-netstring data")
 				log.Printf("  2. Connection interrupted")
 				log.Printf("  3. Protocol version mismatch")
-			} else {
-				log.Printf("  Connection closed by client (EOF)")
 			}
 			return
 		}
