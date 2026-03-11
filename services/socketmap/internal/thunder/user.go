@@ -8,6 +8,14 @@ import (
 	"strings"
 )
 
+// escapeFilterValue escapes special characters in filter values to prevent injection attacks
+func escapeFilterValue(value string) string {
+	// Escape backslashes first, then double quotes
+	value = strings.ReplaceAll(value, "\\", "\\\\")
+	value = strings.ReplaceAll(value, "\"", "\\\"")
+	return value
+}
+
 // ValidateUser checks if a user exists in Thunder IDP
 func ValidateUser(email, host, port string, tokenRefreshSeconds int) (bool, error) {
 	log.Printf("      ┌─ Thunder User Validation ─────")
@@ -47,7 +55,9 @@ func ValidateUser(email, host, port string, tokenRefreshSeconds int) (bool, erro
 	
 	// Query Thunder Users API with filter
 	client := GetHTTPClient()
-	filter := fmt.Sprintf("username eq \"%s\"", username)
+	// Escape username to prevent filter injection attacks
+	escapedUsername := escapeFilterValue(username)
+	filter := fmt.Sprintf("username eq \"%s\"", escapedUsername)
 	
 	baseURL := fmt.Sprintf("https://%s:%s/users", host, port)
 	
