@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log"
 	"os"
 	"strconv"
 )
@@ -38,6 +39,8 @@ func getEnvInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
 		if intVal, err := strconv.Atoi(value); err == nil {
 			return intVal
+		} else {
+		    log.Printf("Warning: could not parse env var %s value %q as int. Using default %d. Error: %v", key, value, defaultValue, err)
 		}
 	}
 	return defaultValue
