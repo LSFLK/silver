@@ -74,6 +74,8 @@ services:
     depends_on:
       thunder-setup:
         condition: service_completed_successfully
+      thunder:
+        condition: service_started
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "9100"]
       interval: 10s

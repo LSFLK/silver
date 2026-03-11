@@ -20,15 +20,36 @@ func main() {
 	// Load configuration
 	cfg := config.Load()
 
-	// Authenticate with Thunder at startup
+	// Authenticate with Thunder at startup with retry logic
 	log.Println("┌─ Thunder Authentication ─────────")
-	auth, err := thunder.Authenticate(cfg.ThunderHost, cfg.ThunderPort, cfg.TokenRefreshSeconds)
+	
+	var auth *thunder.Auth
+	var err error
+	maxRetries := 5
+	retryDelay := 2 * time.Second
+	
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if attempt > 1 {
+			log.Printf("│ Retry attempt %d/%d (waiting %v)...", attempt, maxRetries, retryDelay)
+			time.Sleep(retryDelay)
+			retryDelay *= 2 // Exponential backoff
+		}
+		
+		auth, err = thunder.Authenticate(cfg.ThunderHost, cfg.ThunderPort, cfg.TokenRefreshSeconds)
+		if err == nil {
+			thunder.SetAuth(auth)
+			log.Println("└───────────────────────────────────")
+			break
+		}
+		
+		if attempt < maxRetries {
+			log.Printf("│ ⚠ Authentication attempt %d failed: %v", attempt, err)
+		}
+	}
+	
 	if err != nil {
-		log.Printf("│ ⚠ Initial authentication failed: %v", err)
+		log.Printf("│ ⚠ Initial authentication failed after %d attempts: %v", maxRetries, err)
 		log.Printf("│ Service will attempt to authenticate on first request")
-		log.Println("└───────────────────────────────────")
-	} else {
-		thunder.SetAuth(auth)
 		log.Println("└───────────────────────────────────")
 	}
 	log.Println("")
