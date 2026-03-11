@@ -9,6 +9,29 @@ import (
 	"sync"
 )
 
+// sanitizeDomainPart validates and sanitizes a domain part to prevent path traversal attacks
+func sanitizeDomainPart(part string) error {
+	// Check for empty parts
+	if part == "" {
+		return fmt.Errorf("empty domain part")
+	}
+	
+	// Check for path traversal characters
+	if strings.Contains(part, "..") || strings.Contains(part, "/") || strings.Contains(part, "\\") {
+		return fmt.Errorf("invalid characters in domain part: %s", part)
+	}
+	
+	// Validate that domain part contains only valid characters (alphanumeric, hyphens, underscores)
+	for _, char := range part {
+		if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || 
+			 (char >= '0' && char <= '9') || char == '-' || char == '_') {
+			return fmt.Errorf("invalid character in domain part: %c", char)
+		}
+	}
+	
+	return nil
+}
+
 // Cache for OU ID lookups (domain -> OU ID mapping)
 var (
 	ouCache      = make(map[string]string)
@@ -34,6 +57,15 @@ func ValidateDomain(domain, host, port string, tokenRefreshSeconds int) (bool, e
 		log.Printf("      │ ✗ Invalid domain format")
 		log.Printf("      └──────────────────────────────")
 		return false, nil
+	}
+	
+	// Validate all domain parts to prevent path traversal attacks
+	for _, part := range parts {
+		if err := sanitizeDomainPart(part); err != nil {
+			log.Printf("      │ ✗ Invalid domain part: %v", err)
+			log.Printf("      └──────────────────────────────")
+			return false, nil
+		}
 	}
 	
 	// Build OU path
@@ -126,6 +158,13 @@ func GetOrgUnitIDForDomain(domain, host, port string, tokenRefreshSeconds int) (
 	parts := strings.Split(domain, ".")
 	if len(parts) < 2 {
 		return "", fmt.Errorf("invalid domain format")
+	}
+	
+	// Validate all domain parts to prevent path traversal attacks
+	for _, part := range parts {
+		if err := sanitizeDomainPart(part); err != nil {
+			return "", fmt.Errorf("invalid domain part: %v", err)
+		}
 	}
 	
 	// Build OU path
