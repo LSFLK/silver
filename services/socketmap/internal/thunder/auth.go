@@ -96,7 +96,12 @@ func Authenticate(host, port string, tokenRefreshSeconds int) (*Auth, error) {
 		"applicationId": sampleAppID,
 		"flowType":      "AUTHENTICATION",
 	}
-	flowData, _ := json.Marshal(flowPayload)
+	flowData, err := json.Marshal(flowPayload)
+    if err != nil {
+        log.Printf("  │ ✗ Failed to marshal flow payload: %v", err)
+        log.Printf("  └───────────────────────────────────")
+        return nil, fmt.Errorf("failed to marshal flow payload: %w", err)
+    }
 	
 	resp, err := client.Post(baseURL+"/flow/execute", "application/json", bytes.NewBuffer(flowData))
 	if err != nil {
