@@ -190,6 +190,7 @@ services:
     volumes:
       - thunder-db:/opt/thunder/repository/database
       - ./silver-config/thunder/deployment.yaml:/opt/thunder/repository/conf/deployment.yaml:ro
+      - ./../scripts/thunder/01-default-resources.sh:/opt/thunder/bootstrap/01-default-resources.sh
       - ./../scripts/thunder/02-sample-resources.sh:/opt/thunder/bootstrap/02-sample-resources.sh
     environment:
       - THUNDER_ADMIN_USERNAME=${THUNDER_ADMIN_USERNAME:-admin}
