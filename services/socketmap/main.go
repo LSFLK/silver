@@ -40,11 +40,12 @@ func main() {
 		
 		for range ticker.C {
 			log.Println("⏰ Token refresh timer triggered")
-			_, err := thunder.Authenticate(cfg.ThunderHost, cfg.ThunderPort, cfg.TokenRefreshSeconds)
+			newAuth, err := thunder.Authenticate(cfg.ThunderHost, cfg.ThunderPort, cfg.TokenRefreshSeconds)
 			if err != nil {
 				log.Printf("⚠ Token refresh failed: %v", err)
 			} else {
-				// Auth is automatically set in thunder.Authenticate
+				thunder.SetAuth(newAuth)
+				log.Println("✓ Token refreshed successfully")
 			}
 		}
 	}()
