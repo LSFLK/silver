@@ -71,6 +71,9 @@ services:
       - THUNDER_PORT=8090
       - CACHE_TTL_SECONDS=300
       - TOKEN_REFRESH_SECONDS=3300
+    depends_on:
+      thunder-setup:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "9100"]
       interval: 10s

@@ -28,7 +28,8 @@ NC="\033[0m" # No Color
 # ============================================
 thunder_get_develop_app_id() {
     local develop_app_id
-    develop_app_id=$(docker logs thunder-setup 2>&1 | grep 'DEVELOP_APP_ID:' | head -n1 | grep -o '[a-f0-9-]\{36\}')
+    # Look for DEVELOP_APP_ID in logs (handles both "DEVELOP_APP_ID:" and "[INFO] DEVELOP_APP_ID:" formats)
+    develop_app_id=$(docker logs thunder-setup 2>&1 | grep -i 'DEVELOP_APP_ID' | head -n1 | grep -o '[a-f0-9-]\{36\}')
 
     if [ -z "$develop_app_id" ]; then
         echo -e "${RED}✗ Failed to extract DEVELOP_APP_ID from Thunder setup logs${NC}" >&2

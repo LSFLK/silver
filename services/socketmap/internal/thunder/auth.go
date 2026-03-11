@@ -38,10 +38,12 @@ func getDevelopAppIDFromThunderSetup() (string, error) {
 		log.Printf("  │   - Running inside a container without Docker socket")
 	}
 	
-	// Search for "DEVELOP_APP_ID:" in logs (case-insensitive)
+	// Search for "DEVELOP_APP_ID:" in logs
+	// Log format: [INFO] DEVELOP_APP_ID: 019cdc47-3537-74ee-951e-3f50e48786ab
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
-		if strings.Contains(line, "DEVELOP_APP_ID:") {
+		// Look for line containing DEVELOP_APP_ID (case-insensitive)
+		if strings.Contains(line, "DEVELOP_APP_ID") || strings.Contains(line, "develop_app_id") {
 			// Extract UUID pattern: [a-f0-9-]{36}
 			re := regexp.MustCompile(`[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`)
 			match := re.FindString(line)
