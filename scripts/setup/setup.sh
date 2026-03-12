@@ -24,25 +24,25 @@ readonly SILVER_CONFIG=$(grep -m 1 '^config-url:' "${CONFIG_FILE}" | sed 's/conf
 # ASCII Banner
 echo -e "${CYAN}"
 cat <<'EOF'
-                                                                                                
-                                                                                                
-   SSSSSSSSSSSSSSS   iiii  lllllll                                                              
- SS:::::::::::::::S i::::i l:::::l                                                              
-S:::::SSSSSS::::::S  iiii  l:::::l                                                              
-S:::::S     SSSSSSS        l:::::l                                                              
-S:::::S            iiiiiii  l::::lvvvvvvv           vvvvvvv eeeeeeeeeeee    rrrrr   rrrrrrrrr   
-S:::::S            i::::i  l::::l v:::::v         v:::::vee::::::::::::ee  r::::rrr:::::::::r  
- S::::SSSS          i::::i  l::::l  v:::::v       v:::::ve::::::eeeee:::::eer:::::::::::::::::r 
+
+
+   SSSSSSSSSSSSSSS   iiii  lllllll
+ SS:::::::::::::::S i::::i l:::::l
+S:::::SSSSSS::::::S  iiii  l:::::l
+S:::::S     SSSSSSS        l:::::l
+S:::::S            iiiiiii  l::::lvvvvvvv           vvvvvvv eeeeeeeeeeee    rrrrr   rrrrrrrrr
+S:::::S            i::::i  l::::l v:::::v         v:::::vee::::::::::::ee  r::::rrr:::::::::r
+ S::::SSSS          i::::i  l::::l  v:::::v       v:::::ve::::::eeeee:::::eer:::::::::::::::::r
   SS::::::SSSSS     i::::i  l::::l   v:::::v     v:::::ve::::::e     e:::::err::::::rrrrr::::::r
     SSS::::::::SS   i::::i  l::::l    v:::::v   v:::::v e:::::::eeeee::::::e r:::::r     r:::::r
        SSSSSS::::S  i::::i  l::::l     v:::::v v:::::v  e:::::::::::::::::e  r:::::r     rrrrrrr
-            S:::::S i::::i  l::::l      v:::::v:::::v   e::::::eeeeeeeeeee   r:::::r            
-            S:::::S i::::i  l::::l       v:::::::::v    e:::::::e            r:::::r            
-SSSSSSS     S:::::Si::::::il::::::l       v:::::::v     e::::::::e           r:::::r            
-S::::::SSSSSS:::::Si::::::il::::::l        v:::::v       e::::::::eeeeeeee   r:::::r            
-S:::::::::::::::SS i::::::il::::::l         v:::v         ee:::::::::::::e   r:::::r            
- SSSSSSSSSSSSSSS   iiiiiiiillllllll          vvv            eeeeeeeeeeeeee   rrrrrrr            
-                                                                                                 
+            S:::::S i::::i  l::::l      v:::::v:::::v   e::::::eeeeeeeeeee   r:::::r
+            S:::::S i::::i  l::::l       v:::::::::v    e:::::::e            r:::::r
+SSSSSSS     S:::::Si::::::il::::::l       v:::::::v     e::::::::e           r:::::r
+S::::::SSSSSS:::::Si::::::il::::::l        v:::::v       e::::::::eeeeeeee   r:::::r
+S:::::::::::::::SS i::::::il::::::l         v:::v         ee:::::::::::::e   r:::::r
+ SSSSSSSSSSSSSSS   iiiiiiiillllllll          vvv            eeeeeeeeeeeeee   rrrrrrr
+
 EOF
 echo -e "${NC}"
 
