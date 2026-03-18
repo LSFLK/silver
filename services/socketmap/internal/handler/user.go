@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"socketmap/config"
@@ -41,12 +42,26 @@ func UserExists(email string, cfg *config.Config, cacheManager *cache.Cache) boo
 		log.Printf("    │ Querying IDP...")
 	}
 
-	// Query Thunder IDP for user validation
+	// Query Thunder IDP for user validation first.
 	exists, err := thunder.ValidateUser(email, cfg.ThunderHost, cfg.ThunderPort, cfg.TokenRefreshSeconds)
 	if err != nil {
-		log.Printf("    │ ⚠ IDP query failed: %v", err)
-		log.Printf("    │ User not found - Thunder unavailable")
+		log.Printf("    │ ⚠ User lookup failed: %v", err)
 		exists = false
+	}
+
+	// Treat group addresses as mailbox identities in user-exists map.
+	if !exists && strings.Contains(email, "@") {
+		groupExists, groupErr := thunder.ValidateGroupAddress(email, cfg.ThunderHost, cfg.ThunderPort, cfg.TokenRefreshSeconds)
+		if groupErr != nil {
+			log.Printf("    │ ⚠ Group lookup failed: %v", groupErr)
+		} else if groupExists {
+			log.Printf("    │ ✓ Group found; treating as existing user")
+			exists = true
+		}
+	}
+
+	if !exists {
+		log.Printf("    │ User/group not found - Thunder unavailable or no match")
 	}
 
 	log.Printf("    │ IDP result: exists=%v", exists)

@@ -48,3 +48,19 @@ type User struct {
 	Type             string                 `json:"type"`
 	Attributes       map[string]interface{} `json:"attributes"`
 }
+
+// GroupsResponse represents the response from Thunder Groups API
+type GroupsResponse struct {
+	TotalResults int           `json:"totalResults"`
+	StartIndex   int           `json:"startIndex"`
+	Count        int           `json:"count"`
+	Groups       []Group       `json:"groups"`
+	Links        []interface{} `json:"links"`
+}
+
+// Group represents a Thunder group
+type Group struct {
+	ID                 string `json:"id"`
+	Name               string `json:"name"`
+	OrganizationUnitID string `json:"organizationUnitId"`
+}
