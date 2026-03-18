@@ -1,21 +1,18 @@
 #!/bin/bash
 #
-# This script initializes the certbot certs
+# This script initializes certbot certificates with wildcard support
+# for ALL domains defined in silver.yaml
 #
 
-# --- Sanity Checks & Configuration ---
 set -euo pipefail
 
-# Define constant paths
+# --- Paths ---
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 readonly SILVER_YAML_FILE="${ROOT_DIR}/../conf/silver.yaml"
-readonly CONFIGS_PATH="${ROOT_DIR}/silver-config/certbot"
 readonly LETSENCRYPT_PATH="${ROOT_DIR}/silver-config/certbot/keys"
-readonly DKIM_KEY_SIZE=2048
 
-# --- Main Logic ---
-# Extract ALL domains from the domains list in silver.yaml
+# Extract domains from silver.yaml
 DOMAINS=$(grep '^\s*-\s*domain:' "${SILVER_YAML_FILE}" | sed 's/.*domain:\s*//' | xargs)
 
 if [ -z "$DOMAINS" ]; then
@@ -23,79 +20,84 @@ if [ -z "$DOMAINS" ]; then
     exit 1
 fi
 
-# Get primary domain for certificate name and email
-PRIMARY_DOMAIN=$(echo "$DOMAINS" | awk '{print $1}')
-
 echo "========================================="
-echo "  Multi-Domain Certificate Setup"
+echo "  Wildcard Certificate Setup"
 echo "========================================="
 echo ""
-echo "Domains to be covered by this certificate:"
 
+echo "Domains detected:"
 for domain in $DOMAINS; do
-    echo "  • $domain"
+    echo " • $domain"
 done
-echo "  • mail.$PRIMARY_DOMAIN"
 
 echo ""
-echo "Using HTTP-01 challenge (port 80 required)"
-echo "Certificate will be non-interactive"
+echo "Each domain will receive:"
+echo "  - domain certificate"
+echo "  - wildcard subdomain certificate"
 echo ""
 
-if [ -d "${LETSENCRYPT_PATH}/etc/live/${PRIMARY_DOMAIN}" ]; then
-	echo "An existing certificate was found for ${PRIMARY_DOMAIN}."
-	read -p "Do you want to attempt to renew it? (y/n): " RENEW_CHOICE
-	if [[ "$RENEW_CHOICE" == "y" || "$RENEW_CHOICE" == "Y" ]]; then
-		echo "Attempting renewal..."
-		docker run --rm \
-			-p 80:80 \
-			-v "${LETSENCRYPT_PATH}/etc:/etc/letsencrypt" \
-			-v "${LETSENCRYPT_PATH}/lib:/var/lib/letsencrypt" \
-			-v "${LETSENCRYPT_PATH}/log:/var/log/letsencrypt" \
-			certbot/certbot \
-			renew
-		exit 0
-	else
-		echo "Skipping renewal. If you want a new certificate, please remove the directory: ${LETSENCRYPT_PATH}/etc/live/${PRIMARY_DOMAIN}"
-		exit 0
-	fi
-fi
+read -p "Press Enter to continue..."
 
-echo "No existing certificate found. Requesting a new multi-domain certificate..."
-echo "========================================="
-echo ""
+# Loop through each domain
+for DOMAIN in $DOMAINS; do
 
-read -p "Press Enter to continue with certificate request..."
+    echo ""
+    echo "========================================="
+    echo "Processing domain: ${DOMAIN}"
+    echo "========================================="
 
-# Build the certbot command with all domains
-DOMAIN_ARGS=""
-for domain in $DOMAINS; do
-    DOMAIN_ARGS="$DOMAIN_ARGS -d $domain"
+    if [ -d "${LETSENCRYPT_PATH}/etc/live/${DOMAIN}" ]; then
+        echo "Existing certificate found for ${DOMAIN}"
+        read -p "Attempt renewal for ${DOMAIN}? (y/n): " RENEW_CHOICE
+
+        if [[ "$RENEW_CHOICE" =~ ^[Yy]$ ]]; then
+            docker run --rm \
+                -v "${LETSENCRYPT_PATH}/etc:/etc/letsencrypt" \
+                -v "${LETSENCRYPT_PATH}/lib:/var/lib/letsencrypt" \
+                -v "${LETSENCRYPT_PATH}/log:/var/log/letsencrypt" \
+                certbot/certbot renew --cert-name "${DOMAIN}"
+        else
+            echo "Skipping ${DOMAIN}"
+        fi
+
+        continue
+    fi
+
+    echo ""
+    echo "Certificate will cover:"
+    echo "  • ${DOMAIN}"
+    echo "  • *.${DOMAIN}"
+    echo ""
+
+    echo "DNS verification will be required."
+    echo "You will need to create TXT records manually."
+    echo ""
+
+    read -p "Press Enter to request certificate for ${DOMAIN}..."
+
+    docker run -it --rm \
+        -v "${LETSENCRYPT_PATH}/etc:/etc/letsencrypt" \
+        -v "${LETSENCRYPT_PATH}/lib:/var/lib/letsencrypt" \
+        -v "${LETSENCRYPT_PATH}/log:/var/log/letsencrypt" \
+        certbot/certbot \
+        certonly \
+        --manual \
+        --preferred-challenges dns \
+        --agree-tos \
+        --email "admin@${DOMAIN}" \
+        --key-type rsa \
+        -d "${DOMAIN}" \
+        -d "*.${DOMAIN}"
+
+    echo ""
+    echo "✅ Certificate generated for ${DOMAIN}"
+
 done
-# Add mail subdomain at the end
-DOMAIN_ARGS="$DOMAIN_ARGS -d mail.$PRIMARY_DOMAIN"
-
-# Request certificate using HTTP-01 challenge for all domains
-docker run --rm \
-	-p 80:80 \
-	-v "${LETSENCRYPT_PATH}/etc:/etc/letsencrypt" \
-	-v "${LETSENCRYPT_PATH}/lib:/var/lib/letsencrypt" \
-	-v "${LETSENCRYPT_PATH}/log:/var/log/letsencrypt" \
-	certbot/certbot \
-	certonly \
-	--standalone \
-	--non-interactive \
-	--agree-tos \
-	--email "admin@${PRIMARY_DOMAIN}" \
-	--key-type rsa \
-	--keep-until-expiring \
-	--expand \
-	$DOMAIN_ARGS
 
 echo ""
 echo "========================================="
-echo "✅ Certificate request completed!"
+echo "🎉 All certificate operations completed!"
 echo "========================================="
 echo ""
-echo "Certificate files located at:"
-echo "  ${LETSENCRYPT_PATH}/etc/live/${PRIMARY_DOMAIN}/"
+echo "Certificates stored in:"
+echo "${LETSENCRYPT_PATH}/etc/live/"

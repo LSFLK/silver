@@ -1,34 +1,29 @@
 #!/bin/bash
 #
-# This script initializes the OpenDKIM config files for all domains and subdomains
+# This script initializes the OpenDKIM config files for all domains and their subdomains
 #
 
-# --- Sanity Checks & Configuration ---
 set -euo pipefail
 
-# Define constant paths
+# --- Paths ---
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 readonly SILVER_YAML_FILE="${ROOT_DIR}/../conf/silver.yaml"
 readonly CONFIGS_PATH="${ROOT_DIR}/silver-config/opendkim"
 
-# --- Helper function to extract domain config ---
-# This awk script parses the YAML and extracts domain, selector, and key-size
+# --- Helper: Extract domain configs from silver.yaml ---
 extract_domain_configs() {
     awk '
     /^[[:space:]]*-[[:space:]]*domain:/ {
-        # Extract domain
         domain = $0
         sub(/^[[:space:]]*-[[:space:]]*domain:[[:space:]]*/, "", domain)
         sub(/[[:space:]]*$/, "", domain)
 
-        # Read next lines for selector and key-size
-        selector = "mail"  # default
-        keysize = "2048"   # default
+        selector = "mail"
+        keysize = "2048"
 
         while ((getline line) > 0) {
             if (line ~ /^[[:space:]]*-[[:space:]]*domain:/) {
-                # Next domain found, print current and reprocess this line
                 print domain "," selector "," keysize
                 domain = line
                 sub(/^[[:space:]]*-[[:space:]]*domain:[[:space:]]*/, "", domain)
@@ -40,45 +35,33 @@ extract_domain_configs() {
             if (line ~ /^[[:space:]]*dkim-selector:/) {
                 selector = line
                 sub(/^[[:space:]]*dkim-selector:[[:space:]]*/, "", selector)
-                sub(/[[:space:]]*$/, "", selector)
                 if (selector == "" || selector == "null") selector = "mail"
             }
             if (line ~ /^[[:space:]]*dkim-key-size:/) {
                 keysize = line
                 sub(/^[[:space:]]*dkim-key-size:[[:space:]]*/, "", keysize)
-                sub(/[[:space:]]*$/, "", keysize)
                 if (keysize == "" || keysize == "null") keysize = "2048"
             }
-            # Stop if we hit a line that suggests end of domains section
-            if (line ~ /^[^[:space:]#]/ && line !~ /domains:/) {
-                break
-            }
+            if (line ~ /^[^[:space:]#]/ && line !~ /domains:/) { break }
         }
-
-        # Print last domain
-        if (domain != "" && domain != "null") {
-            print domain "," selector "," keysize
-        }
+        if (domain != "" && domain != "null") { print domain "," selector "," keysize }
     }
     ' "$SILVER_YAML_FILE"
 }
 
-# --- Main Logic ---
-echo "=== Generating OpenDKIM configuration files for all domains ==="
+# --- Main ---
+echo "=== Generating OpenDKIM configuration files for all domains and subdomains ==="
 
-# Extract all domain configurations
 DOMAIN_CONFIGS=$(extract_domain_configs)
-
 if [ -z "$DOMAIN_CONFIGS" ]; then
     echo "Error: No domains found in ${SILVER_YAML_FILE}"
     exit 1
 fi
 
-# Create configs directory
-mkdir -p "${CONFIGS_PATH}"
+mkdir -p "$CONFIGS_PATH"
 
-# --- Generate TrustedHosts file ---
-echo "Generating TrustedHosts file..."
+# --- TrustedHosts ---
+echo "Generating TrustedHosts..."
 cat >"${CONFIGS_PATH}/TrustedHosts" <<'EOF'
 127.0.0.1
 localhost
@@ -87,52 +70,33 @@ localhost
 10.0.0.0/8
 EOF
 
-# Add each domain to TrustedHosts
 echo "$DOMAIN_CONFIGS" | while IFS=',' read -r DOMAIN SELECTOR KEYSIZE; do
-    if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "null" ]; then
-        echo "*.${DOMAIN}" >> "${CONFIGS_PATH}/TrustedHosts"
-    fi
+    echo "$DOMAIN" >> "${CONFIGS_PATH}/TrustedHosts"
+    echo "*.$DOMAIN" >> "${CONFIGS_PATH}/TrustedHosts"
 done
+echo "✓ TrustedHosts generated"
 
-echo "✓ TrustedHosts file generated successfully"
-
-# --- Generate SigningTable file ---
-echo "Generating SigningTable file..."
-> "${CONFIGS_PATH}/SigningTable"  # Clear the file
-
+# --- SigningTable ---
+echo "Generating SigningTable..."
+> "${CONFIGS_PATH}/SigningTable"
 echo "$DOMAIN_CONFIGS" | while IFS=',' read -r DOMAIN SELECTOR KEYSIZE; do
-    if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "null" ]; then
-        continue
-    fi
-
-    # Add entry to SigningTable
-    echo "*@${DOMAIN} ${SELECTOR}._domainkey.${DOMAIN}" >> "${CONFIGS_PATH}/SigningTable"
-    echo "  Added domain: ${DOMAIN} (selector: ${SELECTOR})"
+    echo "*@$DOMAIN $SELECTOR._domainkey.$DOMAIN" >> "${CONFIGS_PATH}/SigningTable"
+    echo "*@*.$DOMAIN $SELECTOR._domainkey.$DOMAIN" >> "${CONFIGS_PATH}/SigningTable"
 done
+echo "✓ SigningTable generated"
 
-echo "✓ SigningTable file generated successfully"
-
-# --- Generate KeyTable file ---
-echo "Generating KeyTable file..."
-> "${CONFIGS_PATH}/KeyTable"  # Clear the file
-
+# --- KeyTable ---
+echo "Generating KeyTable..."
+> "${CONFIGS_PATH}/KeyTable"
 echo "$DOMAIN_CONFIGS" | while IFS=',' read -r DOMAIN SELECTOR KEYSIZE; do
-    if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "null" ]; then
-        continue
-    fi
-
-    # Add entry to KeyTable
-    echo "${SELECTOR}._domainkey.${DOMAIN} ${DOMAIN}:${SELECTOR}:/etc/dkimkeys/${DOMAIN}/${SELECTOR}.private" >> "${CONFIGS_PATH}/KeyTable"
-    echo "  Added key entry for: ${DOMAIN}"
+    echo "$SELECTOR._domainkey.$DOMAIN $DOMAIN:$SELECTOR:/etc/dkimkeys/$DOMAIN/$SELECTOR.private" >> "${CONFIGS_PATH}/KeyTable"
 done
-
-echo "✓ KeyTable file generated successfully"
+echo "✓ KeyTable generated"
 
 echo ""
-echo "=== OpenDKIM configuration files generated successfully ==="
-echo "Total domains configured: $(echo "$DOMAIN_CONFIGS" | wc -l | xargs)"
-echo ""
-echo "Files generated:"
+echo "=== OpenDKIM configuration completed ==="
+echo "Domains configured: $(echo "$DOMAIN_CONFIGS" | wc -l | xargs)"
+echo "Files:"
 echo "  - ${CONFIGS_PATH}/TrustedHosts"
 echo "  - ${CONFIGS_PATH}/SigningTable"
 echo "  - ${CONFIGS_PATH}/KeyTable"
