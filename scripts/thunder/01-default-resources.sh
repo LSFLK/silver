@@ -109,14 +109,6 @@ RESPONSE=$(thunder_api_call POST "/user-schemas" '{
       "type": "string",
       "required": false
     },
-    "firstName": {
-      "type": "string",
-      "required": false
-    },
-    "lastName": {
-      "type": "string",
-      "required": false
-    },
     "mobileNumber": {
       "type": "string",
       "required": false
