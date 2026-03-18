@@ -109,14 +109,6 @@ RESPONSE=$(thunder_api_call POST "/user-schemas" '{
       "type": "string",
       "required": false
     },
-    "firstName": {
-      "type": "string",
-      "required": false
-    },
-    "lastName": {
-      "type": "string",
-      "required": false
-    },
     "mobileNumber": {
       "type": "string",
       "required": false
@@ -1120,52 +1112,10 @@ BODY="${RESPONSE%???}"
 
 if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
     log_success "DEVELOP application created successfully"
-    DEVELOP_APP_ID=$(echo "$BODY" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-    if [[ -n "$DEVELOP_APP_ID" ]]; then
-        log_info "DEVELOP_APP_ID: $DEVELOP_APP_ID"
-    else
-        log_warning "Could not extract DEVELOP application ID from response"
-    fi
 elif [[ "$HTTP_CODE" == "409" ]]; then
-    log_warning "DEVELOP application already exists, retrieving application ID..."
-    # Get existing DEVELOP application ID
-    RESPONSE=$(thunder_api_call GET "/applications")
-    HTTP_CODE="${RESPONSE: -3}"
-    BODY="${RESPONSE%???}"
-    
-    if [[ "$HTTP_CODE" == "200" ]]; then
-        # Parse JSON to find DEVELOP application by client_id
-        DEVELOP_APP_ID=$(echo "$BODY" | sed 's/},{/}\n{/g' | grep '"client_id":"DEVELOP"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-        
-        if [[ -n "$DEVELOP_APP_ID" ]]; then
-            log_success "Found DEVELOP application ID: $DEVELOP_APP_ID"
-            log_info "DEVELOP_APP_ID: $DEVELOP_APP_ID"
-        else
-            log_error "Could not find DEVELOP application in response"
-        fi
-    else
-        log_error "Failed to fetch applications (HTTP $HTTP_CODE)"
-    fi
+    log_warning "DEVELOP application already exists, skipping"
 elif [[ "$HTTP_CODE" == "400" ]] && [[ "$BODY" =~ (Application already exists|APP-1022) ]]; then
-    log_warning "DEVELOP application already exists, retrieving application ID..."
-    # Get existing DEVELOP application ID
-    RESPONSE=$(thunder_api_call GET "/applications")
-    HTTP_CODE="${RESPONSE: -3}"
-    BODY="${RESPONSE%???}"
-    
-    if [[ "$HTTP_CODE" == "200" ]]; then
-        # Parse JSON to find DEVELOP application by client_id
-        DEVELOP_APP_ID=$(echo "$BODY" | sed 's/},{/}\n{/g' | grep '"client_id":"DEVELOP"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-        
-        if [[ -n "$DEVELOP_APP_ID" ]]; then
-            log_success "Found DEVELOP application ID: $DEVELOP_APP_ID"
-            log_info "DEVELOP_APP_ID: $DEVELOP_APP_ID"
-        else
-            log_error "Could not find DEVELOP application in response"
-        fi
-    else
-        log_error "Failed to fetch applications (HTTP $HTTP_CODE)"
-    fi
+    log_warning "DEVELOP application already exists, skipping"
 else
     log_error "Failed to create DEVELOP application (HTTP $HTTP_CODE)"
     echo "Response: $BODY"
