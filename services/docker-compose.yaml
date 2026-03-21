@@ -8,9 +8,6 @@ services:
     volumes:
       - ./silver-config/postfix/main.cf:/etc/postfix/main.cf:ro
       - ./silver-config/postfix/master.cf:/etc/postfix/master.cf:ro
-      - ./silver-config/postfix/sqlite-virtual-domains.cf:/etc/postfix/sqlite-virtual-domains.cf:ro
-      - ./silver-config/postfix/sqlite-virtual-users.cf:/etc/postfix/sqlite-virtual-users.cf:ro
-      - ./silver-config/postfix/sqlite-virtual-aliases.cf:/etc/postfix/sqlite-virtual-aliases.cf:ro
       - ../conf/silver.yaml:/etc/postfix/silver.yaml
       - ./silver-config/certbot/keys/etc:/etc/letsencrypt:ro
       - ./silver-config/raven/data:/app/data:rw
@@ -27,8 +24,6 @@ services:
         condition: service_started
       raven-server:
         condition: service_started
-      socketmap-server:
-        condition: service_healthy
 
   raven-server:
     image: ghcr.io/lsflk/raven:latest
@@ -38,56 +33,29 @@ services:
       - "993:993"
       - "24:24"
       - "12345:12345"
+      - "9100:9100"
     volumes:
       - ./silver-config/raven/conf:/etc/raven:rw
       - ./silver-config/raven/data:/app/data:rw
       - ./silver-config/raven/certs:/certs:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       - DB_FILE=/app/data/databases/shared.db
-    networks:
-      - mail-network
-    restart: unless-stopped
-    user: "0:0"
-
-  socketmap-server:
-    build:
-      context: ./socketmap
-      dockerfile: Dockerfile
-    container_name: socketmap-server
-    expose:
-      - "9100"
-    volumes:
-      # Mount Docker socket to allow reading thunder-setup logs
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - mail-network
-    restart: unless-stopped
-    user: "0:0"
-    environment:
       - SOCKETMAP_HOST=0.0.0.0
       - SOCKETMAP_PORT=9100
-      # THUNDER_DEVELOP_APP_ID not required - auto-extracted from thunder-setup logs
       - THUNDER_HOST=thunder-server
       - THUNDER_PORT=8090
       - CACHE_TTL_SECONDS=300
       - TOKEN_REFRESH_SECONDS=3300
+    networks:
+      - mail-network
     depends_on:
       thunder-setup:
         condition: service_completed_successfully
       thunder:
         condition: service_started
-    healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "9100"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-        reservations:
-          memory: 64M
+    restart: unless-stopped
+    user: "0:0"
 
   opendkim-server:
     image: ghcr.io/lsflk/silver-dkim:main
