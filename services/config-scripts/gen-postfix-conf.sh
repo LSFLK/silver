@@ -22,15 +22,15 @@ MAIL_HOSTNAME=${MAIL_HOSTNAME:-mail.$MAIL_DOMAIN}
 
 mkdir -p ${CONFIGS_PATH}
 
-# Note: Using socketmap service for all virtual maps
+# Note: Using Raven-hosted socketmap service for all virtual maps
 # - Virtual domains: validates which domains we accept mail for
 # - Virtual users: validates which user mailboxes exist
 # - Virtual aliases: resolves email aliases to destination addresses
 
 echo -e "SMTP configuration will use:"
-echo " - Socketmap for domains: socketmap-server:9100"
-echo " - Socketmap for users: socketmap-server:9100"
-echo " - Socketmap for aliases: socketmap-server:9100"
+echo " - Socketmap for domains: raven:9100"
+echo " - Socketmap for users: raven:9100"
+echo " - Socketmap for aliases: raven:9100"
 
 # --- Generate main.cf content ---
 cat >"${CONFIGS_PATH}/main.cf" <<EOF
@@ -126,10 +126,10 @@ smtpd_sasl_auth_enable = yes
 smtpd_sasl_security_options = noanonymous
 broken_sasl_auth_clients = yes
 
-# Virtual mailbox configuration - socketmap based
-virtual_mailbox_domains = socketmap:inet:socketmap-server:9100:virtual-domains
-virtual_mailbox_maps = socketmap:inet:socketmap-server:9100:user-exists
-virtual_alias_maps = socketmap:inet:socketmap-server:9100:virtual-aliases
+# Virtual mailbox configuration - socketmap served by Raven
+virtual_mailbox_domains = socketmap:inet:raven:9100:virtual-domains
+virtual_mailbox_maps = socketmap:inet:raven:9100:user-exists
+virtual_alias_maps = socketmap:inet:raven:9100:virtual-aliases
 
 # Set mailbox base to tell Postfix we're managing mailboxes
 # This ensures reject_unlisted_recipient properly checks virtual_mailbox_maps
