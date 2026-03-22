@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2]
+
+Multi-domain support, improved configuration handling, group address validation, Thunder upgrade to 0.27.0, and removal of legacy socketmap/Thunder integration.
+
+## What's Changed
+* feat: enhance setup scripts for multi-domain support and improve configuration handling by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/301
+* feat: add support for group address validation in user-exists map and implement group validation logic by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/302
+* feat: upgrade Thunder image version to 0.27.0 in Docker Compose by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/303
+* Refactor: Remove socketmap handler and thunder integration by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/305
+
+
+**Full Changelog**: https://github.com/LSFLK/silver/compare/v.0.2.1...v.0.2.2
+
 ## [0.2.1]
 
 This release focuses on making improvements to the observability of silver.
