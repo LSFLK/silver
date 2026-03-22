@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.2]
+## [0.3.0]
 
 Multi-domain support, improved configuration handling, group address validation, Thunder upgrade to 0.27.0, and removal of legacy socketmap/Thunder integration.
 
@@ -18,7 +18,7 @@ Multi-domain support, improved configuration handling, group address validation,
 * Refactor: Remove socketmap handler and thunder integration by @Aravinda-HWK in https://github.com/LSFLK/silver/pull/305
 
 
-**Full Changelog**: https://github.com/LSFLK/silver/compare/v.0.2.1...v.0.2.2
+**Full Changelog**: https://github.com/LSFLK/silver/compare/v.0.2.1...v.0.3.0
 
 ## [0.2.1]
 
