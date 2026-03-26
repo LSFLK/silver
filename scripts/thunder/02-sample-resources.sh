@@ -57,7 +57,7 @@ create_spa_application() {
             "config": {
                 "client_id": "${CLIENT_ID}",
                 "redirect_uris": [
-                    "http://localhost/",
+                    "http://localhost/"
                 ],
                 "grant_types": [
                     "authorization_code",
