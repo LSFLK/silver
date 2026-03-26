@@ -25,8 +25,11 @@ echo ""
 # Helpers
 # ============================================================================
 
-extract_first_id() {
-    echo "$1" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4
+extract_json_value() {
+    local JSON_STRING="$1"
+    local KEY="$2"
+
+    echo "$JSON_STRING" | grep -o "\"${KEY}\":\"[^\"]*\"" | head -1 | cut -d'"' -f4
 }
 
 create_spa_application() {
@@ -127,8 +130,8 @@ JSON
 
     if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]] || [[ "$HTTP_CODE" == "202" ]]; then
         log_success "${APP_NAME} application created successfully"
-        APP_ID=$(extract_first_id "$BODY")
-        APP_CLIENT_ID=$(echo "$BODY" | grep -o '"client_id":"[^"]*"' | head -1 | cut -d'"' -f4)
+        APP_ID=$(extract_json_value "$BODY" "id")
+        APP_CLIENT_ID=$(extract_json_value "$BODY" "client_id")
         if [[ -n "$APP_ID" ]]; then
             log_info "${APP_NAME} app ID: ${APP_ID}"
         fi
