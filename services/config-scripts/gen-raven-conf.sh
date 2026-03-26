@@ -65,6 +65,14 @@ cat >"$OUTPUT_FILE" <<EOF
 domain: ${MAIL_DOMAIN}
 auth_server_url: https://thunder-server:8090/auth/credentials/authenticate
 
+# OAUTHBEARER Token Validation (RFC 7628)
+# Required when enabling AUTH=OAUTHBEARER for IMAP/SASL.
+oauth_issuer_url: "https://${MAIL_DOMAIN}:8090"
+oauth_jwks_url: "https://${MAIL_DOMAIN}:8090/oauth2/jwks"
+oauth_audience:
+  - "EMAIL_APP"
+oauth_clock_skew_seconds: 60
+
 # S3-Compatible Blob Storage Configuration
 blob_storage:
   enabled: true
