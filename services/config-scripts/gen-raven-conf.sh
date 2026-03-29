@@ -65,6 +65,14 @@ cat >"$OUTPUT_FILE" <<EOF
 domain: ${MAIL_DOMAIN}
 auth_server_url: https://thunder-server:8090/auth/credentials/authenticate
 
+# OAUTHBEARER Token Validation (RFC 7628)
+# Required when enabling AUTH=OAUTHBEARER for IMAP/SASL.
+oauth_issuer_url: "https://${MAIL_DOMAIN}:8090"
+oauth_jwks_url: "https://${MAIL_DOMAIN}:8090/oauth2/jwks"
+oauth_audience:
+  - "EMAIL_APP"
+oauth_clock_skew_seconds: 60
+
 # S3-Compatible Blob Storage Configuration
 blob_storage:
   enabled: true
@@ -82,23 +90,70 @@ if [ -f "$DELIVERY_FILE" ]; then
 	echo "ℹ️ Updating blob_storage section in delivery.yaml"
 
 	awk '
-	BEGIN { skip=0 }
-	/^blob_storage:/ { skip=1; next }
-	skip && /^[^[:space:]]/ { skip=0 }
-	!skip { print }
+	BEGIN { skip=0; inserted=0 }
+
+	function print_blob_storage() {
+		print "# S3-Compatible Blob Storage Configuration"
+		print "blob_storage:"
+		print "  enabled: true"
+		print "  endpoint: \"'"${S3_ENDPOINT}"'\""
+		print "  region: \"'"${S3_REGION}"'\""
+		print "  bucket: \"'"${S3_BUCKET}"'\""
+		print "  access_key: \"'"${S3_ACCESS_KEY}"'\""
+		print "  secret_key: \"'"${S3_SECRET_KEY}"'\""
+		print "  timeout: '"${S3_TIMEOUT}"'"
+	}
+
+	# Replace existing blob_storage section in-place when found.
+	/^[[:space:]]*# S3-Compatible Blob Storage Configuration[[:space:]]*$/ {
+		if (!inserted) {
+			print_blob_storage()
+			inserted=1
+		}
+		skip=1
+		next
+	}
+
+	/^[[:space:]]*blob_storage:[[:space:]]*$/ {
+		if (!inserted) {
+			print_blob_storage()
+			inserted=1
+		}
+		skip=1
+		next
+	}
+
+	skip {
+		if ($0 ~ /^[A-Za-z0-9_-]+:[[:space:]]*($|#)/) {
+			key=$0
+			sub(/:.*/, "", key)
+			if (key != "blob_storage") {
+				skip=0
+				print
+				next
+			}
+		}
+
+		if ($0 ~ /^#/ && $0 !~ /^# S3-Compatible Blob Storage Configuration[[:space:]]*$/) {
+			skip=0
+			print
+			next
+		}
+
+		next
+	}
+
+	{ print }
+
+	END {
+		if (!inserted) {
+			if (NR > 0) {
+				print ""
+			}
+			print_blob_storage()
+		}
+	}
 	' "$DELIVERY_FILE" > "${DELIVERY_FILE}.tmp"
-
-	cat >> "${DELIVERY_FILE}.tmp" <<EOF
-
-blob_storage:
-  enabled: true
-  endpoint: "${S3_ENDPOINT}"
-  region: "${S3_REGION}"
-  bucket: "${S3_BUCKET}"
-  access_key: "${S3_ACCESS_KEY}"
-  secret_key: "${S3_SECRET_KEY}"
-  timeout: ${S3_TIMEOUT}
-EOF
 
 	mv "${DELIVERY_FILE}.tmp" "$DELIVERY_FILE"
 	echo "✅ blob_storage section updated in delivery.yaml"
