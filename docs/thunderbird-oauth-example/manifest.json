@@ -1,0 +1,21 @@
+{
+  "manifest_version": 2,
+  "name": "<YOUR_PROVIDER_NAME>",
+  "version": "1.0.0",
+  "applications": {
+    "gecko": {
+      "id": "oauth-provider@<your-domain>",
+      "strict_min_version": "128.0"
+    }
+  },
+  "oauth_provider": {
+    "issuer": "<ISSUER_URL>",
+    "clientId": "<CLIENT_ID>",
+    "authorizationEndpoint": "<AUTHORIZATION_ENDPOINT>",
+    "tokenEndpoint": "<TOKEN_ENDPOINT>",
+    "redirectionEndpoint": "http://localhost",
+    "usePKCE": true,
+    "hostnames": ["<MAIL_DOMAIN>"],
+    "scopes": "openid email profile"
+  }
+}
