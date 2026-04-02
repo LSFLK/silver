@@ -34,7 +34,7 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
-            - /bin/sh
+            - /bin/bash
             - -c
             - |
               echo "Checking Redis connectivity at {{ .Values.dependencies.redis.host }}:{{ .Values.dependencies.redis.port }}"
@@ -42,7 +42,7 @@ spec:
               interval=5
               elapsed=0
               while [ $elapsed -lt $timeout_sec ]; do
-                if nc -z -w 2 {{ .Values.dependencies.redis.host }} {{ .Values.dependencies.redis.port }}; then
+                if timeout 2 bash -c "echo > /dev/tcp/{{ .Values.dependencies.redis.host }}/{{ .Values.dependencies.redis.port }}" >/dev/null 2>&1; then
                   echo "Redis is reachable!"
                   exit 0
                 fi
@@ -57,13 +57,11 @@ spec:
             capabilities:
               drop:
                 - ALL
-              add:
-                - NET_RAW
         - name: check-unbound
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
-            - /bin/sh
+            - /bin/bash
             - -c
             - |
               echo "Checking Unbound DNS at {{ .Values.dependencies.unbound.host }}:{{ .Values.dependencies.unbound.port }}"
@@ -71,7 +69,7 @@ spec:
               interval=5
               elapsed=0
               while [ $elapsed -lt $timeout_sec ]; do
-                if dig @{{ .Values.dependencies.unbound.host }} -p {{ .Values.dependencies.unbound.port }} example.com +short >/dev/null 2>&1; then
+                if timeout 2 bash -c "echo > /dev/tcp/{{ .Values.dependencies.unbound.host }}/{{ .Values.dependencies.unbound.port }}" >/dev/null 2>&1; then
                   echo "Unbound DNS is reachable!"
                   exit 0
                 fi

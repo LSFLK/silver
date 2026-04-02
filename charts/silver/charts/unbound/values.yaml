@@ -22,11 +22,9 @@ podSecurityContext:
   runAsNonRoot: false
 
 securityContext:
-  allowPrivilegeEscalation: false
-  capabilities:
-    drop:
-      - ALL
-  readOnlyRootFilesystem: false
+  privileged: true
+  allowPrivilegeEscalation: true
+  runAsUser: 0
 
 service:
   type: ClusterIP
