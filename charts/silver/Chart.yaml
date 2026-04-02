@@ -10,3 +10,15 @@ dependencies:
     version: 0.1.0
     repository: file://charts/opendkim
     condition: opendkim.enabled
+  - name: redis
+    version: 0.1.0
+    repository: file://charts/redis
+    condition: redis.enabled
+  - name: unbound
+    version: 0.1.0
+    repository: file://charts/unbound
+    condition: unbound.enabled
+  - name: rspamd
+    version: 0.1.0
+    repository: file://charts/rspamd
+    condition: rspamd.enabled

@@ -3,3 +3,12 @@ global:
 
 opendkim:
   enabled: true
+
+redis:
+  enabled: false
+
+unbound:
+  enabled: false
+
+rspamd:
+  enabled: false
