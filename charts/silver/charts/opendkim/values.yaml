@@ -16,7 +16,8 @@ serviceAccount:
 podAnnotations: {}
 podLabels: {}
 
-podSecurityContext: {}
+podSecurityContext:
+  fsGroup: 102
 
 securityContext:
   allowPrivilegeEscalation: false
