@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "opendkim.fullname" . }}-tables
+  labels:
+    {{- include "opendkim.labels" . | nindent 4 }}
+data:
+  TrustedHosts: |
+{{- range .Values.trustedHosts.defaults }}
+    {{ . }}
+{{- end }}
+{{- range .Values.trustedHosts.additional }}
+    {{ . }}
+{{- end }}
+{{- range .Values.domains }}
+    {{ .domain }}
+    *.{{ .domain }}
+{{- end }}
+
+  SigningTable: |
+{{- range .Values.domains }}
+    *@{{ .domain }} {{ default "mail" .dkimSelector }}._domainkey.{{ .domain }}
+    *@*.{{ .domain }} {{ default "mail" .dkimSelector }}._domainkey.{{ .domain }}
+{{- end }}
+
+  KeyTable: |
+{{- range .Values.domains }}
+    {{ default "mail" .dkimSelector }}._domainkey.{{ .domain }} {{ .domain }}:{{ default "mail" .dkimSelector }}:/etc/dkimkeys/{{ .domain }}/{{ default "mail" .dkimSelector }}.private
+{{- end }}

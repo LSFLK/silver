@@ -1,0 +1,8 @@
+opendkim:
+  domains:
+    - domain: example.dev
+      dkimSelector: mail
+      dkimKeySize: 2048
+  persistence:
+    storageClass: ""
+    size: 1Gi
