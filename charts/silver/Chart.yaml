@@ -1,0 +1,12 @@
+apiVersion: v2
+name: silver
+description: Umbrella chart for Silver mail platform services
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+
+dependencies:
+  - name: opendkim
+    version: 0.1.0
+    repository: file://charts/opendkim
+    condition: opendkim.enabled

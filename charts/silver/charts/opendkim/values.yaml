@@ -1,0 +1,103 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/lsflk/silver-dkim
+  tag: main
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 102
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+
+autoscaling:
+  enabled: false
+
+service:
+  enabled: true
+  type: ClusterIP
+  port: 8891
+
+resources: {}
+
+persistence:
+  enabled: true
+  existingClaim: ""
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 1Gi
+
+trustedHosts:
+  defaults:
+    - 127.0.0.1
+    - localhost
+    - 192.168.65.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+  additional: []
+
+domains:
+  - domain: example.com
+    dkimSelector: mail
+    dkimKeySize: 2048
+
+opendkimConf: |
+  Syslog                  yes
+  SyslogSuccess           yes
+  LogWhy                  yes
+
+  Canonicalization        relaxed/simple
+  Mode                    sv
+  SubDomains              yes
+  OversignHeaders         From
+
+  Socket                  inet:8891@0.0.0.0
+  PidFile                 /var/run/opendkim/opendkim.pid
+  UserID                  opendkim:opendkim
+  UMask                   007
+
+  KeyTable                /etc/opendkim/KeyTable
+  SigningTable            /etc/opendkim/SigningTable
+  ExternalIgnoreList      /etc/opendkim/TrustedHosts
+  InternalHosts           /etc/opendkim/TrustedHosts
+
+networkPolicy:
+  enabled: false
+  allowedIngressFrom: []
+  # Example:
+  # allowedIngressFrom:
+  #   - namespaceSelector:
+  #       matchLabels:
+  #         kubernetes.io/metadata.name: mail
+  #     podSelector:
+  #       matchLabels:
+  #         app.kubernetes.io/name: smtp
+
+probes:
+  readiness:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 6
+  liveness:
+    initialDelaySeconds: 30
+    periodSeconds: 20
+    timeoutSeconds: 2
+    failureThreshold: 6

@@ -1,0 +1,5 @@
+global:
+  imagePullSecrets: []
+
+opendkim:
+  enabled: true
