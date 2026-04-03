@@ -1,0 +1,172 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "rspamd.fullname" . }}
+  labels:
+    {{- include "rspamd.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "rspamd.fullname" . }}
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "rspamd.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config-static: {{ include (print $.Template.BasePath "/configmap-rspamd.yaml") . | sha256sum }}
+        checksum/config-options: {{ include (print $.Template.BasePath "/configmap-options.yaml") . | sha256sum }}
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "rspamd.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "rspamd.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.dependencies.strictInitChecks }}
+      initContainers:
+        - name: check-redis
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              echo "Checking Redis connectivity at {{ .Values.dependencies.redis.host }}:{{ .Values.dependencies.redis.port }}"
+              timeout_sec={{ .Values.dependencies.initCheckTimeout | replace "s" "" }}
+              interval=5
+              elapsed=0
+              while [ $elapsed -lt $timeout_sec ]; do
+                if timeout 2 bash -c "echo > /dev/tcp/{{ .Values.dependencies.redis.host }}/{{ .Values.dependencies.redis.port }}" >/dev/null 2>&1; then
+                  echo "Redis is reachable!"
+                  exit 0
+                fi
+                echo "Waiting for Redis... ($elapsed/$timeout_sec seconds)"
+                sleep $interval
+                elapsed=$((elapsed + interval))
+              done
+              echo "ERROR: Redis not reachable after ${timeout_sec}s"
+              exit 1
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+        - name: check-unbound
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              echo "Checking Unbound DNS at {{ .Values.dependencies.unbound.host }}:{{ .Values.dependencies.unbound.port }}"
+              timeout_sec={{ .Values.dependencies.initCheckTimeout | replace "s" "" }}
+              interval=5
+              elapsed=0
+              while [ $elapsed -lt $timeout_sec ]; do
+                if timeout 2 bash -c "echo > /dev/tcp/{{ .Values.dependencies.unbound.host }}/{{ .Values.dependencies.unbound.port }}" >/dev/null 2>&1; then
+                  echo "Unbound DNS is reachable!"
+                  exit 0
+                fi
+                echo "Waiting for Unbound... ($elapsed/$timeout_sec seconds)"
+                sleep $interval
+                elapsed=$((elapsed + interval))
+              done
+              echo "ERROR: Unbound not reachable after ${timeout_sec}s"
+              exit 1
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      {{- end }}
+      containers:
+        - name: rspamd
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: milter
+              containerPort: 11332
+              protocol: TCP
+            - name: webui
+              containerPort: 11334
+              protocol: TCP
+          {{- if .Values.webui.password }}
+          env:
+            - name: RSPAMD_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "rspamd.fullname" . }}-webui
+                  key: password
+          {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config-static
+              mountPath: /etc/rspamd/local.d/antivirus.conf
+              subPath: antivirus.conf
+            - name: config-static
+              mountPath: /etc/rspamd/local.d/classifier-bayes.conf
+              subPath: classifier-bayes.conf
+            - name: config-static
+              mountPath: /etc/rspamd/local.d/milter_headers.conf
+              subPath: milter_headers.conf
+            - name: config-static
+              mountPath: /etc/rspamd/local.d/metrics_exporter.conf
+              subPath: metrics_exporter.conf
+            - name: config-static
+              mountPath: /etc/rspamd/local.d/worker-proxy.inc
+              subPath: worker-proxy.inc
+            - name: config-static
+              mountPath: /etc/resolv.conf
+              subPath: resolv.conf
+            - name: config-options
+              mountPath: /etc/rspamd/local.d/options.inc
+              subPath: options.inc
+            - name: config-options
+              mountPath: /etc/rspamd/local.d/redis.conf
+              subPath: redis.conf
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: config-static
+          configMap:
+            name: {{ include "rspamd.fullname" . }}-config-static
+        - name: config-options
+          configMap:
+            name: {{ include "rspamd.fullname" . }}-config-options
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        {{- if .Values.persistence.storageClass }}
+        storageClassName: {{ .Values.persistence.storageClass }}
+        {{- end }}
+        accessModes:
+          - {{ .Values.persistence.accessMode }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}

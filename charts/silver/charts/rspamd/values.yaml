@@ -1,0 +1,108 @@
+replicaCount: 1
+
+image:
+  repository: rspamd/rspamd
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 998
+  runAsUser: 998
+  runAsNonRoot: true
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+
+service:
+  milter:
+    type: ClusterIP
+    port: 11332
+    targetPort: 11332
+  webui:
+    type: ClusterIP
+    port: 11334
+    targetPort: 11334
+    enabled: true
+  annotations: {}
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  mountPath: /var/lib/rspamd
+
+dependencies:
+  redis:
+    host: silver-redis
+    port: 6379
+  unbound:
+    host: silver-unbound
+    port: 53
+  clamav:
+    host: clamav-server
+    port: 3310
+  strictInitChecks: true
+  initCheckTimeout: 60s
+
+modules:
+  antivirus:
+    enabled: true
+    clamav_action: add_header
+  classifier_bayes:
+    enabled: true
+    backend: redis
+    spam_threshold: 12.0
+    ham_threshold: -2.0
+  metrics_exporter:
+    enabled: true
+
+webui:
+  password: ""
+  passwordEncoding: plaintext
+
+livenessProbe:
+  tcpSocket:
+    port: 11334
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  tcpSocket:
+    port: 11332
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "rspamd.fullname" . }}-config-options
+  labels:
+    {{- include "rspamd.labels" . | nindent 4 }}
+data:
+  options.inc: |
+    dns {
+      nameserver = ["{{ .Values.dependencies.unbound.host }}"];
+      timeout = 1s;
+      sockets = 16;
+    }
+
+  redis.conf: |
+    servers = "{{ .Values.dependencies.redis.host }}:{{ .Values.dependencies.redis.port }}";
+    timeout = 1s;

@@ -1,0 +1,14 @@
+apiVersion: v2
+name: rspamd
+description: Rspamd spam/malware filtering engine for mail processing
+type: application
+version: 0.1.0
+appVersion: "latest"
+keywords:
+  - rspamd
+  - spam
+  - filtering
+  - antivirus
+  - milter
+maintainers:
+  - name: Silver Team

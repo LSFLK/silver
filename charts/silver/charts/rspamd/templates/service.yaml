@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rspamd.fullname" . }}
+  labels:
+    {{- include "rspamd.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.milter.type }}
+  ports:
+    - port: {{ .Values.service.milter.port }}
+      targetPort: {{ .Values.service.milter.targetPort }}
+      protocol: TCP
+      name: milter
+    {{- if .Values.service.webui.enabled }}
+    - port: {{ .Values.service.webui.port }}
+      targetPort: {{ .Values.service.webui.targetPort }}
+      protocol: TCP
+      name: webui
+    {{- end }}
+  selector:
+    {{- include "rspamd.selectorLabels" . | nindent 4 }}
