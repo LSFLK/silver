@@ -3,3 +3,11 @@ global:
 
 opendkim:
   enabled: true
+
+tls:
+  enabled: true
+  issuer: le-staging # switch to le-prod once staging works
+  renewBefore: "720h" # renew 30 days before expiry
+  domains: [
+    "mail.example.com", "example.com"
+  ]
