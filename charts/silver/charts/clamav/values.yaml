@@ -1,0 +1,86 @@
+replicaCount: 1
+
+image:
+  repository: clamav/clamav
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsUser: 0
+  runAsNonRoot: false
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+    add:
+      - CHOWN
+      - SETGID
+      - SETUID
+  readOnlyRootFilesystem: false
+
+service:
+  type: ClusterIP
+  port: 3310
+  targetPort: 3310
+  protocol: TCP
+  annotations: {}
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2867Mi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 2Gi
+  mountPath: /var/lib/clamav
+
+logs:
+  mountPath: /var/log/clamav
+
+runtime:
+  mountPath: /var/run/clamav
+
+env:
+  noFreshclamd: false
+
+livenessProbe:
+  tcpSocket:
+    port: 3310
+  initialDelaySeconds: 45
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  tcpSocket:
+    port: 3310
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3

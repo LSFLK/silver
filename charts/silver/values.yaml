@@ -12,3 +12,6 @@ unbound:
 
 rspamd:
   enabled: false
+
+clamav:
+  enabled: false

@@ -70,7 +70,7 @@ dependencies:
     host: silver-unbound
     port: 53
   clamav:
-    host: clamav-server
+    host: silver-clamav
     port: 3310
   strictInitChecks: true
   initCheckTimeout: 60s

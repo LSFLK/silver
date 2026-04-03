@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "clamav.fullname" . }}-test"
+  labels:
+    {{- include "clamav.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: tcp-check
+      image: busybox:1.36
+      command:
+        - sh
+        - -c
+        - nc -zvw5 {{ include "clamav.fullname" . }} {{ .Values.service.port }}
+  restartPolicy: Never

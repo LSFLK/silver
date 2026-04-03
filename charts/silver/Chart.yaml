@@ -22,3 +22,7 @@ dependencies:
     version: 0.1.0
     repository: file://charts/rspamd
     condition: rspamd.enabled
+  - name: clamav
+    version: 0.1.0
+    repository: file://charts/clamav
+    condition: clamav.enabled
