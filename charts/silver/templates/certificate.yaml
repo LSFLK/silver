@@ -1,0 +1,22 @@
+{{- if .Values.tls.enabled }}
+{{- range .Values.tls.domains }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ . | replace "." "-" }}-tls
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "silver.labels" $ | nindent 4 }}
+spec:
+  secretName: {{ . | replace "." "-" }}-tls
+  issuerRef:
+    name: {{ $.Values.tls.issuer }}
+    kind: ClusterIssuer
+  commonName: {{ . }}
+  dnsNames:
+    - {{ . }}
+    - "*.{{ . }}"
+  renewBefore: {{ $.Values.tls.renewBefore | default "720h" }}
+{{- end }}
+{{- end }}
