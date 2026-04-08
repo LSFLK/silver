@@ -17,6 +17,16 @@ serviceAccount:
 
 podAnnotations: {}
 
+initContainer:
+  image:
+    repository: busybox
+    tag: "1.36"
+    pullPolicy: IfNotPresent
+  command:
+    - /bin/sh
+    - -c
+    - chmod -R 0777 /var/lib/clamav /var/log/clamav /var/run/clamav
+
 podSecurityContext:
   runAsUser: 0
   runAsNonRoot: false

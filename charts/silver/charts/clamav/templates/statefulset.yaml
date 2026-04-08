@@ -26,6 +26,22 @@ spec:
       serviceAccountName: {{ include "clamav.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: init-permissions
+          image: "{{ .Values.initContainer.image.repository }}:{{ .Values.initContainer.image.tag }}"
+          imagePullPolicy: {{ .Values.initContainer.image.pullPolicy }}
+          command:
+            {{- toYaml .Values.initContainer.command | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsUser: 0
+          volumeMounts:
+            - name: db
+              mountPath: {{ .Values.persistence.mountPath }}
+            - name: logs
+              mountPath: {{ .Values.logs.mountPath }}
+            - name: runtime
+              mountPath: {{ .Values.runtime.mountPath }}
       containers:
         - name: clamav
           securityContext:
