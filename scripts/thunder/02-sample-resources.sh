@@ -17,6 +17,7 @@ SPA_APP_NAME="${THUNDER_SPA_APP_NAME:-Email App}"
 SPA_APP_DESCRIPTION="${THUNDER_SPA_APP_DESCRIPTION:-Application for email client to use OAuth2 authentication}"
 SPA_CLIENT_ID="${THUNDER_SPA_CLIENT_ID:-EMAIL_APP}"
 SPA_ALLOWED_USER_TYPE="${THUNDER_SPA_ALLOWED_USER_TYPE:-Person}"
+SPA_OU_HANDLE="${THUNDER_SPA_OU_HANDLE:-default}"
 
 log_info "Creating single-page application resource..."
 echo ""
@@ -32,6 +33,52 @@ extract_json_value() {
     echo "$JSON_STRING" | grep -o "\"${KEY}\":\"[^\"]*\"" | head -1 | cut -d'"' -f4
 }
 
+get_ou_id_by_handle() {
+    local OU_HANDLE="$1"
+    local RESPONSE HTTP_CODE BODY OU_ID
+
+    RESPONSE=$(thunder_api_call GET "/organization-units/tree/${OU_HANDLE}")
+    HTTP_CODE="${RESPONSE: -3}"
+    BODY="${RESPONSE%???}"
+
+    if [[ "$HTTP_CODE" != "200" ]]; then
+        log_error "Failed to resolve OU '${OU_HANDLE}' (HTTP $HTTP_CODE)"
+        echo "Response: $BODY"
+        return 1
+    fi
+
+    OU_ID=$(extract_json_value "$BODY" "id")
+    if [[ -z "$OU_ID" ]]; then
+        log_error "Could not extract OU ID for handle '${OU_HANDLE}'"
+        return 1
+    fi
+
+    echo "$OU_ID"
+}
+
+get_first_flow_id() {
+    local FLOW_TYPE="$1"
+    local RESPONSE HTTP_CODE BODY FLOW_ID
+
+    RESPONSE=$(thunder_api_call GET "/flows?flowType=${FLOW_TYPE}&limit=1")
+    HTTP_CODE="${RESPONSE: -3}"
+    BODY="${RESPONSE%???}"
+
+    if [[ "$HTTP_CODE" != "200" ]]; then
+        log_error "Failed to fetch ${FLOW_TYPE} flows (HTTP $HTTP_CODE)"
+        echo "Response: $BODY"
+        return 1
+    fi
+
+    FLOW_ID=$(extract_json_value "$BODY" "id")
+    if [[ -z "$FLOW_ID" ]]; then
+        log_error "No ${FLOW_TYPE} flow found. Run default resource bootstrap first."
+        return 1
+    fi
+
+    echo "$FLOW_ID"
+}
+
 create_spa_application() {
     local APP_NAME="$1"
     local APP_DESCRIPTION="$2"
@@ -39,21 +86,33 @@ create_spa_application() {
     local ALLOWED_USER_TYPE="$4"
     local RESPONSE HTTP_CODE BODY
     local APP_ID APP_CLIENT_ID
+    local APP_OU_ID AUTH_FLOW_ID REG_FLOW_ID
 
     log_info "Creating ${APP_NAME} application..."
+
+    APP_OU_ID=$(get_ou_id_by_handle "$SPA_OU_HANDLE") || exit 1
+    AUTH_FLOW_ID=$(get_first_flow_id "AUTHENTICATION") || exit 1
+    REG_FLOW_ID=$(get_first_flow_id "REGISTRATION") || exit 1
 
     read -r -d '' APP_PAYLOAD <<JSON || true
 {
     "name": "${APP_NAME}",
     "description": "${APP_DESCRIPTION}",
-    "is_registration_flow_enabled": false,
+    "ouId": "${APP_OU_ID}",
+    "url": "http://localhost/",
     "logo_url": "https://ssl.gstatic.com/docs/common/profile/kiwi_lg.png",
-    "assertion": {
-        "validity_period": 3600
-    },
-    "certificate": {
-        "type": "NONE"
-    },
+    "auth_flow_id": "${AUTH_FLOW_ID}",
+    "registration_flow_id": "${REG_FLOW_ID}",
+    "is_registration_flow_enabled": false,
+    "allowed_user_types": [
+        "${ALLOWED_USER_TYPE}"
+    ],
+    "user_attributes": [
+        "groups",
+        "roles",
+        "ouId",
+        "username"
+    ],
     "inbound_auth_config": [
         {
             "type": "oauth2",
@@ -99,27 +158,26 @@ create_spa_application() {
                     "group",
                     "role"
                 ],
-                "user_info": {
-                    "user_attributes": [
-                        "groups",
-                        "roles",
-                        "ouId",
-                        "username"
-                    ]
-                },
                 "scope_claims": {
+                    "profile": [
+                        "name",
+                        "given_name",
+                        "family_name",
+                        "picture"
+                    ],
+                    "email": [
+                        "email",
+                        "email_verified"
+                    ],
                     "group": [
                         "groups"
                     ],
-                    "role": [
-                        "roles"
+                    "ou": [
+                        "ouId"
                     ]
                 }
             }
         }
-    ],
-    "allowed_user_types": [
-        "${ALLOWED_USER_TYPE}"
     ]
 }
 JSON
@@ -131,7 +189,10 @@ JSON
     if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]] || [[ "$HTTP_CODE" == "202" ]]; then
         log_success "${APP_NAME} application created successfully"
         APP_ID=$(extract_json_value "$BODY" "id")
-        APP_CLIENT_ID=$(extract_json_value "$BODY" "client_id")
+        APP_CLIENT_ID=$(extract_json_value "$BODY" "clientId")
+        if [[ -z "$APP_CLIENT_ID" ]]; then
+            APP_CLIENT_ID=$(extract_json_value "$BODY" "client_id")
+        fi
         if [[ -n "$APP_ID" ]]; then
             log_info "${APP_NAME} app ID: ${APP_ID}"
         fi
