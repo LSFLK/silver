@@ -225,11 +225,11 @@ elif [[ "$HTTP_CODE" == "409" ]]; then
 
     if [[ "$HTTP_CODE" == "200" ]]; then
         # Parse JSON to find admin user
-        ADMIN_USER_ID=$(echo "$BODY" | grep -o '"id":"[^"]*","[^"]*":"[^"]*","attributes":{[^}]*"username":"admin"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+        ADMIN_USER_ID=$(echo "$BODY" | grep -o '"id":"[^"]*","[^"]*":"[^"]*","attributes":{[^}]*"username":"'"${ADMIN_USERNAME}"'"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
         # Fallback parsing
         if [[ -z "$ADMIN_USER_ID" ]]; then
-            ADMIN_USER_ID=$(echo "$BODY" | sed 's/},{/}\n{/g' | grep '"username":"admin"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+            ADMIN_USER_ID=$(echo "$BODY" | sed 's/},{/}\n{/g' | grep '"username":"'"${ADMIN_USERNAME}"'"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
         fi
 
         if [[ -n "$ADMIN_USER_ID" ]]; then
@@ -1155,7 +1155,7 @@ RESPONSE=$(thunder_api_call POST "/applications" "{
     \"registrationFlowId\": \"${CONSOLE_REG_FLOW_ID}\",
     \"isRegistrationFlowEnabled\": false,
     \"allowedUserTypes\": [\"Person\"],
-  \"user_attributes\": [\"given_name\",\"family_name\",\"email\",\"groups\", \"name\", \"ouId\"],
+    \"userAttributes\": [\"given_name\",\"family_name\",\"email\",\"groups\", \"name\", \"ouId\"],
     \"inboundAuthConfig\": [{
     \"type\": \"oauth2\",
     \"config\": {
@@ -1255,7 +1255,7 @@ else
                 RESPONSE=$(thunder_api_call GET "/design/themes")
                 HTTP_CODE="${RESPONSE: -3}"
                 BODY="${RESPONSE%???}"
-                THEME_ID=$(echo "$BODY" | grep -o '"id":"[^"]*","handle":"'"${THEME_HANDLE}"'"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+                THEME_ID=$(echo "$BODY" | sed 's/},{/}\n{/g' | grep '"handle":"'"${THEME_HANDLE}"'"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
                 if [[ -z "$THEME_ID" ]]; then
                     log_error "Failed to retrieve existing theme ID for '${THEME_NAME}'"
                     exit 1

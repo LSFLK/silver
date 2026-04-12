@@ -100,50 +100,50 @@ create_spa_application() {
     "description": "${APP_DESCRIPTION}",
     "ouId": "${APP_OU_ID}",
     "url": "http://localhost/",
-    "logo_url": "https://ssl.gstatic.com/docs/common/profile/kiwi_lg.png",
-    "auth_flow_id": "${AUTH_FLOW_ID}",
-    "registration_flow_id": "${REG_FLOW_ID}",
-    "is_registration_flow_enabled": false,
-    "allowed_user_types": [
+    "logoUrl": "https://ssl.gstatic.com/docs/common/profile/kiwi_lg.png",
+    "authFlowId": "${AUTH_FLOW_ID}",
+    "registrationFlowId": "${REG_FLOW_ID}",
+    "isRegistrationFlowEnabled": false,
+    "allowedUserTypes": [
         "${ALLOWED_USER_TYPE}"
     ],
-    "user_attributes": [
+    "userAttributes": [
         "groups",
         "roles",
         "ouId",
         "username"
     ],
-    "inbound_auth_config": [
+    "inboundAuthConfig": [
         {
             "type": "oauth2",
             "config": {
-                "client_id": "${CLIENT_ID}",
-                "redirect_uris": [
+                "clientId": "${CLIENT_ID}",
+                "redirectUris": [
                     "http://localhost/"
                 ],
-                "grant_types": [
+                "grantTypes": [
                     "authorization_code",
                     "refresh_token"
                 ],
-                "response_types": [
+                "responseTypes": [
                     "code"
                 ],
-                "token_endpoint_auth_method": "none",
-                "pkce_required": true,
-                "public_client": true,
+                "tokenEndpointAuthMethod": "none",
+                "pkceRequired": true,
+                "publicClient": true,
                 "token": {
-                    "access_token": {
-                        "validity_period": 3600,
-                        "user_attributes": [
+                    "accessToken": {
+                        "validityPeriod": 3600,
+                        "userAttributes": [
                             "groups",
                             "roles",
                             "ouId",
                             "username"
                         ]
                     },
-                    "id_token": {
-                        "validity_period": 3600,
-                        "user_attributes": [
+                    "idToken": {
+                        "validityPeriod": 3600,
+                        "userAttributes": [
                             "groups",
                             "roles",
                             "ouId",
@@ -158,7 +158,7 @@ create_spa_application() {
                     "group",
                     "role"
                 ],
-                "scope_claims": {
+                "scopeClaims": {
                     "profile": [
                         "name",
                         "given_name",
