@@ -1,15 +1,15 @@
 #!/bin/bash
 # Bootstrap Script: Default Resources Setup
-# Creates default organization unit, user schema, admin user, system resource server, system action, admin role, and DEVELOP application
+# Creates default organization unit, user schema, admin user, system resource server, system action, admin role, and CONSOLE application
 
 set -e
 
 # Parse command line arguments for custom redirect URIs
-CUSTOM_DEVELOP_REDIRECT_URIS=""
+CUSTOM_CONSOLE_REDIRECT_URIS=""
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --develop-redirect-uris)
-            CUSTOM_DEVELOP_REDIRECT_URIS="$2"
+        --console-redirect-uris)
+            CUSTOM_CONSOLE_REDIRECT_URIS="$2"
             shift 2
             ;;
         *)
@@ -34,7 +34,8 @@ log_info "Creating default organization unit..."
 RESPONSE=$(thunder_api_call POST "/organization-units" '{
   "handle": "default",
   "name": "Default",
-  "description": "Default organization unit"
+  "description": "Default organization unit",
+  "logoUrl": "emoji:🏛️"
 }')
 
 HTTP_CODE="${RESPONSE: -3}"
@@ -88,54 +89,66 @@ RESPONSE=$(thunder_api_call POST "/user-schemas" '{
   "schema": {
     "username": {
       "type": "string",
+      "displayName": "Username",
       "required": true,
       "unique": true
     },
     "email": {
       "type": "string",
+      "displayName": "Email",
       "required": true,
       "unique": true,
       "regex": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
     },
     "email_verified": {
       "type": "boolean",
+      "displayName": "Email Verified",
       "required": false
     },
     "given_name": {
       "type": "string",
+      "displayName": "First Name",
       "required": false
     },
     "family_name": {
       "type": "string",
+      "displayName": "Last Name",
       "required": false
     },
     "mobileNumber": {
       "type": "string",
+      "displayName": "Mobile Number",
       "required": false
     },
     "phone_number": {
       "type": "string",
+      "displayName": "Phone Number",
       "required": false
     },
     "phone_number_verified": {
       "type": "boolean",
+      "displayName": "Phone Number Verified",
       "required": false
     },
     "sub": {
       "type": "string",
+      "displayName": "Subject",
       "required": false
     },
     "name": {
       "type": "string",
+      "displayName": "Full Name",
       "required": false
     },
     "picture": {
       "type": "string",
+      "displayName": "Picture",
       "required": false
     },
     "password": {
       "type": "string",
-      "required": true,
+      "displayName": "Password",
+      "required": false,
       "credential": true
     }
   },
@@ -171,7 +184,7 @@ log_info "Using admin username: ${ADMIN_USERNAME}"
 
 RESPONSE=$(thunder_api_call POST "/users" '{
   "type": "Person",
-  "organizationUnit": "'${DEFAULT_OU_ID}'",
+  "ouId": "'${DEFAULT_OU_ID}'",
   "attributes": {
     "username": "'${ADMIN_USERNAME}'",
     "password": "'${ADMIN_PASSWORD}'",
@@ -635,13 +648,79 @@ fi
 echo ""
 
 # ============================================================================
+# Create Administrator Group
+# ============================================================================
+
+log_info "Creating administrator group..."
+
+if [[ -z "$DEFAULT_OU_ID" ]]; then
+    log_error "Default OU ID is not available. Cannot create administrator group."
+    exit 1
+fi
+
+if [[ -z "$ADMIN_USER_ID" ]]; then
+    log_error "Admin user ID is not available. Cannot create administrator group with user membership."
+    exit 1
+fi
+
+RESPONSE=$(thunder_api_call POST "/groups" "{
+  \"name\": \"Administrators\",
+  \"description\": \"System administrators group\",
+    \"ouId\": \"${DEFAULT_OU_ID}\",
+    \"members\": [
+        {
+            \"id\": \"${ADMIN_USER_ID}\",
+            \"type\": \"user\"
+        }
+    ]
+}")
+
+HTTP_CODE="${RESPONSE: -3}"
+BODY="${RESPONSE%???}"
+
+if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
+    log_success "Administrator group created successfully"
+    ADMIN_GROUP_ID=$(echo "$BODY" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    if [[ -n "$ADMIN_GROUP_ID" ]]; then
+        log_info "Administrator group ID: $ADMIN_GROUP_ID"
+    else
+        log_error "Could not extract administrator group ID from response"
+        exit 1
+    fi
+elif [[ "$HTTP_CODE" == "409" ]]; then
+    log_warning "Administrator group already exists, retrieving ID..."
+    RESPONSE=$(thunder_api_call GET "/groups/tree/default?limit=100")
+    HTTP_CODE="${RESPONSE: -3}"
+    BODY="${RESPONSE%???}"
+
+    if [[ "$HTTP_CODE" == "200" ]]; then
+        ADMIN_GROUP_ID=$(echo "$BODY" | sed 's/},{/}\n{/g' | grep '"name":"Administrators"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+        if [[ -n "$ADMIN_GROUP_ID" ]]; then
+            log_success "Found administrator group ID: $ADMIN_GROUP_ID"
+        else
+            log_error "Could not find administrator group in response"
+            exit 1
+        fi
+    else
+        log_error "Failed to fetch groups under default OU (HTTP $HTTP_CODE)"
+        exit 1
+    fi
+else
+    log_error "Failed to create administrator group (HTTP $HTTP_CODE)"
+    echo "Response: $BODY"
+    exit 1
+fi
+
+echo ""
+
+# ============================================================================
 # Create Admin Role
 # ============================================================================
 
 log_info "Creating admin role with 'system' permission..."
 
-if [[ -z "$ADMIN_USER_ID" ]]; then
-    log_error "Admin user ID is not available. Cannot create role."
+if [[ -z "$ADMIN_GROUP_ID" ]]; then
+    log_error "Administrator group ID is not available. Cannot create role."
     exit 1
 fi
 
@@ -667,8 +746,8 @@ RESPONSE=$(thunder_api_call POST "/roles" "{
   ],
   \"assignments\": [
     {
-      \"id\": \"${ADMIN_USER_ID}\",
-      \"type\": \"user\"
+            \"id\": \"${ADMIN_GROUP_ID}\",
+            \"type\": \"group\"
     }
   ]
 }")
@@ -677,7 +756,7 @@ HTTP_CODE="${RESPONSE: -3}"
 BODY="${RESPONSE%???}"
 
 if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
-    log_success "Admin role created and assigned to admin user"
+    log_success "Admin role created and assigned to administrator group"
     ADMIN_ROLE_ID=$(echo "$BODY" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
     if [[ -n "$ADMIN_ROLE_ID" ]]; then
         log_info "Admin role ID: $ADMIN_ROLE_ID"
@@ -1030,23 +1109,23 @@ fi
 echo ""
 
 # ============================================================================
-# Create DEVELOP Application
+# Create CONSOLE Application
 # ============================================================================
 
-log_info "Creating DEVELOP application..."
+log_info "Creating CONSOLE application..."
 
-# Get flow IDs for develop app from the APP_FLOW_IDS created/found during flow processing
-DEVELOP_AUTH_FLOW_ID=$(echo "$APP_FLOW_IDS" | grep "^develop|" | cut -d'|' -f2)
-DEVELOP_REG_FLOW_ID=$(echo "$APP_FLOW_IDS" | grep "^develop|" | cut -d'|' -f3)
-log_debug "Extracted flow IDs: auth=$DEVELOP_AUTH_FLOW_ID, reg=$DEVELOP_REG_FLOW_ID"
+# Get flow IDs for console app from the APP_FLOW_IDS created/found during flow processing
+CONSOLE_AUTH_FLOW_ID=$(echo "$APP_FLOW_IDS" | grep "^console|" | cut -d'|' -f2)
+CONSOLE_REG_FLOW_ID=$(echo "$APP_FLOW_IDS" | grep "^console|" | cut -d'|' -f3)
+log_debug "Extracted flow IDs: auth=$CONSOLE_AUTH_FLOW_ID, reg=$CONSOLE_REG_FLOW_ID"
 
 # Validate that flow IDs are available
-if [[ -z "$DEVELOP_AUTH_FLOW_ID" ]]; then
-    log_error "Develop authentication flow ID not found, cannot create DEVELOP application"
+if [[ -z "$CONSOLE_AUTH_FLOW_ID" ]]; then
+    log_error "Console authentication flow ID not found, cannot create CONSOLE application"
     exit 1
 fi
-if [[ -z "$DEVELOP_REG_FLOW_ID" ]]; then
-    log_error "Develop registration flow ID not found, cannot create DEVELOP application"
+if [[ -z "$CONSOLE_REG_FLOW_ID" ]]; then
+    log_error "Console registration flow ID not found, cannot create CONSOLE application"
     exit 1
 fi
 
@@ -1054,11 +1133,11 @@ fi
 PUBLIC_URL="${THUNDER_PUBLIC_URL:-$THUNDER_API_BASE}"
 
 # Build redirect URIs array - default + custom if provided
-REDIRECT_URIS="\"${PUBLIC_URL}/develop\""
-if [[ -n "$CUSTOM_DEVELOP_REDIRECT_URIS" ]]; then
-    log_info "Adding custom redirect URIs: $CUSTOM_DEVELOP_REDIRECT_URIS"
+REDIRECT_URIS="\"${PUBLIC_URL}/console\""
+if [[ -n "$CUSTOM_CONSOLE_REDIRECT_URIS" ]]; then
+    log_info "Adding custom redirect URIs: $CUSTOM_CONSOLE_REDIRECT_URIS"
     # Split comma-separated URIs and append to array
-    IFS=',' read -ra URI_ARRAY <<< "$CUSTOM_DEVELOP_REDIRECT_URIS"
+    IFS=',' read -ra URI_ARRAY <<< "$CUSTOM_CONSOLE_REDIRECT_URIS"
     for uri in "${URI_ARRAY[@]}"; do
         # Trim whitespace
         uri=$(echo "$uri" | xargs)
@@ -1067,36 +1146,37 @@ if [[ -n "$CUSTOM_DEVELOP_REDIRECT_URIS" ]]; then
 fi
 
 RESPONSE=$(thunder_api_call POST "/applications" "{
-  \"name\": \"Develop\",
-  \"description\": \"Developer application for Thunder\",
-  \"url\": \"${PUBLIC_URL}/develop\",
-  \"logo_url\": \"${PUBLIC_URL}/develop/assets/images/logo-mini.svg\",
-  \"auth_flow_id\": \"${DEVELOP_AUTH_FLOW_ID}\",
-  \"registration_flow_id\": \"${DEVELOP_REG_FLOW_ID}\",
-  \"is_registration_flow_enabled\": false,
-  \"allowed_user_types\": [\"Person\"],
-  \"user_attributes\": [\"given_name\",\"family_name\",\"email\",\"groups\", \"name\", \"ouId\"],
-  \"inbound_auth_config\": [{
+  \"name\": \"Console\",
+  \"description\": \"Management application for Thunder\",
+  \"ouId\": \"${DEFAULT_OU_ID}\",
+  \"url\": \"${PUBLIC_URL}/console\",
+    \"logoUrl\": \"emoji:👨‍💻\",
+    \"authFlowId\": \"${CONSOLE_AUTH_FLOW_ID}\",
+    \"registrationFlowId\": \"${CONSOLE_REG_FLOW_ID}\",
+    \"isRegistrationFlowEnabled\": false,
+    \"allowedUserTypes\": [\"Person\"],
+    \"userAttributes\": [\"given_name\",\"family_name\",\"email\",\"groups\", \"name\", \"ouId\"],
+    \"inboundAuthConfig\": [{
     \"type\": \"oauth2\",
     \"config\": {
-      \"client_id\": \"DEVELOP\",
-      \"redirect_uris\": [${REDIRECT_URIS}],
-      \"grant_types\": [\"authorization_code\"],
-      \"response_types\": [\"code\"],
-      \"pkce_required\": true,
-      \"token_endpoint_auth_method\": \"none\",
-      \"public_client\": true,
+            \"clientId\": \"CONSOLE\",
+            \"redirectUris\": [${REDIRECT_URIS}],
+            \"grantTypes\": [\"authorization_code\"],
+            \"responseTypes\": [\"code\"],
+            \"pkceRequired\": true,
+            \"tokenEndpointAuthMethod\": \"none\",
+            \"publicClient\": true,
       \"token\": {
-        \"access_token\": {
-          \"validity_period\": 3600,
-          \"user_attributes\": [\"given_name\",\"family_name\",\"email\",\"groups\", \"name\", \"ouId\"]
+                \"accessToken\": {
+                    \"validityPeriod\": 3600,
+                    \"userAttributes\": [\"given_name\",\"family_name\",\"email\",\"groups\", \"name\", \"ouId\"]
         },
-        \"id_token\": {
-          \"validity_period\": 3600,
-          \"user_attributes\": [\"given_name\",\"family_name\",\"email\",\"groups\", \"name\", \"ouId\"]
+                \"idToken\": {
+                    \"validityPeriod\": 3600,
+                    \"userAttributes\": [\"given_name\",\"family_name\",\"email\",\"groups\", \"name\", \"ouId\"]
         }
       },
-      \"scope_claims\": {
+            \"scopeClaims\": {
         \"profile\": [\"name\",\"given_name\",\"family_name\",\"picture\"],
         \"email\": [\"email\",\"email_verified\"],
         \"phone\": [\"phone_number\",\"phone_number_verified\"],
@@ -1111,55 +1191,61 @@ HTTP_CODE="${RESPONSE: -3}"
 BODY="${RESPONSE%???}"
 
 if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
-    log_success "DEVELOP application created successfully"
-    DEVELOP_APP_ID=$(echo "$BODY" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-    if [[ -n "$DEVELOP_APP_ID" ]]; then
-        log_info "DEVELOP_APP_ID: $DEVELOP_APP_ID"
+    log_success "CONSOLE application created successfully"
+    CONSOLE_APP_ID=$(echo "$BODY" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    if [[ -n "$CONSOLE_APP_ID" ]]; then
+        log_info "CONSOLE_APP_ID: $CONSOLE_APP_ID"
     else
-        log_warning "Could not extract DEVELOP application ID from response"
+        log_warning "Could not extract CONSOLE application ID from response"
     fi
 elif [[ "$HTTP_CODE" == "409" ]]; then
-    log_warning "DEVELOP application already exists, retrieving application ID..."
-    # Get existing DEVELOP application ID
+    log_warning "CONSOLE application already exists, retrieving application ID..."
     RESPONSE=$(thunder_api_call GET "/applications")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
-    
+
     if [[ "$HTTP_CODE" == "200" ]]; then
-        # Parse JSON to find DEVELOP application by client_id
-        DEVELOP_APP_ID=$(echo "$BODY" | sed 's/},{/}\n{/g' | grep '"client_id":"DEVELOP"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-        
-        if [[ -n "$DEVELOP_APP_ID" ]]; then
-            log_success "Found DEVELOP application ID: $DEVELOP_APP_ID"
-            log_info "DEVELOP_APP_ID: $DEVELOP_APP_ID"
+        CONSOLE_APP_ID=$(echo "$BODY" | sed 's/},{/}\n{/g' | grep '"client_id":"CONSOLE"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+        if [[ -z "$CONSOLE_APP_ID" ]]; then
+            CONSOLE_APP_ID=$(echo "$BODY" | sed 's/},{/}\n{/g' | grep '"clientId":"CONSOLE"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+        fi
+
+        if [[ -n "$CONSOLE_APP_ID" ]]; then
+            log_success "Found CONSOLE application ID: $CONSOLE_APP_ID"
+            log_info "CONSOLE_APP_ID: $CONSOLE_APP_ID"
         else
-            log_error "Could not find DEVELOP application in response"
+            log_error "Could not find CONSOLE application in response"
+            exit 1
         fi
     else
         log_error "Failed to fetch applications (HTTP $HTTP_CODE)"
+        exit 1
     fi
 elif [[ "$HTTP_CODE" == "400" ]] && [[ "$BODY" =~ (Application already exists|APP-1022) ]]; then
-    log_warning "DEVELOP application already exists, retrieving application ID..."
-    # Get existing DEVELOP application ID
+    log_warning "CONSOLE application already exists, retrieving application ID..."
     RESPONSE=$(thunder_api_call GET "/applications")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
-    
+
     if [[ "$HTTP_CODE" == "200" ]]; then
-        # Parse JSON to find DEVELOP application by client_id
-        DEVELOP_APP_ID=$(echo "$BODY" | sed 's/},{/}\n{/g' | grep '"client_id":"DEVELOP"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-        
-        if [[ -n "$DEVELOP_APP_ID" ]]; then
-            log_success "Found DEVELOP application ID: $DEVELOP_APP_ID"
-            log_info "DEVELOP_APP_ID: $DEVELOP_APP_ID"
+        CONSOLE_APP_ID=$(echo "$BODY" | sed 's/},{/}\n{/g' | grep '"client_id":"CONSOLE"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+        if [[ -z "$CONSOLE_APP_ID" ]]; then
+            CONSOLE_APP_ID=$(echo "$BODY" | sed 's/},{/}\n{/g' | grep '"clientId":"CONSOLE"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+        fi
+
+        if [[ -n "$CONSOLE_APP_ID" ]]; then
+            log_success "Found CONSOLE application ID: $CONSOLE_APP_ID"
+            log_info "CONSOLE_APP_ID: $CONSOLE_APP_ID"
         else
-            log_error "Could not find DEVELOP application in response"
+            log_error "Could not find CONSOLE application in response"
+            exit 1
         fi
     else
         log_error "Failed to fetch applications (HTTP $HTTP_CODE)"
+        exit 1
     fi
 else
-    log_error "Failed to create DEVELOP application (HTTP $HTTP_CODE)"
+    log_error "Failed to create CONSOLE application (HTTP $HTTP_CODE)"
     echo "Response: $BODY"
     exit 1
 fi
@@ -1172,61 +1258,77 @@ echo ""
 
 log_info "Creating themes..."
 
-# Get the script directory to locate theme files
 THEMES_DIR="${SCRIPT_DIR}/themes"
 
-# Check if themes directory exists
 if [[ ! -d "$THEMES_DIR" ]]; then
     log_warning "Themes directory not found at ${THEMES_DIR}, skipping theme creation"
 else
     shopt -s nullglob
     THEME_FILES=("$THEMES_DIR"/*.json)
     shopt -u nullglob
-    
+
     if [[ ${#THEME_FILES[@]} -gt 0 ]]; then
         log_info "Processing themes from ${THEMES_DIR}..."
-        
+
         THEME_COUNT=0
-        THEME_SUCCESS=0
-        THEME_SKIPPED=0
-        
+        THEME_CREATED=0
+        THEME_UPDATED=0
+
         for THEME_FILE in "${THEME_FILES[@]}"; do
             [[ ! -f "$THEME_FILE" ]] && continue
-            
+
             THEME_COUNT=$((THEME_COUNT + 1))
-            
-            # Get theme name from file content or use filename
             THEME_NAME=$(grep -o '"displayName"[[:space:]]*:[[:space:]]*"[^"]*"' "$THEME_FILE" | head -1 | sed 's/"displayName"[[:space:]]*:[[:space:]]*"\([^"]*\)"/\1/')
             if [[ -z "$THEME_NAME" ]]; then
                 THEME_NAME=$(basename "$THEME_FILE" .json)
             fi
-            
-            log_info "Creating theme: ${THEME_NAME} (from $(basename "$THEME_FILE"))"
+            THEME_HANDLE=$(grep -o '"handle"[[:space:]]*:[[:space:]]*"[^"]*"' "$THEME_FILE" | head -1 | sed 's/"handle"[[:space:]]*:[[:space:]]*"\([^"]*\)"/\1/')
+
             THEME_PAYLOAD=$(cat "$THEME_FILE")
-            
+
+            log_info "Creating theme: ${THEME_NAME} (from $(basename "$THEME_FILE"))"
             RESPONSE=$(thunder_api_call POST "/design/themes" "${THEME_PAYLOAD}")
             HTTP_CODE="${RESPONSE: -3}"
             BODY="${RESPONSE%???}"
-            
+
             if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
                 log_success "Theme '${THEME_NAME}' created successfully"
                 THEME_ID=$(echo "$BODY" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
                 if [[ -n "$THEME_ID" ]]; then
                     log_info "Theme ID: $THEME_ID"
                 fi
-                THEME_SUCCESS=$((THEME_SUCCESS + 1))
-            elif [[ "$HTTP_CODE" == "409" ]]; then
-                log_warning "Theme '${THEME_NAME}' already exists, skipping"
-                THEME_SKIPPED=$((THEME_SKIPPED + 1))
+                THEME_CREATED=$((THEME_CREATED + 1))
+            elif [[ "$HTTP_CODE" == "409" ]] || (echo "$BODY" | grep -q '"THM-1015"'); then
+                log_warning "Theme '${THEME_NAME}' already exists, updating..."
+                RESPONSE=$(thunder_api_call GET "/design/themes")
+                HTTP_CODE="${RESPONSE: -3}"
+                BODY="${RESPONSE%???}"
+                THEME_ID=$(echo "$BODY" | sed 's/},{/}\n{/g' | grep '"handle":"'"${THEME_HANDLE}"'"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+                if [[ -z "$THEME_ID" ]]; then
+                    log_error "Failed to retrieve existing theme ID for '${THEME_NAME}'"
+                    exit 1
+                fi
+                log_info "Found existing theme ID: $THEME_ID"
+                RESPONSE=$(thunder_api_call PUT "/design/themes/${THEME_ID}" "${THEME_PAYLOAD}")
+                HTTP_CODE="${RESPONSE: -3}"
+                BODY="${RESPONSE%???}"
+                if [[ "$HTTP_CODE" == "200" ]]; then
+                    log_success "Theme '${THEME_NAME}' updated successfully"
+                    THEME_UPDATED=$((THEME_UPDATED + 1))
+                else
+                    log_error "Failed to update theme '${THEME_NAME}' (HTTP $HTTP_CODE)"
+                    echo "Response: $BODY"
+                    exit 1
+                fi
             else
                 log_error "Failed to create theme '${THEME_NAME}' (HTTP $HTTP_CODE)"
                 echo "Response: $BODY"
                 exit 1
             fi
         done
-        
+
         echo ""
-        log_info "Theme creation summary: ${THEME_SUCCESS} created, ${THEME_SKIPPED} skipped (Total: ${THEME_COUNT})"
+        log_info "Theme creation summary: ${THEME_CREATED} created, ${THEME_UPDATED} updated (Total: ${THEME_COUNT})"
     else
         log_warning "No theme files found in ${THEMES_DIR}"
     fi
@@ -1299,5 +1401,5 @@ log_success "Default resources setup completed successfully!"
 echo ""
 log_info "👤 Admin credentials:"
 log_info "   Username: ${ADMIN_USERNAME}"
-log_info "   Role: Administrator (system permission)"
+log_info "   Role: Administrator (system permission via Administrators group)"
 echo ""

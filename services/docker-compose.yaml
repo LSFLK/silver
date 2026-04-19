@@ -148,20 +148,22 @@ services:
 
   # Initialize database from the image
   thunder-db-init:
-    image: ghcr.io/asgardeo/thunder:0.27.0
+    image: ghcr.io/asgardeo/thunder:0.32.0
     container_name: thunder-db-init
-    command: sh -c "cp -r /opt/thunder/repository/database/* /data/"
+    command: sh -c "cp -r /opt/thunder/repository/database/* /data/ && (cp -r /opt/thunder/consent/repository/database/* /consent-data/ 2>/dev/null || true)"
     volumes:
       - thunder-db:/data
+      - consent-db:/consent-data
     restart: "no"
 
   # Run setup once with the shared database
   thunder-setup:
-    image: ghcr.io/asgardeo/thunder:0.27.0
+    image: ghcr.io/asgardeo/thunder:0.32.0
     container_name: thunder-setup
     command: ./setup.sh
     volumes:
       - thunder-db:/opt/thunder/repository/database
+      - consent-db:/opt/thunder/consent/repository/database
       - ./silver-config/thunder/deployment.yaml:/opt/thunder/repository/conf/deployment.yaml:ro
       - ./../scripts/thunder/01-default-resources.sh:/opt/thunder/bootstrap/01-default-resources.sh
       - ./../scripts/thunder/02-sample-resources.sh:/opt/thunder/bootstrap/02-sample-resources.sh
@@ -175,7 +177,7 @@ services:
 
   # Run Thunder server with the shared database
   thunder:
-    image: ghcr.io/asgardeo/thunder:0.27.0
+    image: ghcr.io/asgardeo/thunder:0.32.0
     container_name: thunder-server
     depends_on:
       thunder-setup:
@@ -184,10 +186,11 @@ services:
       - "8090:8090"
     volumes:
       - thunder-db:/opt/thunder/repository/database
+      - consent-db:/opt/thunder/consent/repository/database
       - ./silver-config/thunder/certs/server.cert:/opt/thunder/repository/resources/security/server.cert:ro
       - ./silver-config/thunder/certs/server.key:/opt/thunder/repository/resources/security/server.key:ro
       - ./silver-config/thunder/deployment.yaml:/opt/thunder/repository/conf/deployment.yaml:ro
-      - ./silver-config/thunder/develop-config.js:/opt/thunder/apps/develop/config.js:ro
+      - ./silver-config/thunder/console-config.js:/opt/thunder/apps/console/config.js:ro
       - ./silver-config/thunder/gate-config.js:/opt/thunder/apps/gate/config.js:ro
     networks:
       - mail-network
@@ -364,6 +367,7 @@ volumes:
   grafana_data:
   redis-data:
   thunder-db:
+  consent-db:
 
 networks:
   mail-network:
