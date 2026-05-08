@@ -146,6 +146,9 @@ smtpd_client_recipient_rate_limit = 200
 smtpd_recipient_limit = 50
 anvil_rate_time_unit = 60s
 smtpd_client_connection_count_limit = 20
+
+# Security Hardening
+disable_vrfy_command = yes
 EOF
 
 echo Postfix configuration successfully generated
