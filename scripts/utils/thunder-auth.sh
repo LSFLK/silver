@@ -109,7 +109,7 @@ thunder_authenticate() {
     auth_response=$(curl -s -w "\n%{http_code}" -X POST \
         "https://${thunder_host}:${thunder_port}/flow/execute" \
         -H "Content-Type: application/json" \
-        -d "{\"flowId\":\"${FLOW_ID}\",\"inputs\":{\"username\":\"admin\",\"password\":\"admin\",\"requested_permissions\":\"system\"},\"action\":\"action_001\"}")
+        -d "{\"flowId\":\"${FLOW_ID}\",\"inputs\":{\"username\":\"${THUNDER_ADMIN_USERNAME:-admin}\",\"password\":\"${THUNDER_ADMIN_PASSWORD:-admin}\",\"requested_permissions\":\"system\"},\"action\":\"action_001\"}")
 
     local auth_body
     local auth_status
