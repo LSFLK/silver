@@ -11,3 +11,5 @@ tls:
   domains: [
     "mail.example.com", "example.com"
   ]
+postfix:
+  enabled: true

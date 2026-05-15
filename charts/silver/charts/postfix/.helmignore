@@ -1,0 +1,20 @@
+# Patterns to ignore when building packages.
+# This supports shell glob matching, relative path matching, and
+# negation (prefixed with !). Only one pattern per line.
+.DS_Store
+# Common VCS dirs
+.git/
+.gitignore
+.bzr/
+.bzrignore
+.hg/
+# Exclude test and doc directories
+test/
+docs/
+dev/
+scripts/
+services/
+conf/
+# Exclude large files
+**/*.zip
+**/*.tar.gz

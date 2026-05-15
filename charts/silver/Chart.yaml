@@ -10,3 +10,7 @@ dependencies:
     version: 0.1.0
     repository: file://charts/opendkim
     condition: opendkim.enabled
+  - name: postfix
+    version: 0.1.0
+    repository: file://charts/postfix
+    condition: postfix.enabled

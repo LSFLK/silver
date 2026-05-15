@@ -1,0 +1,13 @@
+{{- if .Values.postfixConfig.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "postfix.fullname" . }}-config
+  labels:
+    {{- include "postfix.labels" . | nindent 4 }}
+data:
+  main.cf: |
+{{ .Files.Get "old-config/postfix/main.cf" | indent 4 }}
+  master.cf: |
+{{ .Files.Get "old-config/postfix/master.cf" | indent 4 }}
+{{- end }}
