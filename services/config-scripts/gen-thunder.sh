@@ -23,7 +23,7 @@ if [[ -f "${ROOT_DIR}/.env" ]]; then
 fi
 
 # SMTP values derived from the primary domain (password from .env, optional).
-readonly SMTP_HOST="smtp.${MAIL_DOMAIN}"
+readonly SMTP_HOST="mail.${MAIL_DOMAIN}"
 readonly SMTP_USERNAME="contact@${MAIL_DOMAIN}"
 readonly SMTP_FROM_ADDRESS="contact@${MAIL_DOMAIN}"
 readonly SMTP_PASSWORD="${THUNDER_SMTP_PASSWORD:-}"
