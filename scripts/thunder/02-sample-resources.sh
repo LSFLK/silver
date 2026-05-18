@@ -12,11 +12,29 @@ if [[ -f "$ENV_FILE" ]]; then
     set +a
 fi
 
-# Resolve primary domain from conf/silver.yaml; used as the new OU handle.
-SILVER_CONF_FILE="${SCRIPT_DIR}/../../conf/silver.yaml"
-MAIL_DOMAIN=$(grep -m 1 '^\s*-\s*domain:' "${SILVER_CONF_FILE}" | sed 's/.*domain:\s*//' | xargs)
+# Resolve primary domain. Prefer MAIL_DOMAIN env (set by docker-compose) so the
+# script works the same on the host and inside the thunder-setup container.
+# Falls back to scanning silver.yaml at a few well-known paths.
+MAIL_DOMAIN="${MAIL_DOMAIN:-}"
 if [[ -z "${MAIL_DOMAIN}" ]]; then
-    echo "ERROR: No domain configured in ${SILVER_CONF_FILE}" >&2
+    SILVER_CONF_FILE=""
+    for candidate in \
+        "${SCRIPT_DIR}/silver.yaml" \
+        "${SCRIPT_DIR}/../../conf/silver.yaml" \
+        "/opt/thunder/bootstrap/silver.yaml"; do
+        if [[ -f "$candidate" ]]; then
+            SILVER_CONF_FILE="$candidate"
+            break
+        fi
+    done
+    if [[ -z "${SILVER_CONF_FILE}" ]]; then
+        echo "ERROR: Could not locate silver.yaml; set MAIL_DOMAIN or mount conf/silver.yaml" >&2
+        exit 1
+    fi
+    MAIL_DOMAIN=$(grep -m 1 '^\s*-\s*domain:' "${SILVER_CONF_FILE}" | sed 's/.*domain:\s*//' | xargs)
+fi
+if [[ -z "${MAIL_DOMAIN}" ]]; then
+    echo "ERROR: No domain configured (MAIL_DOMAIN env unset and silver.yaml domain empty)" >&2
     exit 1
 fi
 
