@@ -1,7 +1,7 @@
 services:
-  smtp-server:
+  postfix-server:
     image: ghcr.io/lsflk/silver-smtp:main
-    container_name: smtp-server-container
+    container_name: postfix-server
     ports:
       - "25:25"
       - "587:587"
@@ -27,7 +27,7 @@ services:
 
   raven-server:
     image: ghcr.io/lsflk/raven:latest
-    container_name: raven
+    container_name: raven-server
     ports:
       - "143:143"
       - "993:993"
@@ -52,7 +52,7 @@ services:
     depends_on:
       thunder-setup:
         condition: service_completed_successfully
-      thunder:
+      thunder-server:
         condition: service_started
     restart: unless-stopped
     user: "0:0"
@@ -89,9 +89,9 @@ services:
     networks:
       - mail-network
 
-  redis:
+  redis-server:
     image: redis:alpine
-    container_name: rspamd-redis
+    container_name: redis-server
     volumes:
       - redis-data:/data
     restart: unless-stopped
@@ -100,9 +100,9 @@ services:
 
   # Local recursive DNS resolver (recommended)
   # Note: you can use any unbound image; this is an example. Ensure it is configured for recursion
-  unbound:
+  unbound-server:
     image: mvance/unbound:latest
-    container_name: rspamd-unbound
+    container_name: unbound-server
     restart: unless-stopped
     networks:
       - mail-network
@@ -176,7 +176,7 @@ services:
     restart: "no"
 
   # Run Thunder server with the shared database
-  thunder:
+  thunder-server:
     image: ghcr.io/asgardeo/thunder:0.32.0
     container_name: thunder-server
     depends_on:
@@ -209,9 +209,9 @@ services:
     networks:
       - mail-network
 
-  metadata-service:
+  metadata-server:
     image: ghcr.io/lsflk/silver-metadata-service:main
-    container_name: metadata-service
+    container_name: metadata-server
     ports:
       - "8888:8888"
     volumes:
@@ -245,7 +245,7 @@ services:
       - mail-network
     restart: unless-stopped
     depends_on:
-      - smtp-server
+      - postfix-server
 
   node-exporter:
     image: prom/node-exporter:latest
@@ -264,9 +264,9 @@ services:
     restart: unless-stopped
     pid: host
 
-  cadvisor:
+  cadvisor-server:
     image: gcr.io/cadvisor/cadvisor:latest
-    container_name: cadvisor
+    container_name: cadvisor-server
     privileged: true
     devices:
       - /dev/kmsg
@@ -282,9 +282,9 @@ services:
       - mail-network
     restart: unless-stopped
 
-  loki:
+  loki-server:
     image: grafana/loki:3.6.7
-    container_name: loki
+    container_name: loki-server
     command: -config.file=/etc/loki/loki-config.yaml
     volumes:
       - ./silver-config/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
@@ -294,9 +294,9 @@ services:
       - observability
       - mail-network
 
-  promtail:
+  promtail-server:
     image: grafana/promtail:3.5.8
-    container_name: promtail
+    container_name: promtail-server
     volumes:
       - ./silver-config/promtail/promtail-config.yaml:/mnt/config/promtail-config.yaml
       - /var/log:/var/log:ro
@@ -304,15 +304,15 @@ services:
       - rspamd_logs:/mnt/logs/rspamd:ro
       - clamav_logs:/mnt/logs/clamav:ro
     depends_on:
-      - loki
+      - loki-server
     command: -config.file=/mnt/config/promtail-config.yaml
     networks:
       - mail-network
     restart: unless-stopped
 
-  prometheus:
+  prometheus-server:
     image: prom/prometheus:latest
-    container_name: prometheus
+    container_name: prometheus-server
     env_file: ".env"
     volumes:
       - ./silver-config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -329,9 +329,9 @@ services:
       - observability
       - mail-network
 
-  grafana:
+  grafana-server:
     image: grafana/grafana:latest
-    container_name: grafana-local
+    container_name: grafana-server
     env_file: ".env"
     ports:
       - 3000:3000
@@ -351,7 +351,7 @@ services:
     networks:
       - observability
     depends_on:
-      - prometheus
+      - prometheus-server
 
 volumes:
   postfix-spool:

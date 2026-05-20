@@ -6,7 +6,7 @@
 # Note: This file is in git, but services/docker-compose.override.yml is gitignored
 
 services:
-  smtp-server:
+  postfix-server:
     build:
       context: .
       dockerfile: ./smtp/Dockerfile

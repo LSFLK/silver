@@ -68,7 +68,7 @@ get_domain_from_config() {
 check_services() {
     echo -e "${YELLOW}Checking Docker Compose services...${NC}"
 
-    if ! (cd "${SERVICES_DIR}" && docker compose ps smtp-server) | grep -q "Up\|running"; then
+    if ! (cd "${SERVICES_DIR}" && docker compose ps postfix-server) | grep -q "Up\|running"; then
         echo -e "${RED}✗ SMTP server container is not running${NC}"
         echo -e "${YELLOW}Please start the services first: docker compose up -d${NC}"
         exit 1
@@ -124,7 +124,7 @@ fi
 check_services
 
 # Find the smtp container
-SMTP_CONTAINER=$(cd "${SERVICES_DIR}" && docker compose ps -q smtp-server 2>/dev/null)
+SMTP_CONTAINER=$(cd "${SERVICES_DIR}" && docker compose ps -q postfix-server 2>/dev/null)
 if [ -z "$SMTP_CONTAINER" ]; then
     echo -e "${RED}✗ SMTP container not found. Is Docker Compose running?${NC}"
     exit 1
