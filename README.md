@@ -111,13 +111,34 @@ nano services/.env
 
 ### Adding users
 
-- To add more users to your email server, open up [`users.yaml`](https://github.com/LSFLK/silver/blob/main/conf/users.yaml), and add their usernames and run the following command.
+Users in Silver are provisioned through [Thunder](https://github.com/asgardeo/thunder), the identity provider that ships with the platform. There are two supported ways to add users:
+
+#### Option 1: Thunder Console (recommended)
+
+1. Open the Thunder console in your browser at `https://<your-domain>:8090`.
+2. Sign in with your Thunder admin credentials.
+3. Navigate to the `silver` organization unit and create a new user of type `emailuser`, supplying a `username`, `password`, and `email` (e.g. `alice@example.com`).
+
+#### Option 2: Thunder `/users` API
+
+You can create users directly against the Thunder REST API. After obtaining a bearer token and the `silver` organization unit ID (see [`scripts/utils/thunder-auth.sh`](scripts/utils/thunder-auth.sh) for the authentication flow), call:
 
 ```bash
-# silver/services
-bash scripts/user/add_user.sh
+curl -X POST "https://<your-domain>:8090/users" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <BEARER_TOKEN>" \
+  -d '{
+        "organizationUnit": "<ORG_UNIT_ID>",
+        "type": "emailuser",
+        "attributes": {
+          "username": "alice",
+          "password": "<strong-password>",
+          "email": "alice@example.com"
+        }
+      }'
 ```
-- Once you have added the users, `user_invite_urls.txt` will be generated in `scripts/user` folder with invite links for each user. You can share these links with the respective users to set up their accounts.
+
+For a working end-to-end example that authenticates with Thunder, looks up the organization unit, and bulk-creates users, see [`scripts/user/create_test_users.sh`](scripts/user/create_test_users.sh). More details on the Thunder integration are in [Thunder API Consumer Contract Guide for Silver](docs/Thunder-API-Consumer-Contract-Guide-for-Silver.md).
 
 ### Testing your setup
 - Now that you have a working email server, you can test your configuration using the following links/scripts.
