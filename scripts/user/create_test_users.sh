@@ -84,7 +84,7 @@ get_domain_from_config() {
 check_services() {
     echo -e "${YELLOW}Checking Docker Compose services...${NC}"
 
-    if ! (cd "${SERVICES_DIR}" && docker compose ps smtp-server) | grep -q "Up\|running"; then
+    if ! (cd "${SERVICES_DIR}" && docker compose ps postfix) | grep -q "Up\|running"; then
         echo -e "${RED}✗ SMTP server container is not running${NC}"
         echo -e "${YELLOW}Starting services with: docker compose up -d${NC}"
         (cd "${SERVICES_DIR}" && docker compose up -d)
@@ -199,7 +199,7 @@ fi
 check_services
 
 # Find the smtp container
-SMTP_CONTAINER=$(cd "${SERVICES_DIR}" && docker compose ps -q smtp-server 2>/dev/null)
+SMTP_CONTAINER=$(cd "${SERVICES_DIR}" && docker compose ps -q postfix 2>/dev/null)
 if [ -z "$SMTP_CONTAINER" ]; then
     echo -e "${RED}✗ SMTP container not found. Is Docker Compose running?${NC}"
     echo -e "${YELLOW}Try running: docker compose up -d${NC}"
@@ -210,13 +210,13 @@ fi
 docker exec "$SMTP_CONTAINER" bash -c "
     if [ ! -f /app/data/databases/shared.db ]; then
         echo 'Error: Database does not exist at /app/data/databases/shared.db'
-        echo 'Please ensure raven-server is running and has created the database'
+        echo 'Please ensure raven is running and has created the database'
         exit 1
     fi
 "
 
 if [ $? -ne 0 ]; then
-    echo -e "${RED}✗ SQLite database not found. Please start raven-server first.${NC}"
+    echo -e "${RED}✗ SQLite database not found. Please start raven first.${NC}"
     exit 1
 fi
 

@@ -26,10 +26,10 @@ fi
 
 # Generate hashed password
 echo "Generating Rspamd password hash..."
-HASH=$(docker exec rspamd-server rspamadm pw --password "$RSPAMD_PASSWORD" 2>/dev/null)
+HASH=$(docker exec rspamd rspamadm pw --password "$RSPAMD_PASSWORD" 2>/dev/null)
 
 if [ -z "$HASH" ]; then
-  echo "Error: Could not generate password hash. Is rspamd-server running?"
+  echo "Error: Could not generate password hash. Is rspamd running?"
   exit 1
 fi
 
@@ -66,7 +66,7 @@ echo "  - Password: (see .env file for RSPAMD_PASSWORD)"
 # Restart Rspamd container
 echo ""
 echo "Restarting Rspamd..."
-(cd "$SERVICES_DIR" && docker compose restart rspamd-server)
+(cd "$SERVICES_DIR" && docker compose restart rspamd)
 
 echo ""
 echo "✓ Done! You can now access the Rspamd web UI with your password."
