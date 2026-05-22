@@ -116,7 +116,7 @@ Users in Silver are provisioned through [Thunder](https://github.com/asgardeo/th
 #### Option 1: Thunder Console (recommended)
 
 1. Open the Thunder console in your browser at `https://<your-domain>:8090`.
-2. Sign in with your Thunder admin credentials.
+2. Sign in with your Thunder admin credentials (default is admin/admin).
 3. Navigate to the `silver` organization unit and create a new user of type `emailuser`, supplying a `username`, `password`, and `email` (e.g. `alice@example.com`).
 
 #### Option 2: Thunder `/users` API
