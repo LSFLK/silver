@@ -81,7 +81,7 @@ class IMAPLoadTester(User):
             if mail:
                 try: 
                     mail.logout()
-                except: 
+                except Exception:
                     pass
             return None, None
     
@@ -162,7 +162,7 @@ class IMAPLoadTester(User):
             if mail:
                 try: 
                     mail.logout()
-                except: 
+                except Exception:
                     pass
             logger.error(f"Inbox check failed: {e}")
 
@@ -199,7 +199,7 @@ class IMAPLoadTester(User):
             if mail:
                 try: 
                     mail.logout()
-                except: 
+                except Exception:
                     pass
             logger.error(f"Folder listing failed: {e}")
 
@@ -256,6 +256,6 @@ class IMAPLoadTester(User):
             if mail:
                 try: 
                     mail.logout()
-                except: 
+                except Exception:
                     pass
             logger.error(f"Message fetch failed: {e}")
