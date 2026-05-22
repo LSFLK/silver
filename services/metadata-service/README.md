@@ -23,13 +23,13 @@ PUSH_INTERVAL_SECONDS=60
 ### 2. Deploy
 
 ```bash
-docker-compose up -d metadata-server
+docker-compose up -d silver-metadata
 ```
 
 ### 3. Check Logs
 
 ```bash
-docker-compose logs -f metadata-server
+docker-compose logs -f silver-metadata
 ```
 
 You should see:
@@ -108,7 +108,7 @@ curl -X POST http://localhost:8888/api/results \
 
 ### Using Docker
 ```bash
-docker-compose up -d metadata-server
+docker-compose up -d silver-metadata
 ```
 
 ### Using Makefile
@@ -129,7 +129,7 @@ go build -o metadata-service main.go
 **No heartbeats being sent?**
 1. Check `EXTERNAL_API_URL` is set correctly
 2. Verify `ENABLE_PUSH_SERVICE=true`
-3. Check logs: `docker-compose logs metadata-server`
+3. Check logs: `docker-compose logs silver-metadata`
 
 **Instance ID showing "unknown"?**
 - Network connectivity issue

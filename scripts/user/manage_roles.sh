@@ -61,7 +61,7 @@ show_usage() {
 
 # Get SMTP container
 get_smtp_container() {
-	SMTP_CONTAINER=$(cd "${SERVICES_DIR}" && docker compose ps -q postfix-server 2>/dev/null)
+	SMTP_CONTAINER=$(cd "${SERVICES_DIR}" && docker compose ps -q postfix 2>/dev/null)
 	if [ -z "$SMTP_CONTAINER" ]; then
 		echo -e "${RED}✗ SMTP container not found. Is Docker Compose running?${NC}"
 		exit 1

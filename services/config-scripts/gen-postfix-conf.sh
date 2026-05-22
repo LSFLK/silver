@@ -28,9 +28,9 @@ mkdir -p ${CONFIGS_PATH}
 # - Virtual aliases: resolves email aliases to destination addresses
 
 echo -e "SMTP configuration will use:"
-echo " - Socketmap for domains: raven-server:9100"
-echo " - Socketmap for users: raven-server:9100"
-echo " - Socketmap for aliases: raven-server:9100"
+echo " - Socketmap for domains: raven:9100"
+echo " - Socketmap for users: raven:9100"
+echo " - Socketmap for aliases: raven:9100"
 
 # --- Generate main.cf content ---
 cat >"${CONFIGS_PATH}/main.cf" <<EOF
@@ -121,25 +121,25 @@ maillog_file = /var/log/mail.log
 
 # SASL authentication provided by Raven server via Unix socket
 smtpd_sasl_type = dovecot
-smtpd_sasl_path = inet:raven-server:12345
+smtpd_sasl_path = inet:raven:12345
 smtpd_sasl_auth_enable = yes
 smtpd_sasl_security_options = noanonymous
 broken_sasl_auth_clients = yes
 
 # Virtual mailbox configuration - socketmap served by Raven
-virtual_mailbox_domains = socketmap:inet:raven-server:9100:virtual-domains
-virtual_mailbox_maps = socketmap:inet:raven-server:9100:user-exists
-virtual_alias_maps = socketmap:inet:raven-server:9100:virtual-aliases
+virtual_mailbox_domains = socketmap:inet:raven:9100:virtual-domains
+virtual_mailbox_maps = socketmap:inet:raven:9100:user-exists
+virtual_alias_maps = socketmap:inet:raven:9100:virtual-aliases
 
 # Set mailbox base to tell Postfix we're managing mailboxes
 # This ensures reject_unlisted_recipient properly checks virtual_mailbox_maps
 virtual_mailbox_base = /var/mail/virtual
 
-virtual_transport = lmtp:raven-server:24
+virtual_transport = lmtp:raven:24
 milter_protocol = 6
 milter_default_action = accept
-smtpd_milters = inet:rspamd-server:11332,inet:opendkim-server:8891
-non_smtpd_milters = inet:rspamd-server:11332,inet:opendkim-server:8891
+smtpd_milters = inet:rspamd:11332,inet:opendkim:8891
+non_smtpd_milters = inet:rspamd:11332,inet:opendkim:8891
 smtpd_client_connection_rate_limit = 10
 smtpd_client_message_rate_limit = 100
 smtpd_client_recipient_rate_limit = 200
