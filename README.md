@@ -111,34 +111,9 @@ nano services/.env
 
 ### Adding users
 
-Users in Silver are provisioned through [Thunder](https://github.com/asgardeo/thunder), the identity provider that ships with the platform. There are two supported ways to add users:
+Users in Silver are provisioned through the [Thunder ID](https://github.com/thunder-id/thunderid) console that ships with the platform. Sign in to the console at `https://<your-domain>:8090` with your admin credentials and add users under the `silver` organization unit.
 
-#### Option 1: Thunder Console (recommended)
-
-1. Open the Thunder console in your browser at `https://<your-domain>:8090`.
-2. Sign in with your Thunder admin credentials (default is admin/admin).
-3. Navigate to the `silver` organization unit and create a new user of type `emailuser`, supplying a `username`, `password`, and `email` (e.g. `alice@example.com`).
-
-#### Option 2: Thunder `/users` API
-
-You can create users directly against the Thunder REST API. After obtaining a bearer token and the `silver` organization unit ID (see [`scripts/utils/thunder-auth.sh`](scripts/utils/thunder-auth.sh) for the authentication flow), call:
-
-```bash
-curl -X POST "https://<your-domain>:8090/users" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <BEARER_TOKEN>" \
-  -d '{
-        "organizationUnit": "<ORG_UNIT_ID>",
-        "type": "emailuser",
-        "attributes": {
-          "username": "alice",
-          "password": "<strong-password>",
-          "email": "alice@example.com"
-        }
-      }'
-```
-
-For a working end-to-end example that authenticates with Thunder, looks up the organization unit, and bulk-creates users, see [`scripts/user/create_test_users.sh`](scripts/user/create_test_users.sh). More details on the Thunder integration are in [Thunder API Consumer Contract Guide for Silver](docs/Thunder-API-Consumer-Contract-Guide-for-Silver.md).
+For the full walkthrough — creating a user schema, assigning it to an organization unit, and adding users via direct password or invitation link — see [Adding Users](docs/Adding-Users.md).
 
 ### Testing your setup
 - Now that you have a working email server, you can test your configuration using the following links/scripts.
@@ -178,7 +153,7 @@ Silver is built using open-source software.
 
 - [Postfix](https://www.postfix.org/) - Handles sending and receiving email.
 - [Raven](https://github.com/lsflk/raven) - Handles SASL authentication, LMTP, and IMAP server for email retrieval.
-- [Thunder](https://github.com/asgardeo/thunder) - Identity provider and user manager
+- [Thunder ID](https://github.com/thunder-id/thunderid) - Identity provider and user manager
 - [Rspamd](https://rspamd.com/) - Spam filtering system.
 - [ClamAV](https://docs.clamav.net/Introduction.html) - Virus scanning system.
 - [Certbot](https://certbot.eff.org/) - Client software that talks to Let’s Encrypt to generate certificates.
