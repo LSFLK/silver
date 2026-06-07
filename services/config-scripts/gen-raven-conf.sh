@@ -63,7 +63,7 @@ mkdir -p "$(dirname "$OUTPUT_FILE")" "$(dirname "$MAILS_DB_PATH")" "$RAVEN_CERT_
 # --- Generate raven.yaml ---
 cat >"$OUTPUT_FILE" <<EOF
 domain: ${MAIL_DOMAIN}
-auth_server_url: https://thunder-server:8090/auth/credentials/authenticate
+auth_server_url: https://thunder:8090/auth/credentials/authenticate
 
 # OAUTHBEARER Token Validation (RFC 7628)
 # Required when enabling AUTH=OAUTHBEARER for IMAP/SASL.

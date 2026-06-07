@@ -11,7 +11,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONF_DIR="$(cd "${SCRIPT_DIR}/../../conf" && pwd)"
 CONFIG_FILE="${CONF_DIR}/silver.yaml"
 
-CONTAINER_NAME="opendkim-server"
+CONTAINER_NAME="opendkim"
 
 # Check if container is running
 if ! docker ps | grep -q "$CONTAINER_NAME"; then

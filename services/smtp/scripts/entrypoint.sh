@@ -39,7 +39,7 @@ if [ -f "$DB_PATH" ]; then
     chmod 644 "$DB_PATH"
 else
     echo "⚠ Warning: SQLite database not found at $DB_PATH"
-    echo "  Database should be created by raven-server"
+    echo "  Database should be created by raven"
     echo "  Postfix will start but mail delivery may fail until database is available"
 fi
 
