@@ -1,21 +1,21 @@
 {
   "manifest_version": 2,
-  "name": "<YOUR_PROVIDER_NAME>",
+  "name": "OpenMail Sri Lanka",
   "version": "1.0.0",
   "applications": {
     "gecko": {
-      "id": "oauth-provider@<your-domain>",
+      "id": "oauth-provider@openmail.lk",
       "strict_min_version": "128.0"
     }
   },
   "oauth_provider": {
-    "issuer": "<ISSUER_URL>",
+    "issuer": "https://thunder.openmail.lk/realms/openmail",
     "clientId": "<CLIENT_ID>",
-    "authorizationEndpoint": "<AUTHORIZATION_ENDPOINT>",
-    "tokenEndpoint": "<TOKEN_ENDPOINT>",
+    "authorizationEndpoint": "https://thunder.openmail.lk/realms/openmail/protocol/openid-connect/auth",
+    "tokenEndpoint": "https://thunder.openmail.lk/realms/openmail/protocol/openid-connect/token",
     "redirectionEndpoint": "http://localhost",
     "usePKCE": true,
-    "hostnames": ["<MAIL_DOMAIN>"],
+    "hostnames": ["openmail.lk"],
     "scopes": "openid email profile"
   }
 }

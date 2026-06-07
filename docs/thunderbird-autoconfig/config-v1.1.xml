@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Thunderbird ISPDB Autoconfiguration File for openmail.lk
+  =========================================================
+  This file enables Thunderbird to automatically configure
+  email accounts for @openmail.lk addresses.
+
+  Submission: This file should be submitted to the Mozilla
+  Thunderbird ISPDB via Bugzilla for inclusion as a verified
+  mail provider.
+
+  See: https://wiki.mozilla.org/Thunderbird:Autoconfiguration
+-->
+<clientConfig version="1.1">
+  <!-- Provider identity -->
+  <emailProvider id="openmail.lk">
+    <domain>openmail.lk</domain>
+
+    <!-- Display name shown in Thunderbird account setup -->
+    <displayName>OpenMail Sri Lanka</displayName>
+    <displayShortName>OpenMail</displayShortName>
+
+    <!--
+      Incoming mail server: IMAP
+      Primary: IMAPS on port 993 with SSL/TLS
+      Fallback: IMAP on port 143 with STARTTLS
+    -->
+    <incomingServer type="imap">
+      <hostname>mail.openmail.lk</hostname>
+      <port>993</port>
+      <socketType>SSL</socketType>
+      <authentication>password-cleartext</authentication>
+      <username>%EMAILADDRESS%</username>
+    </incomingServer>
+
+    <!--
+      Outgoing mail server: SMTP
+      Primary: SMTP on port 587 with STARTTLS
+      Fallback: SMTP on port 465 with SSL/TLS
+    -->
+    <outgoingServer type="smtp">
+      <hostname>mail.openmail.lk</hostname>
+      <port>587</port>
+      <socketType>STARTTLS</socketType>
+      <authentication>password-cleartext</authentication>
+      <username>%EMAILADDRESS%</username>
+    </outgoingServer>
+
+    <!--
+      Documentation URLs shown in Thunderbird UI
+    -->
+    <documentation url="https://openmail.lk/support">
+      <descr lang="en">OpenMail Support Center</descr>
+    </documentation>
+    <documentation url="https://openmail.lk/setup">
+      <descr lang="en">Email Setup Instructions</descr>
+    </documentation>
+
+    <!--
+      Enable email address validity checking
+      Thunderbird will use this to verify user-entered addresses
+    -->
+    <enable visiturl="https://openmail.lk">
+      <instruction>Check your inbox for verification instructions.</instruction>
+    </enable>
+  </emailProvider>
+
+  <!--
+    WebFinger / autodiscovery configuration
+    Allows Thunderbird to discover settings via DNS SRV records
+    or well-known URLs.
+  -->
+  <webMail>
+    <loginPage url="https://mail.openmail.lk" />
+  </webMail>
+
+  <!--
+    OAuth2 configuration — future enhancement
+    See docs/thunderbird-oauth-example/ for the OAuth extension template.
+    Uncomment and update the <oAuth2> block once OAuth is deployed.
+
+    <oAuth2 issuer="https://thunder.openmail.lk">
+      <authURL>https://thunder.openmail.lk/realms/openmail/protocol/openid-connect/auth</authURL>
+      <tokenURL>https://thunder.openmail.lk/realms/openmail/protocol/openid-connect/token</tokenURL>
+      <scope>openid email profile</scope>
+    </oAuth2>
+  -->
+</clientConfig>
