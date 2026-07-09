@@ -138,14 +138,17 @@ virtual_mailbox_base = /var/mail/virtual
 virtual_transport = lmtp:raven:24
 milter_protocol = 6
 milter_default_action = accept
-smtpd_milters = inet:rspamd-server:11332,inet:opendkim-server:8891
-non_smtpd_milters = inet:rspamd-server:11332,inet:opendkim-server:8891
+smtpd_milters = inet:rspamd:11332,inet:opendkim:8891
+non_smtpd_milters = inet:rspamd:11332,inet:opendkim:8891
 smtpd_client_connection_rate_limit = 10
 smtpd_client_message_rate_limit = 100
 smtpd_client_recipient_rate_limit = 200
 smtpd_recipient_limit = 50
 anvil_rate_time_unit = 60s
 smtpd_client_connection_count_limit = 20
+
+# Security Hardening
+disable_vrfy_command = yes
 EOF
 
 echo Postfix configuration successfully generated
