@@ -35,6 +35,3 @@ data:
   worker-proxy.inc: |
     bind = "*:{{ .Values.service.milter.port }}";
     protocol = "milter";
-
-  resolv.conf: |
-    nameserver {{ .Values.dependencies.unbound.host }}

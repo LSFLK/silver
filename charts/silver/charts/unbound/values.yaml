@@ -17,13 +17,17 @@ serviceAccount:
 
 podAnnotations: {}
 
+# mvance/unbound's entrypoint (unbound.sh) requires root: it copies device
+# nodes into /opt/unbound/etc/unbound/dev and chowns files under its own
+# etc dir before exec'ing unbound. It has no built-in privilege drop, so
+# running as non-root breaks startup. Kept minimal: drop the genuinely
+# unnecessary `privileged`/`allowPrivilegeEscalation` grants instead.
 podSecurityContext:
   runAsUser: 0
   runAsNonRoot: false
 
 securityContext:
-  privileged: true
-  allowPrivilegeEscalation: true
+  allowPrivilegeEscalation: false
   runAsUser: 0
 
 service:

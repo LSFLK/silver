@@ -16,7 +16,7 @@ Key values:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `replicaCount` | int | `1` | Number of replicas (always 1 for StatefulSet) |
+| `replicaCount` | int | `1` | Number of replicas. **Must stay 1** — this chart has no clustering/Sentinel; values > 1 create independent, non-replicated Redis instances and will corrupt rspamd's shared Bayes/learning data |
 | `image.repository` | string | `redis` | Image repository |
 | `image.tag` | string | `7-alpine` | Image tag |
 | `persistence.enabled` | bool | `true` | Enable persistent volume |

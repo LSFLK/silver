@@ -29,7 +29,7 @@ Key values:
 |-----|------|---------|-------------|
 | `replicaCount` | int | `1` | Number of replicas |
 | `image.repository` | string | `rspamd/rspamd` | Image repository |
-| `image.tag` | string | `latest` | Image tag |
+| `image.tag` | string | `4.1.1` | Image tag |
 | `persistence.enabled` | bool | `true` | Enable persistent volume for state |
 | `persistence.size` | string | `1Gi` | Persistent volume size |
 | `dependencies.redis.host` | string | `silver-redis` | Redis service hostname |
@@ -39,7 +39,7 @@ Key values:
 | `dependencies.clamav.host` | string | `clamav-server` | ClamAV service hostname |
 | `dependencies.clamav.port` | int | `3310` | ClamAV port |
 | `dependencies.strictInitChecks` | bool | `true` | Fail-fast on dependency unavailability |
-| `dependencies.initCheckTimeout` | string | `60s` | Init check timeout duration |
+| `dependencies.initCheckTimeout` | int | `60` | Init check timeout in seconds |
 | `modules.antivirus.enabled` | bool | `true` | Enable antivirus scanning |
 | `modules.antivirus.clamav_action` | string | `add_header` | Action on virus: add_header, reject, discard |
 | `modules.classifier_bayes.enabled` | bool | `true` | Enable Bayes spam classifier |

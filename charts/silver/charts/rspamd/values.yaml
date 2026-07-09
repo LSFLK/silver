@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: rspamd/rspamd
-  tag: "latest"
+  tag: "4.1.1"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -44,10 +44,10 @@ service:
 resources:
   limits:
     cpu: 500m
-    memory: 512Mi
+    memory: 1Gi
   requests:
     cpu: 100m
-    memory: 128Mi
+    memory: 256Mi
 
 nodeSelector: {}
 
@@ -73,7 +73,8 @@ dependencies:
     host: clamav-server
     port: 3310
   strictInitChecks: true
-  initCheckTimeout: 60s
+  # Seconds (plain integer, no unit suffix) — consumed directly in init-container shell arithmetic.
+  initCheckTimeout: 60
 
 modules:
   antivirus:

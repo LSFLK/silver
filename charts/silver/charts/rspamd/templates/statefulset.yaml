@@ -38,7 +38,7 @@ spec:
             - -c
             - |
               echo "Checking Redis connectivity at {{ .Values.dependencies.redis.host }}:{{ .Values.dependencies.redis.port }}"
-              timeout_sec={{ .Values.dependencies.initCheckTimeout | replace "s" "" }}
+              timeout_sec={{ .Values.dependencies.initCheckTimeout }}
               interval=5
               elapsed=0
               while [ $elapsed -lt $timeout_sec ]; do
@@ -65,7 +65,7 @@ spec:
             - -c
             - |
               echo "Checking Unbound DNS at {{ .Values.dependencies.unbound.host }}:{{ .Values.dependencies.unbound.port }}"
-              timeout_sec={{ .Values.dependencies.initCheckTimeout | replace "s" "" }}
+              timeout_sec={{ .Values.dependencies.initCheckTimeout }}
               interval=5
               elapsed=0
               while [ $elapsed -lt $timeout_sec ]; do
@@ -128,9 +128,6 @@ spec:
             - name: config-static
               mountPath: /etc/rspamd/local.d/worker-proxy.inc
               subPath: worker-proxy.inc
-            - name: config-static
-              mountPath: /etc/resolv.conf
-              subPath: resolv.conf
             - name: config-options
               mountPath: /etc/rspamd/local.d/options.inc
               subPath: options.inc

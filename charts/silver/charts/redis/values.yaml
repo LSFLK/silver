@@ -1,3 +1,6 @@
+# This chart is a plain StatefulSet with no clustering/Sentinel support.
+# Do NOT set replicaCount > 1 — it produces independent, non-replicated
+# Redis instances and rspamd's Bayes/learning data will become inconsistent.
 replicaCount: 1
 
 image:
