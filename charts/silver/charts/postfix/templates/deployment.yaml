@@ -67,6 +67,11 @@ spec:
             - name: postfix-config
               mountPath: /etc/postfix/master.cf
               subPath: master.cf
+            {{- if $.Values.postfixConfig.silverYamlContent }}
+            - name: postfix-config
+              mountPath: /etc/postfix/silver.yaml
+              subPath: silver.yaml
+            {{- end }}
             {{- end }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -78,6 +83,11 @@ spec:
             - name: postfix-config
               mountPath: /etc/postfix/master.cf
               subPath: master.cf
+            {{- if .Values.postfixConfig.silverYamlContent }}
+            - name: postfix-config
+              mountPath: /etc/postfix/silver.yaml
+              subPath: silver.yaml
+            {{- end }}
           {{- end }}
       {{- with .Values.volumes }}
       volumes:

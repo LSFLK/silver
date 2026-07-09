@@ -1,0 +1,9 @@
+dependencies:
+- name: opendkim
+  repository: file://charts/opendkim
+  version: 0.1.0
+- name: postfix
+  repository: file://charts/postfix
+  version: 0.1.0
+digest: sha256:59b26a4b4d95e319491a2e68773598b844195a42f1c6e17677a55593d5261ade
+generated: "2026-05-17T22:57:17.033738+05:30"

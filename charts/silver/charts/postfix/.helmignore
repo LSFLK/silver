@@ -16,5 +16,5 @@ scripts/
 services/
 conf/
 # Exclude large files
-**/*.zip
-**/*.tar.gz
+*.zip
+*.tar.gz

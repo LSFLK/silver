@@ -7,7 +7,19 @@ metadata:
     {{- include "postfix.labels" . | nindent 4 }}
 data:
   main.cf: |
+{{- if .Values.postfixConfig.mainCfContent }}
+{{ .Values.postfixConfig.mainCfContent | indent 4 }}
+{{- else }}
 {{ .Files.Get "old-config/postfix/main.cf" | indent 4 }}
+{{- end }}
   master.cf: |
+{{- if .Values.postfixConfig.masterCfContent }}
+{{ .Values.postfixConfig.masterCfContent | indent 4 }}
+{{- else }}
 {{ .Files.Get "old-config/postfix/master.cf" | indent 4 }}
+{{- end }}
+{{- if .Values.postfixConfig.silverYamlContent }}
+  silver.yaml: |
+{{ .Values.postfixConfig.silverYamlContent | indent 4 }}
+{{- end }}
 {{- end }}
