@@ -4,12 +4,52 @@ set -e
 SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]:-$0}")"
 source "${SCRIPT_DIR}/common.sh"
 
-# Load .env values when available (useful for local execution).
-ENV_FILE="${SCRIPT_DIR}/.env"
+# Load values from the single services/.env file (useful for local execution).
+ENV_FILE="${SCRIPT_DIR}/../../services/.env"
 if [[ -f "$ENV_FILE" ]]; then
     set -a
     source "$ENV_FILE"
     set +a
+fi
+
+# Resolve primary domain. Prefer MAIL_DOMAIN env (set by docker-compose) so the
+# script works the same on the host and inside the thunder-setup container.
+# Falls back to scanning silver.yaml at a few well-known paths.
+MAIL_DOMAIN="${MAIL_DOMAIN:-}"
+if [[ -z "${MAIL_DOMAIN}" ]]; then
+    SILVER_CONF_FILE=""
+    for candidate in \
+        "${SCRIPT_DIR}/silver.yaml" \
+        "${SCRIPT_DIR}/../../conf/silver.yaml" \
+        "/opt/thunder/bootstrap/silver.yaml"; do
+        if [[ -f "$candidate" ]]; then
+            SILVER_CONF_FILE="$candidate"
+            break
+        fi
+    done
+    if [[ -z "${SILVER_CONF_FILE}" ]]; then
+        echo "ERROR: Could not locate silver.yaml; set MAIL_DOMAIN or mount conf/silver.yaml" >&2
+        exit 1
+    fi
+    MAIL_DOMAIN=$(grep -m 1 '^\s*-\s*domain:' "${SILVER_CONF_FILE}" | sed 's/.*domain:\s*//' | xargs)
+fi
+if [[ -z "${MAIL_DOMAIN}" ]]; then
+    echo "ERROR: No domain configured (MAIL_DOMAIN env unset and silver.yaml domain empty)" >&2
+    exit 1
+fi
+
+# Derive a human-readable OU name from the domain (e.g. example.com -> "Example Com").
+DOMAIN_OU_NAME=$(echo "${MAIL_DOMAIN}" | sed 's/\./ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)}1')
+DOMAIN_OU_HANDLE="${MAIL_DOMAIN}"
+DOMAIN_USER_SCHEMA_NAME="${THUNDER_DOMAIN_USER_SCHEMA_NAME:-Contact}"
+CONTACT_USERNAME="${THUNDER_CONTACT_USERNAME:-contact}"
+# Contact user password: take THUNDER_SMTP_PASSWORD from services/.env so the
+# Thunder user and the SMTP credentials in deployment.yaml stay in sync.
+# Falls back to a generated random value if the env var is empty.
+CONTACT_PASSWORD="${THUNDER_SMTP_PASSWORD:-}"
+if [[ -z "${CONTACT_PASSWORD}" ]]; then
+    CONTACT_PASSWORD=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20)
+    log_warning "THUNDER_SMTP_PASSWORD not set in services/.env; generated a random password for '${CONTACT_USERNAME}'"
 fi
 
 # Default SPA parameters (can be overridden via env vars).
@@ -207,6 +247,128 @@ JSON
         exit 1
     fi
 }
+
+# ============================================================================
+# Create Domain Organization Unit
+# ============================================================================
+
+log_info "Creating organization unit for domain '${MAIL_DOMAIN}'..."
+
+OU_PAYLOAD=$(cat <<JSON
+{
+  "handle": "${DOMAIN_OU_HANDLE}",
+  "name": "${DOMAIN_OU_NAME}",
+  "description": "Organization unit for ${MAIL_DOMAIN}",
+  "logoUrl": "emoji:✉️"
+}
+JSON
+)
+
+RESPONSE=$(thunder_api_call POST "/organization-units" "${OU_PAYLOAD}")
+HTTP_CODE="${RESPONSE: -3}"
+BODY="${RESPONSE%???}"
+
+if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
+    log_success "Organization unit '${DOMAIN_OU_NAME}' created"
+    DOMAIN_OU_ID=$(extract_json_value "$BODY" "id")
+elif [[ "$HTTP_CODE" == "409" ]]; then
+    log_warning "Organization unit '${DOMAIN_OU_HANDLE}' already exists, retrieving ID..."
+    DOMAIN_OU_ID=$(get_ou_id_by_handle "${DOMAIN_OU_HANDLE}") || exit 1
+else
+    log_error "Failed to create organization unit (HTTP $HTTP_CODE)"
+    echo "Response: $BODY"
+    exit 1
+fi
+
+if [[ -z "$DOMAIN_OU_ID" ]]; then
+    log_error "Could not resolve OU ID for handle '${DOMAIN_OU_HANDLE}'"
+    exit 1
+fi
+log_info "OU ID: $DOMAIN_OU_ID"
+echo ""
+
+# ============================================================================
+# Create User Schema (username + password) under the Domain OU
+# ============================================================================
+
+log_info "Creating user schema '${DOMAIN_USER_SCHEMA_NAME}' under OU '${DOMAIN_OU_HANDLE}'..."
+
+SCHEMA_PAYLOAD=$(cat <<JSON
+{
+  "name": "${DOMAIN_USER_SCHEMA_NAME}",
+  "ouId": "${DOMAIN_OU_ID}",
+  "schema": {
+    "username": {
+      "type": "string",
+      "displayName": "Username",
+      "required": true,
+      "unique": true
+    },
+    "password": {
+      "type": "string",
+      "displayName": "Password",
+      "required": true,
+      "credential": true
+    }
+  },
+  "systemAttributes": {
+    "display": "username"
+  }
+}
+JSON
+)
+
+RESPONSE=$(thunder_api_call POST "/user-schemas" "${SCHEMA_PAYLOAD}")
+HTTP_CODE="${RESPONSE: -3}"
+BODY="${RESPONSE%???}"
+
+if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
+    log_success "User schema '${DOMAIN_USER_SCHEMA_NAME}' created"
+elif [[ "$HTTP_CODE" == "409" ]]; then
+    log_warning "User schema '${DOMAIN_USER_SCHEMA_NAME}' already exists, skipping"
+else
+    log_error "Failed to create user schema (HTTP $HTTP_CODE)"
+    echo "Response: $BODY"
+    exit 1
+fi
+
+echo ""
+
+# ============================================================================
+# Create Contact User in the Domain OU
+# ============================================================================
+
+log_info "Creating user '${CONTACT_USERNAME}' in OU '${DOMAIN_OU_HANDLE}'..."
+
+USER_PAYLOAD=$(cat <<JSON
+{
+  "type": "${DOMAIN_USER_SCHEMA_NAME}",
+  "ouId": "${DOMAIN_OU_ID}",
+  "attributes": {
+    "username": "${CONTACT_USERNAME}",
+    "password": "${CONTACT_PASSWORD}"
+  }
+}
+JSON
+)
+
+RESPONSE=$(thunder_api_call POST "/users" "${USER_PAYLOAD}")
+HTTP_CODE="${RESPONSE: -3}"
+BODY="${RESPONSE%???}"
+
+if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
+    log_success "User '${CONTACT_USERNAME}' created"
+    log_info "Username: ${CONTACT_USERNAME}"
+    log_info "Password: ${CONTACT_PASSWORD}"
+elif [[ "$HTTP_CODE" == "409" ]]; then
+    log_warning "User '${CONTACT_USERNAME}' already exists, password unchanged"
+else
+    log_error "Failed to create user (HTTP $HTTP_CODE)"
+    echo "Response: $BODY"
+    exit 1
+fi
+
+echo ""
 
 # ============================================================================
 # Create Single SPA Application

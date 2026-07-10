@@ -167,9 +167,13 @@ services:
       - ./silver-config/thunder/deployment.yaml:/opt/thunder/repository/conf/deployment.yaml:ro
       - ./../scripts/thunder/01-default-resources.sh:/opt/thunder/bootstrap/01-default-resources.sh
       - ./../scripts/thunder/02-sample-resources.sh:/opt/thunder/bootstrap/02-sample-resources.sh
+      - ./../conf/silver.yaml:/opt/thunder/bootstrap/silver.yaml:ro
     environment:
       - THUNDER_ADMIN_USERNAME=${THUNDER_ADMIN_USERNAME:-admin}
       - THUNDER_ADMIN_PASSWORD=${THUNDER_ADMIN_PASSWORD:-admin}
+      - THUNDER_SMTP_PASSWORD=${THUNDER_SMTP_PASSWORD:-}
+      - THUNDER_CONTACT_USERNAME=${THUNDER_CONTACT_USERNAME:-contact}
+      - THUNDER_DOMAIN_USER_SCHEMA_NAME=${THUNDER_DOMAIN_USER_SCHEMA_NAME:-Contact}
     depends_on:
       thunder-db-init:
         condition: service_completed_successfully

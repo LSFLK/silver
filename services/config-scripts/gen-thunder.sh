@@ -15,6 +15,19 @@ readonly THUNDER_CONSOLE_CONFIG="${ROOT_DIR}/silver-config/thunder/console-confi
 readonly THUNDER_GATE_CONFIG="${ROOT_DIR}/silver-config/thunder/gate-config.js"
 readonly THUNDER_PORT="8090"
 
+# Load services/.env so SMTP credentials (and any other overrides) are available.
+if [[ -f "${ROOT_DIR}/.env" ]]; then
+    set -a
+    source "${ROOT_DIR}/.env"
+    set +a
+fi
+
+# SMTP values derived from the primary domain (password from .env, optional).
+readonly SMTP_HOST="mail.${MAIL_DOMAIN}"
+readonly SMTP_USERNAME="contact@${MAIL_DOMAIN}"
+readonly SMTP_FROM_ADDRESS="contact@${MAIL_DOMAIN}"
+readonly SMTP_PASSWORD="${THUNDER_SMTP_PASSWORD:-}"
+
 mkdir -p "${THUNDER_CERTS_PATH}"
 
 cp "${LETSENCRYPT_PATH}/fullchain.pem" "${THUNDER_CERTS_PATH}/server.cert"
@@ -48,10 +61,19 @@ if [[ -f "${THUNDER_DEPLOYMENT_FILE}" ]]; then
     
     # Update passkey.allowed_origins - replace any https://domain:port pattern
     sed -i'' -e "/^passkey:/,/^[^ ]/ s|https://[^:\"]*:[0-9]*|https://${MAIL_DOMAIN}:${THUNDER_PORT}|g" "${THUNDER_DEPLOYMENT_FILE}"
-    
+
+    # Update email.smtp host/username/from_address (and password if env var set).
+    # The sed range targets lines within the `email:` block only.
+    sed -i'' -e "/^email:/,/^[^ ]/ s|host:.*|host: \"${SMTP_HOST}\"|" "${THUNDER_DEPLOYMENT_FILE}"
+    sed -i'' -e "/^email:/,/^[^ ]/ s|username:.*|username: \"${SMTP_USERNAME}\"|" "${THUNDER_DEPLOYMENT_FILE}"
+    sed -i'' -e "/^email:/,/^[^ ]/ s|from_address:.*|from_address: \"${SMTP_FROM_ADDRESS}\"|" "${THUNDER_DEPLOYMENT_FILE}"
+    if [[ -n "${SMTP_PASSWORD}" ]]; then
+        sed -i'' -e "/^email:/,/^[^ ]/ s|password:.*|password: \"${SMTP_PASSWORD}\"|" "${THUNDER_DEPLOYMENT_FILE}"
+    fi
+
     # Remove backup file
     rm -f "${THUNDER_DEPLOYMENT_FILE}.bak"
-    
+
     echo -e "Thunder deployment configuration updated with domain: ${MAIL_DOMAIN} and port: ${THUNDER_PORT}"
 else
     echo -e "Warning: Thunder deployment.yaml not found at ${THUNDER_DEPLOYMENT_FILE}"
