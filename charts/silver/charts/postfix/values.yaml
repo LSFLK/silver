@@ -7,11 +7,11 @@ replicaCount: 1
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: ghcr.io/lsflk/silver-smtp
+  repository: nginx
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: main
+  tag: ""
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
@@ -41,9 +41,7 @@ podLabels: {}
 podSecurityContext: {}
   # fsGroup: 2000
 
-securityContext:
-  runAsUser: 0
-  runAsGroup: 0
+securityContext: {}
   # capabilities:
   #   drop:
   #   - ALL
@@ -55,26 +53,8 @@ securityContext:
 service:
   # This sets the service type more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
   type: ClusterIP
-  # Compatibility field used by helm test template
-  port: 25
   # This sets the ports more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
-  ports:
-    - name: smtp
-      port: 25
-      targetPort: smtp
-      protocol: TCP
-    - name: submission
-      port: 587
-      targetPort: submission
-      protocol: TCP
-
-containerPorts:
-  - name: smtp
-    containerPort: 25
-    protocol: TCP
-  - name: submission
-    containerPort: 587
-    protocol: TCP
+  port: 80
 
 # This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ingress:
@@ -144,19 +124,14 @@ resources: {}
   #   memory: 128Mi
 
 # This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
-livenessProbe: {}
-readinessProbe: {}
-
-env:
-  - name: MYHOSTNAME
-    value: "silver-test.local"
-  - name: MYNETWORKS
-    value: "0.0.0.0/0"
-  - name: LOG_TO_STDOUT
-    value: "1"
-
-postfixConfig:
-  enabled: true
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
 
 # This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
 autoscaling:
