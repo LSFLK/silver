@@ -1,0 +1,12 @@
+apiVersion: v2
+name: redis
+description: Redis in-memory data store for rspamd backend
+type: application
+version: 0.1.0
+appVersion: "7-alpine"
+keywords:
+  - redis
+  - cache
+  - rspamd
+maintainers:
+  - name: Silver Team

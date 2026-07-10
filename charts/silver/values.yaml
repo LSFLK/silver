@@ -4,6 +4,15 @@ global:
 opendkim:
   enabled: true
 
+redis:
+  enabled: false
+
+unbound:
+  enabled: false
+
+rspamd:
+  enabled: false
+  
 tls:
   enabled: true
   issuer: le-staging # switch to le-prod once staging works

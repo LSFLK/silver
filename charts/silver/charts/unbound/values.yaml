@@ -1,0 +1,75 @@
+replicaCount: 1
+
+image:
+  repository: mvance/unbound
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+# mvance/unbound's entrypoint (unbound.sh) requires root: it copies device
+# nodes into /opt/unbound/etc/unbound/dev and chowns files under its own
+# etc dir before exec'ing unbound. It has no built-in privilege drop, so
+# running as non-root breaks startup. Kept minimal: drop the genuinely
+# unnecessary `privileged`/`allowPrivilegeEscalation` grants instead.
+podSecurityContext:
+  runAsUser: 0
+  runAsNonRoot: false
+
+securityContext:
+  allowPrivilegeEscalation: false
+  runAsUser: 0
+
+service:
+  type: ClusterIP
+  port: 53
+  targetPort: 53
+  protocol: UDP
+  annotations: {}
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+persistence:
+  enabled: false
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 512Mi
+  mountPath: /var/lib/unbound
+
+livenessProbe:
+  tcpSocket:
+    port: 53
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  tcpSocket:
+    port: 53
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
