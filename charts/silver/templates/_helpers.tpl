@@ -43,9 +43,31 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
+Mail domain (single source of truth).
+*/}}
+{{- define "silver.domain" -}}
+{{- required "global.domain is required (e.g. --set global.domain=example.com)" .Values.global.domain -}}
+{{- end }}
+
+{{/*
+Mail hostname, defaults to mail.<domain>.
+*/}}
+{{- define "silver.mailHostname" -}}
+{{- default (printf "mail.%s" (include "silver.domain" .)) .Values.global.mailHostname -}}
+{{- end }}
+
+{{/*
+cert-manager TLS Secret name, defaults to the mail.<domain> cert minted by certificate.yaml
+(<domain-dashed>-tls).
+*/}}
+{{- define "silver.tlsSecretName" -}}
+{{- default (printf "%s-tls" (include "silver.mailHostname" . | replace "." "-")) .Values.global.tlsSecretName -}}
+{{- end }}
+
+{{/*
 Issuer reference helper
 */}}
 {{- define "silver.issuerRef" -}}
-name: {{ .Values.tls.issuer }}
+name: {{ .Values.global.tls.issuer }}
 kind: ClusterIssuer
 {{- end }}
