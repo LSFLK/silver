@@ -137,8 +137,14 @@ mailman   unix  -       n       n       -       -       pipe
   flags=FRX user=list argv=/usr/lib/mailman/bin/postfix-to-mailman.py ${nexthop} ${user}
 submission inet  n       -       y       -       -       smtpd
     -o syslog_name=postfix/submission
+{{- if .Values.global.tls.enabled }}
     -o smtpd_tls_security_level=encrypt
+{{- end }}
+{{- if .Values.global.sasl.enabled }}
     -o smtpd_sasl_auth_enable=yes
+{{- end }}
+{{- if and .Values.global.tls.enabled .Values.global.sasl.enabled }}
     -o smtpd_tls_auth_only=yes
+{{- end }}
     -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
-    -o smtpd_milters=inet:rspamd-server:11332,inet:opendkim-server:8891
+    -o smtpd_milters=inet:{{ .Values.global.serviceNames.rspamd }}:11332,inet:{{ .Values.global.serviceNames.opendkim }}:8891

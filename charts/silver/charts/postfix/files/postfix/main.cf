@@ -23,10 +23,11 @@ compatibility_level = 3.6
 
 
 
+{{- if .Values.global.tls.enabled }}
 # TLS parameters - Enhanced Security Configuration
 # Certificate configuration
-smtpd_tls_cert_file = /etc/letsencrypt/live/maneesha.dev/fullchain.pem
-smtpd_tls_key_file = /etc/letsencrypt/live/maneesha.dev/privkey.pem
+smtpd_tls_cert_file = /certs/tls.crt
+smtpd_tls_key_file = /certs/tls.key
 smtpd_tls_CAfile = /etc/ssl/certs/ca-certificates.crt
 smtp_tls_note_starttls_offer = yes
 
@@ -47,6 +48,7 @@ smtpd_tls_session_cache_database = btree:${data_directory}/smtpd_scache
 smtpd_tls_loglevel = 1
 smtpd_tls_received_header = yes
 smtpd_use_tls = yes
+{{- end }}
 
 # Outbound SMTP TLS settings
 smtp_tls_CApath = /etc/ssl/certs
@@ -69,7 +71,7 @@ smtpd_recipient_restrictions =
     reject_unlisted_recipient
     reject_non_fqdn_recipient
 
-myhostname = mail.maneesha.dev
+myhostname = {{ include "silver.mailHostname" . }}
 alias_maps = hash:/etc/aliases
 alias_database = hash:/etc/aliases
 mydestination = localhost.localdomain, localhost
@@ -80,30 +82,32 @@ recipient_delimiter = +
 inet_interfaces = all
 inet_protocols = ipv4
 myorigin = /etc/mailname
-mydomain = maneesha.dev
+mydomain = {{ include "silver.domain" . }}
 maillog_file = /var/log/mail.log
 
+{{- if .Values.global.sasl.enabled }}
 # SASL authentication provided by Raven server via Unix socket
 smtpd_sasl_type = dovecot
-smtpd_sasl_path = inet:raven:12345
+smtpd_sasl_path = inet:{{ .Values.global.serviceNames.raven }}:12345
 smtpd_sasl_auth_enable = yes
 smtpd_sasl_security_options = noanonymous
 broken_sasl_auth_clients = yes
+{{- end }}
 
 # Virtual mailbox configuration - socketmap served by Raven
-virtual_mailbox_domains = socketmap:inet:raven:9100:virtual-domains
-virtual_mailbox_maps = socketmap:inet:raven:9100:user-exists
-virtual_alias_maps = socketmap:inet:raven:9100:virtual-aliases
+virtual_mailbox_domains = socketmap:inet:{{ .Values.global.serviceNames.raven }}:9100:virtual-domains
+virtual_mailbox_maps = socketmap:inet:{{ .Values.global.serviceNames.raven }}:9100:user-exists
+virtual_alias_maps = socketmap:inet:{{ .Values.global.serviceNames.raven }}:9100:virtual-aliases
 
 # Set mailbox base to tell Postfix we're managing mailboxes
 # This ensures reject_unlisted_recipient properly checks virtual_mailbox_maps
 virtual_mailbox_base = /var/mail/virtual
 
-virtual_transport = lmtp:raven:24
+virtual_transport = lmtp:{{ .Values.global.serviceNames.raven }}:24
 milter_protocol = 6
 milter_default_action = accept
-smtpd_milters = inet:rspamd-server:11332,inet:opendkim-server:8891
-non_smtpd_milters = inet:rspamd-server:11332,inet:opendkim-server:8891
+smtpd_milters = inet:{{ .Values.global.serviceNames.rspamd }}:11332,inet:{{ .Values.global.serviceNames.opendkim }}:8891
+non_smtpd_milters = inet:{{ .Values.global.serviceNames.rspamd }}:11332,inet:{{ .Values.global.serviceNames.opendkim }}:8891
 smtpd_client_connection_rate_limit = 10
 smtpd_client_message_rate_limit = 100
 smtpd_client_recipient_rate_limit = 200

@@ -12,4 +12,5 @@ dependencies:
     condition: opendkim.enabled
   - name: postfix
     version: 0.1.0
-    repository: ghcr.io/lsflk/silver-smtp
+    repository: file://charts/postfix
+    condition: postfix.enabled
