@@ -103,7 +103,7 @@ virtual_alias_maps = socketmap:inet:{{ .Values.global.serviceNames.raven }}:9100
 # This ensures reject_unlisted_recipient properly checks virtual_mailbox_maps
 virtual_mailbox_base = /var/mail/virtual
 
-virtual_transport = lmtp:{{ .Values.global.serviceNames.raven }}:24
+virtual_transport = lmtp:[{{ .Values.global.serviceNames.raven }}]:24
 milter_protocol = 6
 milter_default_action = accept
 smtpd_milters = inet:{{ .Values.global.serviceNames.rspamd }}:11332,inet:{{ .Values.global.serviceNames.opendkim }}:8891
