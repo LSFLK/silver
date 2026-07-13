@@ -1,5 +1,12 @@
-tls:
-  enabled: false
+# Dev / standalone bring-up: no cert-manager, no public DNS.
+# TLS off -> postfix runs plaintext, no cert Secret required.
+global:
+  domain: silver-test.local
+  tls:
+    enabled: false
+  # No raven in standalone dev -> no SASL auth backend.
+  sasl:
+    enabled: false
 
 postfix:
   enabled: true
@@ -7,82 +14,9 @@ postfix:
     repository: silver-smtp
     tag: local
     pullPolicy: Never
-  postfixConfig:
-    enabled: true
-    mainCfContent: |
-      biff = no
-      append_dot_mydomain = no
-      readme_directory = no
-      compatibility_level = 3.6
 
-      # TLS disabled for dev standalone
-      smtpd_tls_security_level = none
-      smtp_tls_security_level = none
-
-      smtpd_relay_restrictions = permit_mynetworks defer_unauth_destination
-
-      smtpd_recipient_restrictions =
-          permit_mynetworks
-          reject_unauth_destination
-
-      myhostname = silver-test.local
-      alias_maps = hash:/etc/aliases
-      alias_database = hash:/etc/aliases
-      mydestination = localhost.localdomain, localhost, silver-test.local
-      relayhost =
-      mynetworks = 0.0.0.0/0
-      mailbox_size_limit = 0
-      recipient_delimiter = +
-      inet_interfaces = all
-      inet_protocols = ipv4
-      myorigin = silver-test.local
-      mydomain = silver-test.local
-      maillog_file = /dev/stdout
-    silverYamlContent: |
-      domains:
-        - domain: silver-test.local
-    masterCfContent: |
-      # ==========================================================================
-      # service type  private unpriv  chroot  wakeup  maxproc command + args
-      # ==========================================================================
-      smtp      inet  n       -       y       -       -       smtpd
-      pickup    unix  n       -       y       60      1       pickup
-      cleanup   unix  n       -       y       -       0       cleanup
-      qmgr      unix  n       -       n       300     1       qmgr
-      tlsmgr    unix  -       -       y       1000?   1       tlsmgr
-      rewrite   unix  -       -       y       -       -       trivial-rewrite
-      bounce    unix  -       -       y       -       0       bounce
-      defer     unix  -       -       y       -       0       bounce
-      trace     unix  -       -       y       -       0       bounce
-      verify    unix  -       -       y       -       1       verify
-      flush     unix  n       -       y       1000?   0       flush
-      proxymap  unix  -       -       n       -       -       proxymap
-      proxywrite unix -       -       n       -       1       proxymap
-      smtp      unix  -       -       y       -       -       smtp
-      relay     unix  -       -       y       -       -       smtp
-              -o syslog_name=postfix/$service_name
-      showq     unix  n       -       y       -       -       showq
-      error     unix  -       -       y       -       -       error
-      retry     unix  -       -       y       -       -       error
-      discard   unix  -       -       y       -       -       discard
-      local     unix  -       n       n       -       -       local
-      virtual   unix  -       n       n       -       -       virtual
-      lmtp      unix  -       -       y       -       -       lmtp
-      anvil     unix  -       -       y       -       1       anvil
-      scache    unix  -       -       y       -       1       scache
-      postlog   unix-dgram n  -       n       -       1       postlogd
-      submission inet  n       -       y       -       -       smtpd
-          -o syslog_name=postfix/submission
-          -o smtpd_tls_security_level=none
-          -o smtpd_sasl_auth_enable=no
-          -o smtpd_relay_restrictions=permit_mynetworks,defer_unauth_destination
-
+# Other services off for a postfix-only standalone bring-up. Postfix's milter /
+# raven references will just fail to connect (milter_default_action=accept), so
+# the pod still starts.
 opendkim:
   enabled: false
-  domains:
-    - domain: example.dev
-      dkimSelector: mail
-      dkimKeySize: 2048
-  persistence:
-    storageClass: ""
-    size: 1Gi
