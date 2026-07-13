@@ -1,7 +1,7 @@
 services:
-  smtp-server:
+  postfix:
     image: ghcr.io/lsflk/silver-smtp:main
-    container_name: smtp-server-container
+    container_name: postfix
     ports:
       - "25:25"
       - "587:587"
@@ -16,16 +16,16 @@ services:
     networks:
       - mail-network
     depends_on:
-      opendkim-server:
+      opendkim:
         condition: service_started
-      rspamd-server:
+      rspamd:
         condition: service_started
-      certbot-server:
+      certbot:
         condition: service_started
-      raven-server:
+      raven:
         condition: service_started
 
-  raven-server:
+  raven:
     image: ghcr.io/lsflk/raven:latest
     container_name: raven
     ports:
@@ -43,7 +43,7 @@ services:
       - DB_FILE=/app/data/databases/shared.db
       - SOCKETMAP_HOST=0.0.0.0
       - SOCKETMAP_PORT=9100
-      - THUNDER_HOST=thunder-server
+      - THUNDER_HOST=thunder
       - THUNDER_PORT=8090
       - CACHE_TTL_SECONDS=300
       - TOKEN_REFRESH_SECONDS=3300
@@ -57,9 +57,9 @@ services:
     restart: unless-stopped
     user: "0:0"
 
-  opendkim-server:
+  opendkim:
     image: ghcr.io/lsflk/silver-dkim:main
-    container_name: opendkim-server
+    container_name: opendkim
     volumes:
       - ../conf/silver.yaml:/etc/opendkim/silver.yaml
       - ./silver-config/opendkim/opendkim.conf:/etc/opendkim/opendkim.conf:ro
@@ -74,9 +74,9 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  rspamd-server:
+  rspamd:
     image: rspamd/rspamd:latest
-    container_name: rspamd-server
+    container_name: rspamd
     hostname: rspamd
     expose:
       - "11332"
@@ -91,7 +91,7 @@ services:
 
   redis:
     image: redis:alpine
-    container_name: rspamd-redis
+    container_name: redis
     volumes:
       - redis-data:/data
     restart: unless-stopped
@@ -102,7 +102,7 @@ services:
   # Note: you can use any unbound image; this is an example. Ensure it is configured for recursion
   unbound:
     image: mvance/unbound:latest
-    container_name: rspamd-unbound
+    container_name: unbound
     restart: unless-stopped
     networks:
       - mail-network
@@ -111,9 +111,9 @@ services:
     # volumes:
     #   - ./unbound:/opt/unbound/etc/unbound
 
-  clamav-server:
+  clamav:
     image: clamav/clamav:latest
-    container_name: clamav-server
+    container_name: clamav
     volumes:
       - clamav_db:/var/lib/clamav
       - clamav_logs:/var/log/clamav
@@ -121,7 +121,7 @@ services:
       - mail-network
     restart: always
     depends_on:
-      - rspamd-server
+      - rspamd
     environment:
       - CLAMAV_NO_FRESHCLAMD=false
     deploy:
@@ -144,7 +144,7 @@ services:
       - mail-network
     restart: unless-stopped
     depends_on:
-      - clamav-server
+      - clamav
 
   # Initialize database from the image
   thunder-db-init:
@@ -178,7 +178,7 @@ services:
   # Run Thunder server with the shared database
   thunder:
     image: ghcr.io/asgardeo/thunder:0.32.0
-    container_name: thunder-server
+    container_name: thunder
     depends_on:
       thunder-setup:
         condition: service_completed_successfully
@@ -196,9 +196,9 @@ services:
       - mail-network
     restart: unless-stopped
 
-  certbot-server:
+  certbot:
     image: ghcr.io/lsflk/silver-certbot:main
-    container_name: certbot-server
+    container_name: certbot
     volumes:
       - ./silver-config/certbot/keys/etc:/etc/letsencrypt
       - ./silver-config/certbot/keys/log:/var/log/letsencrypt
@@ -209,9 +209,9 @@ services:
     networks:
       - mail-network
 
-  metadata-service:
+  silver-metadata:
     image: ghcr.io/lsflk/silver-metadata-service:main
-    container_name: metadata-service
+    container_name: silver-metadata
     ports:
       - "8888:8888"
     volumes:
@@ -228,7 +228,7 @@ services:
       - observability
     restart: unless-stopped
     depends_on:
-      - clamav-server
+      - clamav
 
   postfix-exporter:
     image: chatwork/kumina-postfix-exporter:latest
@@ -245,7 +245,7 @@ services:
       - mail-network
     restart: unless-stopped
     depends_on:
-      - smtp-server
+      - postfix
 
   node-exporter:
     image: prom/node-exporter:latest
@@ -331,7 +331,7 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    container_name: grafana-local
+    container_name: grafana
     env_file: ".env"
     ports:
       - 3000:3000

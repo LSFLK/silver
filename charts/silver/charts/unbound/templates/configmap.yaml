@@ -1,0 +1,11 @@
+{{- if .Values.configuration }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "unbound.fullname" . }}-config
+  labels:
+    {{- include "unbound.labels" . | nindent 4 }}
+data:
+  unbound.conf: |
+    {{- .Values.configuration | nindent 4 }}
+{{- end }}

@@ -43,3 +43,7 @@ services/seaweedfs/.env
 
 # Ignore docker-compose override files
 services/docker-compose.override.yml
+
+# Helm dependency-build artifacts (regenerate via `helm dependency update`)
+charts/silver/Chart.lock
+charts/silver/charts/*.tgz

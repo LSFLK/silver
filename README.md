@@ -111,13 +111,9 @@ nano services/.env
 
 ### Adding users
 
-- To add more users to your email server, open up [`users.yaml`](https://github.com/LSFLK/silver/blob/main/conf/users.yaml), and add their usernames and run the following command.
+Users in Silver are provisioned through the [Thunder ID](https://github.com/thunder-id/thunderid) console that ships with the platform. Sign in to the console at `https://<your-domain>:8090/console` with your admin credentials.
 
-```bash
-# silver/services
-bash scripts/user/add_user.sh
-```
-- Once you have added the users, `user_invite_urls.txt` will be generated in `scripts/user` folder with invite links for each user. You can share these links with the respective users to set up their accounts.
+For the full walkthrough — creating a user schema, assigning it to an organization unit, and adding users via direct password or invitation link — see [Adding Users](docs/Adding-Users.md).
 
 ### Testing your setup
 - Now that you have a working email server, you can test your configuration using the following links/scripts.
@@ -157,7 +153,7 @@ Silver is built using open-source software.
 
 - [Postfix](https://www.postfix.org/) - Handles sending and receiving email.
 - [Raven](https://github.com/lsflk/raven) - Handles SASL authentication, LMTP, and IMAP server for email retrieval.
-- [Thunder](https://github.com/asgardeo/thunder) - Identity provider and user manager
+- [Thunder ID](https://github.com/thunder-id/thunderid) - Identity provider and user manager
 - [Rspamd](https://rspamd.com/) - Spam filtering system.
 - [ClamAV](https://docs.clamav.net/Introduction.html) - Virus scanning system.
 - [Certbot](https://certbot.eff.org/) - Client software that talks to Let’s Encrypt to generate certificates.
