@@ -27,6 +27,6 @@
 config-url: "https://github.com/maneeshaxyz/silver-config"
 
 domains:
-  - domain: maneesha.dev
+  - domain: example.com
     dkim-selector: mail
     dkim-key-size: 2048
