@@ -69,20 +69,24 @@ kubectl get clusterissuer
 
 ## Step 3 — Configure values.yaml
 
-Before installing Silver, ensure your `values.yaml` includes TLS configuration:
+`global.domain` is the **one required input** — everything (mail hostname, cert
+Secret, service config) derives from it. Installing without it fails fast:
+`global.domain is required`.
 
 ```yaml
-tls:
-  enabled: true
-  issuer: le-staging    # use le-staging first, switch to le-prod once verified
-  renewBefore: "720h"   # renew 30 days before expiry
-  domains:
-    - yourdomain.com
+global:
+  domain: yourdomain.com   # REQUIRED
+  tls:
+    enabled: true
+    issuer: le-staging     # use le-staging first, switch to le-prod once verified
+    renewBefore: "720h"    # renew 30 days before expiry
+    # domains: []          # optional — defaults to [ mail.<domain>, <domain> ].
+    #                        Override only to add extra SANs.
 ```
 
-Each domain will receive a certificate covering:
-- `yourdomain.com`
-- `*.yourdomain.com`
+With `domains` left empty, certificates are minted for:
+- `mail.yourdomain.com` (+ `*.mail.yourdomain.com`) — the Secret postfix mounts
+- `yourdomain.com` (+ `*.yourdomain.com`)
 
 ### Staging vs Production
 
@@ -103,15 +107,16 @@ Burning through this with misconfigured charts is a common mistake — staging p
 
 ## Step 4 — Install Silver
 
-From the repo root:
+From the repo root (`global.domain` is mandatory — set it in `values.yaml` or via `--set`):
 
 ```bash
 helm upgrade --install silver ./charts/silver \
+  --set global.domain=yourdomain.com \
   --namespace silver \
   --create-namespace
 ```
 
-With a values overlay (e.g. dev):
+With a values overlay (e.g. dev — TLS/SASL off, standalone postfix, domain preset):
 
 ```bash
 helm upgrade --install silver ./charts/silver \
@@ -124,7 +129,7 @@ Verify certificates:
 
 ```bash
 kubectl get certificate -n silver
-# maneesha-xyz-tls should show READY=True
+# mail-<domain>-tls and <domain>-tls should show READY=True
 ```
 
 If not ready yet, check progress:

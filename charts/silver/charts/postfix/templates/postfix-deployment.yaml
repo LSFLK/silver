@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "postfix.fullname" . }}
+  labels:
+    {{- include "postfix.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  # hostPort binds 25/587 on the node -> only one pod per node port. RollingUpdate
+  # would try to start the new pod before killing the old and deadlock on the port.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "postfix.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "postfix.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap-postfix.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: postfix
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: smtp
+              containerPort: 25
+              {{- if .Values.hostPort.enabled }}
+              hostPort: {{ .Values.service.ports.smtp }}
+              {{- end }}
+            - name: submission
+              containerPort: 587
+              {{- if .Values.hostPort.enabled }}
+              hostPort: {{ .Values.service.ports.submission }}
+              {{- end }}
+          env:
+            - name: MYHOSTNAME
+              value: {{ include "silver.mailHostname" . | quote }}
+            - name: LOG_TO_STDOUT
+              value: "1"
+          volumeMounts:
+            - name: postfix-main
+              mountPath: /etc/postfix/main.cf
+              subPath: main.cf
+            - name: postfix-master
+              mountPath: /etc/postfix/master.cf
+              subPath: master.cf
+            - name: postfix-silver
+              mountPath: /etc/postfix/silver.yaml
+              subPath: silver.yaml
+            {{- if .Values.global.tls.enabled }}
+            - name: tls
+              mountPath: /certs
+              readOnly: true
+            {{- end }}
+          {{- if .Values.probes.enabled }}
+          startupProbe:
+            tcpSocket:
+              port: smtp
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            tcpSocket:
+              port: smtp
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: smtp
+            periodSeconds: 20
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+      volumes:
+        - name: postfix-main
+          configMap:
+            name: {{ include "postfix.fullname" . }}
+            items:
+              - key: main.cf
+                path: main.cf
+        - name: postfix-master
+          configMap:
+            name: {{ include "postfix.fullname" . }}
+            items:
+              - key: master.cf
+                path: master.cf
+        - name: postfix-silver
+          configMap:
+            name: {{ include "postfix.fullname" . }}
+            items:
+              - key: silver.yaml
+                path: silver.yaml
+        {{- if .Values.global.tls.enabled }}
+        - name: tls
+          secret:
+            secretName: {{ include "silver.tlsSecretName" . }}
+        {{- end }}

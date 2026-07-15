@@ -1,5 +1,6 @@
-{{- if .Values.tls.enabled }}
-{{- range .Values.tls.domains }}
+{{- if .Values.global.tls.enabled }}
+{{- $domains := .Values.global.tls.domains | default (list (include "silver.mailHostname" .) (include "silver.domain" .)) }}
+{{- range $domains }}
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -11,12 +12,12 @@ metadata:
 spec:
   secretName: {{ . | replace "." "-" }}-tls
   issuerRef:
-    name: {{ $.Values.tls.issuer }}
+    name: {{ $.Values.global.tls.issuer }}
     kind: ClusterIssuer
   commonName: {{ . }}
   dnsNames:
     - {{ . }}
     - "*.{{ . }}"
-  renewBefore: {{ $.Values.tls.renewBefore | default "720h" }}
+  renewBefore: {{ $.Values.global.tls.renewBefore | default "720h" }}
 {{- end }}
 {{- end }}

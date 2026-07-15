@@ -27,6 +27,6 @@
 config-url: "https://github.com/maneeshaxyz/silver-config"
 
 domains:
-  - domain:
-    dkim-selector:
-    dkim-key-size:
+  - domain: 
+    dkim-selector: 
+    dkim-key-size: 

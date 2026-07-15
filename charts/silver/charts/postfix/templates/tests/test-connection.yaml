@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "postfix.fullname" . }}-test-connection"
+  labels:
+    {{- include "postfix.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: nc
+      image: busybox:1.36
+      command:
+        - sh
+        - -c
+        - >-
+          echo QUIT | nc -w 5 {{ include "postfix.fullname" . }} {{ .Values.service.ports.smtp }} &&
+          echo QUIT | nc -w 5 {{ include "postfix.fullname" . }} {{ .Values.service.ports.submission }}
+  restartPolicy: Never

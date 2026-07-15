@@ -1,7 +1,34 @@
 global:
+  domain: ""                 # required; e.g. example.com. Everything derives from it.
+  mailHostname: ""           # default mail.<domain>
+  tlsSecretName: ""          # default mail-<domain>-tls (matches certificate.yaml naming)
+  # Stable, release-independent Service names so vendored subchart configs resolve
+  # in-cluster (postfix main.cf points at these). Each service chart must create a
+  # Service with the matching name.
+  serviceNames:
+    raven: raven
+    rspamd: rspamd
+    opendkim: opendkim
   imagePullSecrets: []
+  # TLS lives under global so subcharts (postfix) can gate their config on it,
+  # not just the umbrella's certificate.yaml.
+  tls:
+    enabled: true
+    issuer: le-staging # switch to le-prod once staging works
+    renewBefore: "720h" # renew 30 days before expiry
+    # Empty -> derives [ mail.<domain>, <domain> ] from global.domain, so the
+    # cert Secret postfix mounts (silver.tlsSecretName) always exists. Override
+    # only to add extra SANs.
+    domains: []
+  # SASL auth is served by raven. Disable for a raven-less standalone bring-up
+  # (postfix still accepts mail on 25; submission works without auth).
+  sasl:
+    enabled: true
 
 opendkim:
+  enabled: true
+
+postfix:
   enabled: true
 
 redis:
@@ -12,11 +39,3 @@ unbound:
 
 rspamd:
   enabled: false
-  
-tls:
-  enabled: true
-  issuer: le-staging # switch to le-prod once staging works
-  renewBefore: "720h" # renew 30 days before expiry
-  domains: [
-    "mail.example.com", "example.com"
-  ]

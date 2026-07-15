@@ -1,8 +1,22 @@
+# Dev / standalone bring-up: no cert-manager, no public DNS.
+# TLS off -> postfix runs plaintext, no cert Secret required.
+global:
+  domain: silver-test.local
+  tls:
+    enabled: false
+  # No raven in standalone dev -> no SASL auth backend.
+  sasl:
+    enabled: false
+
+postfix:
+  enabled: true
+  image:
+    repository: silver-smtp
+    tag: local
+    pullPolicy: Never
+
+# Other services off for a postfix-only standalone bring-up. Postfix's milter /
+# raven references will just fail to connect (milter_default_action=accept), so
+# the pod still starts.
 opendkim:
-  domains:
-    - domain: example.dev
-      dkimSelector: mail
-      dkimKeySize: 2048
-  persistence:
-    storageClass: ""
-    size: 1Gi
+  enabled: false
