@@ -53,10 +53,10 @@ service:
   masterGrpcPort: 19333
   annotations: {}
 
-# S3 credentials + identity. accessKey is PINNED (never randomised) because it
-# binds to secretKey inside s3-config.json — rotating one without the other
-# breaks existing clients. secretKey: "" => auto-generated once and preserved
-# across upgrades via a lookup guard. Raven consumes this same Secret.
+# S3 credentials + identity. Prefer setting global.s3.* at the umbrella so the
+# raven client uses the same values. secretKey "" => derived deterministically
+# from the release name (identical in both charts, so no cross-lookup needed);
+# override global.s3.secretKey in prod.
 s3:
   accessKey: raven
   secretKey: ""

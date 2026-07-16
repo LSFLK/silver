@@ -65,7 +65,9 @@ thunder:
   applicationId: ""
 
 # S3-compatible blob storage for attachments. Defaults wire to the in-cluster
-# seaweedfs subchart. secretKey "" => looked up from the seaweedfs Secret.
+# seaweedfs subchart. Credentials come from global.s3.* (shared with seaweedfs);
+# these local values are only fallbacks. secretKey "" => derived deterministically
+# from the release name, matching seaweedfs.
 blobStorage:
   enabled: true
   endpoint: ""       # default http://<global.serviceNames.s3>:8333
@@ -73,9 +75,6 @@ blobStorage:
   bucket: email-attachments
   accessKey: raven
   secretKey: ""
-  # Secret to read secretKey from when blobStorage.secretKey is empty.
-  # "" => "<release>-seaweedfs-s3" (the seaweedfs subchart's Secret).
-  existingSecret: ""
 
 # delivery.yaml knobs.
 delivery:

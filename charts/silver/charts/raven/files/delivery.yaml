@@ -26,7 +26,7 @@ blob_storage:
   endpoint: "{{ include "raven.s3Endpoint" . }}"
   region: "{{ .Values.blobStorage.region }}"
   bucket: "{{ .Values.blobStorage.bucket }}"
-  access_key: "{{ .Values.blobStorage.accessKey }}"
+  access_key: "{{ include "raven.s3AccessKey" . }}"
   secret_key: "{{ include "raven.s3SecretKey" . }}"
   timeout: 30
 {{- else }}

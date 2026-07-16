@@ -23,7 +23,7 @@ spec:
           # racing readiness.
           echo "Verifying SeaweedFS + bucket ${BUCKET} via ${MASTER}..."
           for i in $(seq 1 12); do
-            out=$(echo 's3.bucket.list' | timeout -s KILL 20 weed shell -master="${MASTER}" 2>&1 || true)
+            out=$(echo 's3.bucket.list' | timeout -s KILL 20 weed shell -master="${MASTER}" || true)
             if echo "${out}" | grep -qw "${BUCKET}"; then
               echo "SeaweedFS reachable and bucket present"
               exit 0

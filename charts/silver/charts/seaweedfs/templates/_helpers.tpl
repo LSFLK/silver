@@ -36,19 +36,13 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{/*
-Resolve the S3 secretKey once so the Secret is the single source of truth.
-Priority: explicit value > existing in-cluster Secret (preserved on upgrade) >
-freshly generated. randAlphaNum is JSON/URL-safe (no escaping needed).
+Resolve the S3 secretKey. Priority: global.s3.secretKey > local s3.secretKey >
+a value DERIVED deterministically from the release name. Derivation (not random
++ lookup) is what lets the raven subchart compute the SAME key on a fresh
+one-command `helm install` — lookup can't see a Secret the same install hasn't
+applied yet. Override global.s3.secretKey in prod. Hex from sha256sum, so it is
+JSON/URL-safe (no escaping needed).
 */}}
 {{- define "seaweedfs.secretKey" -}}
-{{- if .Values.s3.secretKey }}
-{{- .Values.s3.secretKey }}
-{{- else }}
-{{- $existing := lookup "v1" "Secret" .Release.Namespace (include "seaweedfs.secretName" .) }}
-{{- if and $existing (index ($existing.data | default dict) "secretKey") }}
-{{- index $existing.data "secretKey" | b64dec }}
-{{- else }}
-{{- randAlphaNum 40 }}
-{{- end }}
-{{- end }}
+{{- (((.Values.global).s3).secretKey) | default .Values.s3.secretKey | default (printf "%s-silver-seaweedfs-s3" .Release.Name | sha256sum | trunc 40) }}
 {{- end }}

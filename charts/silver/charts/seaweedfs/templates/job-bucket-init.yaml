@@ -40,8 +40,11 @@ spec:
               # SIGTERM and would otherwise ignore a plain timeout at cold start.
               echo "Ensuring bucket ${BUCKET} via ${MASTER} (create is idempotent)..."
               for i in $(seq 1 40); do
+                # No 2>&1: keep stderr out of ${out} so an error line mentioning
+                # the bucket name can't false-match the grep below. Errors still
+                # surface in the container log.
                 out=$(printf 's3.bucket.create -name %s\ns3.bucket.list\n' "${BUCKET}" \
-                      | timeout -s KILL 20 weed shell -master="${MASTER}" 2>&1 || true)
+                      | timeout -s KILL 20 weed shell -master="${MASTER}" || true)
                 if echo "${out}" | grep -qw "${BUCKET}"; then
                   echo "Bucket ${BUCKET} present."
                   exit 0

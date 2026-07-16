@@ -10,6 +10,14 @@ global:
     rspamd: rspamd
     opendkim: opendkim
     s3: seaweedfs-s3
+  # Shared S3 credentials so seaweedfs (server) and raven (client) always agree.
+  # secretKey "" => both charts DERIVE the same key from the release name
+  # (deterministic, no cross-lookup) so a fresh one-command install matches out
+  # of the box. Set a real secretKey in prod.
+  s3:
+    accessKey: raven
+    secretKey: ""
+    bucket: email-attachments
   imagePullSecrets: []
   # TLS lives under global so subcharts (postfix) can gate their config on it,
   # not just the umbrella's certificate.yaml.
@@ -42,7 +50,7 @@ rspamd:
   enabled: false
 
 raven:
-  enabled: false
+  enabled: true
 
 seaweedfs:
   enabled: true

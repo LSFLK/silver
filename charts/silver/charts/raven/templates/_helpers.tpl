@@ -44,22 +44,18 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{/*
-S3 secretKey. Priority: explicit value > the seaweedfs Secret (looked up by
-name) > "". The lookup resolves on upgrade (seaweedfs already deployed) — deploy
-seaweedfs before/with raven so its Secret exists.
+S3 accessKey / secretKey. Priority: global.s3.* > local blobStorage.* > derived.
+The secretKey derivation MUST match the seaweedfs subchart's
+(`printf "%s-silver-seaweedfs-s3" .Release.Name | sha256sum | trunc 40`) so both
+agree on a fresh one-command install without any cross-lookup. Override
+global.s3.secretKey in prod.
 */}}
+{{- define "raven.s3AccessKey" -}}
+{{- (((.Values.global).s3).accessKey) | default .Values.blobStorage.accessKey }}
+{{- end }}
+
 {{- define "raven.s3SecretKey" -}}
-{{- if .Values.blobStorage.secretKey }}
-{{- .Values.blobStorage.secretKey }}
-{{- else }}
-{{- $name := .Values.blobStorage.existingSecret | default (printf "%s-seaweedfs-s3" .Release.Name) }}
-{{- $s := lookup "v1" "Secret" .Release.Namespace $name }}
-{{- if and $s (index ($s.data | default dict) "secretKey") }}
-{{- index $s.data "secretKey" | b64dec }}
-{{- else }}
-{{- "" }}
-{{- end }}
-{{- end }}
+{{- (((.Values.global).s3).secretKey) | default .Values.blobStorage.secretKey | default (printf "%s-silver-seaweedfs-s3" .Release.Name | sha256sum | trunc 40) }}
 {{- end }}
 
 {{/* Thunder public host for OAuth issuer/JWKS (defaults to mail.<domain>). */}}
