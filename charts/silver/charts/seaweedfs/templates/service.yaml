@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  # Stable, release-independent name so Raven's config resolves the S3 endpoint.
+  name: {{ include "seaweedfs.serviceName" . }}
+  labels:
+    {{- include "seaweedfs.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - name: s3
+      port: {{ .Values.service.s3Port }}
+      targetPort: s3
+      protocol: TCP
+    - name: master
+      port: {{ .Values.service.masterPort }}
+      targetPort: master
+      protocol: TCP
+    # weed shell (bucket-init Job, helm test) connects over master gRPC.
+    - name: master-grpc
+      port: {{ .Values.service.masterGrpcPort }}
+      targetPort: master-grpc
+      protocol: TCP
+  selector:
+    {{- include "seaweedfs.selectorLabels" . | nindent 4 }}

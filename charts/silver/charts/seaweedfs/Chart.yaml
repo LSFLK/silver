@@ -1,0 +1,12 @@
+apiVersion: v2
+name: seaweedfs
+description: Single-node SeaweedFS providing S3-compatible blob storage for Raven attachments
+type: application
+version: 0.1.0
+# Tracks the chrislusf/seaweedfs image; compose uses :latest, pin a digest/tag in prod.
+appVersion: "latest"
+keywords:
+  - seaweedfs
+  - s3
+  - object-storage
+  - blob-storage

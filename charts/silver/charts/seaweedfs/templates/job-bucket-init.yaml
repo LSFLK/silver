@@ -1,0 +1,58 @@
+{{- if .Values.bucketInit.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "seaweedfs.fullname" . }}-bucket-init
+  labels:
+    {{- include "seaweedfs.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        {{- include "seaweedfs.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: bucket-init
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -u
+              MASTER="{{ include "seaweedfs.serviceName" . }}:{{ .Values.service.masterPort }}"
+              BUCKET="{{ .Values.s3.bucket }}"
+              # weed shell talks master gRPC (port+10000) and returns exit 0 even
+              # when it did nothing (unreachable master, or SIGTERM'd by timeout),
+              # so exit codes are NOT a reliable success signal. Instead we run
+              # create+list together each round and gate on the bucket actually
+              # appearing in the LIST OUTPUT. -s KILL because weed shell traps
+              # SIGTERM and would otherwise ignore a plain timeout at cold start.
+              echo "Ensuring bucket ${BUCKET} via ${MASTER} (create is idempotent)..."
+              for i in $(seq 1 40); do
+                # No 2>&1: keep stderr out of ${out} so an error line mentioning
+                # the bucket name can't false-match the grep below. Errors still
+                # surface in the container log.
+                out=$(printf 's3.bucket.create -name %s\ns3.bucket.list\n' "${BUCKET}" \
+                      | timeout -s KILL 20 weed shell -master="${MASTER}" || true)
+                if echo "${out}" | grep -qw "${BUCKET}"; then
+                  echo "Bucket ${BUCKET} present."
+                  exit 0
+                fi
+                echo "  not ready / not created yet ($i/40), retrying..."
+                sleep 5
+              done
+              echo "ERROR: bucket ${BUCKET} not present after timeout"
+              exit 1
+              echo "Done."
+{{- end }}

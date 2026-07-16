@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "raven.fullname" . }}-test
+  labels:
+    {{- include "raven.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test-connectivity
+      image: busybox:1.36
+      command:
+        - /bin/sh
+        - -c
+        - |
+          SVC="{{ include "raven.serviceName" . }}"
+          fail=0
+          for pair in "imap {{ .Values.ports.imap }}" "lmtp {{ .Values.ports.lmtp }}" "socketmap {{ .Values.ports.socketmap }}"; do
+            name=${pair% *}; port=${pair#* }
+            if nc -z -w 3 "${SVC}" "${port}" 2>/dev/null; then
+              echo "OK ${name} (${port}) reachable"
+            else
+              echo "FAIL ${name} (${port}) unreachable"; fail=1
+            fi
+          done
+          exit $fail

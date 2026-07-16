@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "seaweedfs.fullname" . }}
+  labels:
+    {{- include "seaweedfs.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "seaweedfs.serviceName" . }}
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "seaweedfs.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        # Roll the pod when the S3 credentials change.
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "seaweedfs.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: seaweedfs
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if eq .Values.mode "combined" }}
+          env:
+            # Advertise the pod IP (cluster-routable) so the master hands out
+            # reachable filer/volume addresses to remote `weed shell` (bucket-init
+            # Job, helm test). localhost would only work in-pod and break them.
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          # Combined all-in-one server: master + volume + filer + S3 gateway.
+          command:
+            - weed
+            - server
+            - -dir={{ .Values.persistence.mountPath }}
+            # -ip = advertised address, -ip.bind = listen interface (all).
+            - -ip=$(POD_IP)
+            - -ip.bind=0.0.0.0
+            - -master.port={{ .Values.service.masterPort }}
+            - -s3
+            - -s3.port={{ .Values.service.s3Port }}
+            - -s3.config=/etc/seaweedfs/s3.json
+          {{- else }}
+          {{- fail "seaweedfs: only mode=combined is implemented; see README for the 4-role split fallback" }}
+          {{- end }}
+          ports:
+            - name: s3
+              containerPort: {{ .Values.service.s3Port }}
+              protocol: TCP
+            - name: master
+              containerPort: {{ .Values.service.masterPort }}
+              protocol: TCP
+            - name: master-grpc
+              containerPort: {{ .Values.service.masterGrpcPort }}
+              protocol: TCP
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+            - name: s3-config
+              mountPath: /etc/seaweedfs/s3.json
+              subPath: s3-config.json
+              readOnly: true
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: s3-config
+          secret:
+            secretName: {{ include "seaweedfs.secretName" . }}
+            items:
+              - key: s3-config.json
+                path: s3-config.json
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        {{- if .Values.persistence.storageClass }}
+        storageClassName: {{ .Values.persistence.storageClass }}
+        {{- end }}
+        accessModes:
+          - {{ .Values.persistence.accessMode }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}
