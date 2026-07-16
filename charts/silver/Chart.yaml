@@ -26,3 +26,9 @@ dependencies:
     version: 0.1.0
     repository: file://charts/rspamd
     condition: rspamd.enabled
+  # Thunder identity server (upstream OCI chart). Mirrors the docker-compose
+  # `thunder`/`thunder-setup`/`thunder-db-init` services.
+  - name: thunder
+    version: 0.32.0
+    repository: oci://ghcr.io/asgardeo/helm-charts
+    condition: thunder.enabled

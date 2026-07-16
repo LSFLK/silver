@@ -20,3 +20,6 @@ postfix:
 # the pod still starts.
 opendkim:
   enabled: false
+
+thunder:
+  enabled: false
