@@ -1,0 +1,14 @@
+apiVersion: v2
+name: raven
+description: Raven IMAP/SASL/LMTP + socketmap server for Silver mail retrieval and delivery
+type: application
+version: 0.1.0
+# Tracks ghcr.io/lsflk/raven; compose/manifests use :latest, pin a digest in prod.
+appVersion: "latest"
+keywords:
+  - raven
+  - imap
+  - lmtp
+  - mail
+maintainers:
+  - name: Silver Team

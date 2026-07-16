@@ -14,6 +14,12 @@ dependencies:
 - name: rspamd
   repository: file://charts/rspamd
   version: 0.1.0
+- name: seaweedfs
+  repository: file://charts/seaweedfs
+  version: 0.1.0
+- name: raven
+  repository: file://charts/raven
+  version: 0.1.0
 - name: thunder
   repository: oci://ghcr.io/asgardeo/helm-charts
   version: 0.32.0

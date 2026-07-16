@@ -13,17 +13,20 @@ data:
     {{ . }}
 {{- end }}
 {{- range .Values.domains }}
-    {{ .domain }}
-    *.{{ .domain }}
+{{- $domain := .domain | default (($.Values.global).domain) }}
+    {{ $domain }}
+    *.{{ $domain }}
 {{- end }}
 
   SigningTable: |
 {{- range .Values.domains }}
-    *@{{ .domain }} {{ default "mail" .dkimSelector }}._domainkey.{{ .domain }}
-    *@*.{{ .domain }} {{ default "mail" .dkimSelector }}._domainkey.{{ .domain }}
+{{- $domain := .domain | default (($.Values.global).domain) }}
+    *@{{ $domain }} {{ default "mail" .dkimSelector }}._domainkey.{{ $domain }}
+    *@*.{{ $domain }} {{ default "mail" .dkimSelector }}._domainkey.{{ $domain }}
 {{- end }}
 
   KeyTable: |
 {{- range .Values.domains }}
-    {{ default "mail" .dkimSelector }}._domainkey.{{ .domain }} {{ .domain }}:{{ default "mail" .dkimSelector }}:/etc/dkimkeys/{{ .domain }}/{{ default "mail" .dkimSelector }}.private
+{{- $domain := .domain | default (($.Values.global).domain) }}
+    {{ default "mail" .dkimSelector }}._domainkey.{{ $domain }} {{ $domain }}:{{ default "mail" .dkimSelector }}:/etc/dkimkeys/{{ $domain }}/{{ default "mail" .dkimSelector }}.private
 {{- end }}

@@ -1,0 +1,116 @@
+# Default values for the raven subchart.
+# Raven serves IMAP (143/993), LMTP (24), SASL admin (12345) and a socketmap
+# lookup server (9100) for Postfix. Config + certs come from rendered Secrets
+# (the raw manifests used hostPath — not portable).
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/lsflk/raven
+  tag: ""            # defaults to appVersion (":latest")
+  pullPolicy: Always # floating tag; pin + IfNotPresent in prod
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+
+# Raven's upstream image expects to bind low ports and manage /app/data as root.
+podSecurityContext: {}
+securityContext:
+  runAsUser: 0
+  runAsGroup: 0
+
+service:
+  # ClusterIP for in-cluster bring-up. Public mail needs LoadBalancer or hostPort
+  # (real client IP for spam scoring) — switch per environment.
+  type: ClusterIP
+  annotations: {}
+
+# Listener ports. socketmap (9100) is what Postfix queries for user/alias lookups.
+ports:
+  imap: 143
+  imaps: 993
+  lmtp: 24
+  sasl: 12345
+  socketmap: 9100
+
+persistence:
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 5Gi
+  mountPath: /app/data
+
+# TLS for IMAPS (993). enabled + no existingSecret => the chart generates a
+# stable self-signed cert (kept across upgrades). Point existingSecret at the
+# cert-manager Secret (<domain>-tls) in prod.
+tls:
+  enabled: true
+  existingSecret: ""
+  mountPath: /certs
+
+# Thunder auth backend (external — not charted here). Raven starts without it;
+# only IMAP/SASL login fails until Thunder is reachable at these addresses.
+thunder:
+  host: thunder
+  port: 8090
+  # Public issuer/JWKS host for OAuth token validation (JWT iss must match).
+  publicHost: ""     # default mail.<domain>
+  publicPort: 8090
+  audience: EMAIL_APP
+  # Raven otherwise tries to read the app ID from `docker logs thunder-setup`
+  # (a compose-only hack needing the docker socket). Set this to skip that path.
+  # Empty is fine without Thunder — the group resolver just fails gracefully.
+  applicationId: ""
+
+# S3-compatible blob storage for attachments. Defaults wire to the in-cluster
+# seaweedfs subchart. Credentials come from global.s3.* (shared with seaweedfs);
+# these local values are only fallbacks. secretKey "" => derived deterministically
+# from the release name, matching seaweedfs.
+blobStorage:
+  enabled: true
+  endpoint: ""       # default http://<global.serviceNames.s3>:8333
+  region: us-east-1
+  bucket: email-attachments
+  accessKey: raven
+  secretKey: ""
+
+# delivery.yaml knobs.
+delivery:
+  defaultFolder: INBOX
+  quotaEnabled: false
+  quotaLimit: 1073741824
+  rejectUnknownUser: false
+  logLevel: info      # base config ships "debug"
+
+env:
+  cacheTtlSeconds: 300
+  tokenRefreshSeconds: 3300
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+livenessProbe:
+  tcpSocket:
+    port: imap
+  initialDelaySeconds: 15
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+readinessProbe:
+  tcpSocket:
+    port: imap
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

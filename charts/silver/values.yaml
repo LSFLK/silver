@@ -9,6 +9,15 @@ global:
     raven: raven
     rspamd: rspamd
     opendkim: opendkim
+    s3: seaweedfs-s3
+  # Shared S3 credentials so seaweedfs (server) and raven (client) always agree.
+  # secretKey "" => both charts DERIVE the same key from the release name
+  # (deterministic, no cross-lookup) so a fresh one-command install matches out
+  # of the box. Set a real secretKey in prod.
+  s3:
+    accessKey: raven
+    secretKey: ""
+    bucket: email-attachments
   imagePullSecrets: []
   # TLS lives under global so subcharts (postfix) can gate their config on it,
   # not just the umbrella's certificate.yaml.
@@ -40,6 +49,15 @@ unbound:
 rspamd:
   enabled: false
 
+raven:
+  enabled: true
+
+seaweedfs:
+  enabled: true
+  s3:
+    accessKey: raven
+    secretKey: ""
+    bucket: email-attachments
 # Thunder identity server. Values below reproduce the docker-compose thunder
 # setup (services/docker-compose.yaml): the 0.32.0 image, a shared SQLite
 # database seeded from the image, a one-time setup job, and the bootstrap

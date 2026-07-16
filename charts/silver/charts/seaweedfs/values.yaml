@@ -1,0 +1,108 @@
+# Default values for the seaweedfs subchart.
+# Single-node SeaweedFS exposing an S3-compatible API for Raven attachment storage.
+
+replicaCount: 1
+
+image:
+  repository: chrislusf/seaweedfs
+  # Overrides the image tag; defaults to the chart appVersion (":latest").
+  tag: ""
+  # appVersion is the floating ":latest" tag, so Always avoids nodes pinning a
+  # stale cached image. Pin a version/digest in prod and switch to IfNotPresent.
+  pullPolicy: Always
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+
+# chrislusf/seaweedfs runs as root by default and writes to /data. fsGroup keeps
+# the PVC group-writable; override runAsUser/runAsNonRoot once the image is
+# confirmed to run unprivileged.
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+
+# Deployment mode.
+#   combined: one process via `weed server -s3` (default; lazy path).
+#   Fallback: if the pod crash-loops on startup OR S3/bucket ops fail against
+#   combined mode, switch to the 4-role split (mirror docker-compose.seaweedfs.yaml).
+#   See README "Deployment mode" for the trigger.
+mode: combined
+
+service:
+  # ClusterIP only — internal storage, never publicly exposed.
+  type: ClusterIP
+  # S3 gateway port Raven writes to.
+  s3Port: 8333
+  # Master HTTP port. Exposed on the internal Service for the bucket-init Job /
+  # helm test. Not consumed by Raven.
+  masterPort: 9333
+  # Master gRPC port (= masterPort + 10000). `weed shell` actually talks gRPC,
+  # so this MUST be reachable or shell commands silently no-op. Filer/volume
+  # gRPC are reached via the advertised pod IP (routable), so only master gRPC
+  # needs Service exposure.
+  masterGrpcPort: 19333
+  annotations: {}
+
+# S3 credentials + identity. Prefer setting global.s3.* at the umbrella so the
+# raven client uses the same values. secretKey "" => derived deterministically
+# from the release name (identical in both charts, so no cross-lookup needed);
+# override global.s3.secretKey in prod.
+s3:
+  accessKey: raven
+  secretKey: ""
+  bucket: email-attachments
+  region: us-east-1
+  identityName: raven
+
+persistence:
+  # Empty => cluster default StorageClass. Clusters without a default
+  # (OpenShift, some k3d setups) MUST set this or the PVC stays Pending.
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 10Gi
+  mountPath: /data
+
+# Combined mode is memory-hungry (master+volume+filer+s3 in one process).
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+# Probes target the S3 gateway. It answers HTTP on 8333; a 403 (auth required)
+# still proves liveness, so we probe the port over TCP to avoid auth noise.
+livenessProbe:
+  tcpSocket:
+    port: s3
+  initialDelaySeconds: 20
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+readinessProbe:
+  tcpSocket:
+    port: s3
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Auto-create the bucket for determinism/observability. SeaweedFS also
+# auto-creates on first PUT (the identity has Admin), so this is belt-and-braces.
+bucketInit:
+  enabled: true
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  # Stable name so Postfix / delivery.yaml resolve raven's socketmap + LMTP.
+  name: {{ include "raven.serviceName" . }}
+  labels:
+    {{- include "raven.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - {name: imap,      port: {{ .Values.ports.imap }},      targetPort: imap,      protocol: TCP}
+    - {name: imaps,     port: {{ .Values.ports.imaps }},     targetPort: imaps,     protocol: TCP}
+    - {name: lmtp,      port: {{ .Values.ports.lmtp }},      targetPort: lmtp,      protocol: TCP}
+    - {name: sasl,      port: {{ .Values.ports.sasl }},      targetPort: sasl,      protocol: TCP}
+    - {name: socketmap, port: {{ .Values.ports.socketmap }}, targetPort: socketmap, protocol: TCP}
+  selector:
+    {{- include "raven.selectorLabels" . | nindent 4 }}
