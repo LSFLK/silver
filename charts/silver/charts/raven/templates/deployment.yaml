@@ -1,0 +1,116 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "raven.fullname" . }}
+  labels:
+    {{- include "raven.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  # Single writer to the RWO data PVC; never roll a second pod onto it.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "raven.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/secret-config.yaml") . | sha256sum }}
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "raven.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        # Raven's DB_FILE lives under /app/data/databases; ensure the dir exists
+        # on the fresh PVC (compose seeded it via a host script).
+        - name: init-db-dir
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh", "-c", "mkdir -p {{ .Values.persistence.mountPath }}/databases"]
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+      containers:
+        - name: raven
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: DB_FILE
+              value: {{ .Values.persistence.mountPath }}/databases/shared.db
+            - name: SOCKETMAP_HOST
+              value: "0.0.0.0"
+            - name: SOCKETMAP_PORT
+              value: {{ .Values.ports.socketmap | quote }}
+            - name: THUNDER_HOST
+              value: {{ .Values.thunder.host | quote }}
+            - name: THUNDER_PORT
+              value: {{ .Values.thunder.port | quote }}
+            {{- if .Values.thunder.applicationId }}
+            - name: APPLICATION_ID
+              value: {{ .Values.thunder.applicationId | quote }}
+            {{- end }}
+            - name: CACHE_TTL_SECONDS
+              value: {{ .Values.env.cacheTtlSeconds | quote }}
+            - name: TOKEN_REFRESH_SECONDS
+              value: {{ .Values.env.tokenRefreshSeconds | quote }}
+          ports:
+            - {name: imap,      containerPort: {{ .Values.ports.imap }}}
+            - {name: imaps,     containerPort: {{ .Values.ports.imaps }}}
+            - {name: lmtp,      containerPort: {{ .Values.ports.lmtp }}}
+            - {name: sasl,      containerPort: {{ .Values.ports.sasl }}}
+            - {name: socketmap, containerPort: {{ .Values.ports.socketmap }}}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+            - name: config
+              mountPath: /etc/raven
+              readOnly: true
+            {{- if .Values.tls.enabled }}
+            - name: certs
+              mountPath: {{ .Values.tls.mountPath }}
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "raven.fullname" . }}-data
+        - name: config
+          secret:
+            secretName: {{ include "raven.configSecretName" . }}
+        {{- if .Values.tls.enabled }}
+        - name: certs
+          secret:
+            secretName: {{ include "raven.certSecretName" . }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

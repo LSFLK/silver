@@ -1,0 +1,41 @@
+# Raven Delivery Service Configuration (LMTP)
+lmtp:
+  tcp_address: "0.0.0.0:{{ .Values.ports.lmtp }}"
+  max_size: 52428800
+  timeout: 300
+  hostname: "{{ include "raven.mailHostname" . }}"
+  max_recipients: 100
+
+database:
+  path: "data/databases"
+
+delivery:
+  default_folder: "{{ .Values.delivery.defaultFolder }}"
+  quota_enabled: {{ .Values.delivery.quotaEnabled }}
+  quota_limit: {{ .Values.delivery.quotaLimit }}
+  reject_unknown_user: {{ .Values.delivery.rejectUnknownUser }}
+
+logging:
+  level: "{{ .Values.delivery.logLevel }}"
+  format: "text"
+
+# S3-Compatible Blob Storage Configuration
+blob_storage:
+{{- if .Values.blobStorage.enabled }}
+  enabled: true
+  endpoint: "{{ include "raven.s3Endpoint" . }}"
+  region: "{{ .Values.blobStorage.region }}"
+  bucket: "{{ .Values.blobStorage.bucket }}"
+  access_key: "{{ .Values.blobStorage.accessKey }}"
+  secret_key: "{{ include "raven.s3SecretKey" . }}"
+  timeout: 30
+{{- else }}
+  enabled: false
+{{- end }}
+
+# Socket map server for Postfix user/alias lookups.
+socketmap:
+  enabled: true
+  network: "tcp"
+  address: "{{ include "raven.serviceName" . }}:{{ .Values.ports.socketmap }}"
+  timeout_seconds: 2
