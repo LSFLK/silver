@@ -5,5 +5,20 @@ dependencies:
 - name: postfix
   repository: file://charts/postfix
   version: 0.1.0
-digest: sha256:59b26a4b4d95e319491a2e68773598b844195a42f1c6e17677a55593d5261ade
-generated: "2026-05-17T22:57:17.033738+05:30"
+- name: redis
+  repository: file://charts/redis
+  version: 0.1.0
+- name: unbound
+  repository: file://charts/unbound
+  version: 0.1.0
+- name: rspamd
+  repository: file://charts/rspamd
+  version: 0.1.0
+- name: seaweedfs
+  repository: file://charts/seaweedfs
+  version: 0.1.0
+- name: raven
+  repository: file://charts/raven
+  version: 0.1.0
+digest: sha256:59d5440450b550ebf7f1c0fa4eae262d29836ad4a0925ad3e310b2d304d29cb5
+generated: "2026-07-16T10:26:18.998303+05:30"

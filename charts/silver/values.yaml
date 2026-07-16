@@ -9,6 +9,7 @@ global:
     raven: raven
     rspamd: rspamd
     opendkim: opendkim
+    s3: seaweedfs-s3
   imagePullSecrets: []
   # TLS lives under global so subcharts (postfix) can gate their config on it,
   # not just the umbrella's certificate.yaml.
@@ -39,3 +40,13 @@ unbound:
 
 rspamd:
   enabled: false
+
+raven:
+  enabled: false
+
+seaweedfs:
+  enabled: true
+  s3:
+    accessKey: raven
+    secretKey: ""
+    bucket: email-attachments

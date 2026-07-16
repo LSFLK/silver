@@ -26,3 +26,11 @@ dependencies:
     version: 0.1.0
     repository: file://charts/rspamd
     condition: rspamd.enabled
+  - name: seaweedfs
+    version: 0.1.0
+    repository: file://charts/seaweedfs
+    condition: seaweedfs.enabled
+  - name: raven
+    version: 0.1.0
+    repository: file://charts/raven
+    condition: raven.enabled
