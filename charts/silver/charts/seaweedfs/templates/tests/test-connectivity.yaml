@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "seaweedfs.fullname" . }}-test
+  labels:
+    {{- include "seaweedfs.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test-connectivity
+      image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+      command:
+        - /bin/sh
+        - -c
+        - |
+          set -u
+          MASTER="{{ include "seaweedfs.serviceName" . }}:{{ .Values.service.masterPort }}"
+          BUCKET="{{ .Values.s3.bucket }}"
+          # Gate on the bucket appearing in list OUTPUT (weed shell exit codes are
+          # unreliable). -s KILL because weed shell traps SIGTERM. Retry to avoid
+          # racing readiness.
+          echo "Verifying SeaweedFS + bucket ${BUCKET} via ${MASTER}..."
+          for i in $(seq 1 12); do
+            out=$(echo 's3.bucket.list' | timeout -s KILL 20 weed shell -master="${MASTER}" 2>&1 || true)
+            if echo "${out}" | grep -qw "${BUCKET}"; then
+              echo "SeaweedFS reachable and bucket present"
+              exit 0
+            fi
+            echo "  not ready ($i/12), retrying..."; sleep 5
+          done
+          echo "FAIL: SeaweedFS unreachable or bucket ${BUCKET} missing"
+          exit 1
