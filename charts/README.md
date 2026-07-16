@@ -138,3 +138,63 @@ If not ready yet, check progress:
 kubectl describe certificate <name> -n silver
 ```
 ---
+
+## Thunder identity server
+
+Thunder is pulled in as an upstream OCI dependency
+(`oci://ghcr.io/asgardeo/helm-charts/thunder`, version `0.32.0`) and configured
+under the `thunder:` key in the umbrella values. The defaults in
+[silver/values.yaml](silver/values.yaml) reproduce the docker-compose `thunder`
+setup: the `0.32.0` image, a shared SQLite database seeded from the image (via an
+init container, replacing the compose `thunder-db-init`), a one-time setup job
+(compose `thunder-setup`), a single pod, and the bootstrap scripts from
+[scripts/thunder](../scripts/thunder).
+
+### Bootstrap ConfigMap (required before install)
+
+Thunder's setup job runs as a Helm **pre-install hook**, so the bootstrap
+ConfigMap it references must already exist in the namespace. Create it from the
+canonical scripts (they are not duplicated into the chart):
+
+```bash
+scripts/thunder/create-bootstrap-configmap.sh silver          # <namespace> [configmap-name]
+```
+
+This mounts `01-default-resources.sh` and `02-sample-resources.sh` via `subPath`,
+preserving the image's default bootstrap scripts (including `common.sh`, which
+`01`/`02` source). Re-run it to push script changes; it is idempotent.
+
+### Admin credentials (Secret, required before install)
+
+The admin **username** is `admin` (in `thunder.setup.env`). The **password** is
+not stored in values — it is read from a Secret via `thunder.setup.secretEnv`.
+Create it in the release namespace before installing:
+
+```bash
+kubectl create secret generic thunder-admin-credentials \
+  --namespace silver \
+  --from-literal=password='<your-password>'
+```
+
+### Install
+
+```bash
+# 1. Bootstrap ConfigMap + admin Secret first (pre-install hook dependencies)
+scripts/thunder/create-bootstrap-configmap.sh silver
+kubectl create secret generic thunder-admin-credentials \
+  --namespace silver --from-literal=password='<your-password>'
+
+# 2. Install the umbrella (Thunder enabled by default)
+helm dependency update ./charts/silver
+helm upgrade --install silver ./charts/silver \
+  --set global.domain=yourdomain.com \
+  --namespace silver --create-namespace
+```
+
+Thunder is reached in-cluster on its Service at port `8090` (e.g. raven ->
+`thunder:8090`), matching the compose network. External ingress is disabled by
+default; enable `thunder.ingress` and point it at your domain if you need the
+console/gate UIs exposed. The dev overlay
+([values-dev.yaml](silver/values-dev.yaml)) disables Thunder for a postfix-only
+bring-up.
+---

@@ -39,3 +39,96 @@ unbound:
 
 rspamd:
   enabled: false
+
+# Thunder identity server. Values below reproduce the docker-compose thunder
+# setup (services/docker-compose.yaml): the 0.32.0 image, a shared SQLite
+# database seeded from the image, a one-time setup job, and the bootstrap
+# scripts from scripts/thunder.
+#
+# ⚠️ Before installing with thunder.enabled=true, create the bootstrap ConfigMap
+#    referenced below (it is a hard dependency of the pre-install setup job):
+#      scripts/thunder/create-bootstrap-configmap.sh <namespace>
+thunder:
+  enabled: true
+
+  deployment:
+    # SQLite is single-writer, so run exactly one pod (matches the single
+    # `thunder` container in compose).
+    replicaCount: 1
+    securityContext:
+      # SQLite needs a writable filesystem; the chart requires this to be false
+      # whenever a sqlite database is used.
+      readOnlyRootFilesystem: false
+    image:
+      registry: "ghcr.io/asgardeo"
+      repository: "thunder"
+      tag: "0.32.0"
+
+  # A single SQLite pod cannot be horizontally scaled.
+  hpa:
+    enabled: false
+
+  # In compose, thunder is reached in-cluster on 8090 (raven -> thunder:8090).
+  # The ClusterIP Service covers that path, so no external ingress is created by
+  # default. Enable and point at global.domain if you need the console/gate UIs
+  # exposed.
+  ingress:
+    enabled: false
+
+  # SQLite requires a PVC. An init container seeds it from the image on first
+  # start — this is the Helm equivalent of the compose `thunder-db-init` service
+  # (and the shared thunder-db / consent-db volumes).
+  persistence:
+    enabled: true
+    size: 1Gi
+
+  configuration:
+    # Public URL the console/gate SPAs are served from and call back to.
+    # Required for non-local deployments — set it to your externally reachable
+    # URL and keep setup.env THUNDER_PUBLIC_URL (below) in sync, otherwise the
+    # CONSOLE app's redirect URI won't match and OAuth login fails.
+    # server:
+    #   publicUrl: "https://<your-domain>"
+    database:
+      config:
+        type: "sqlite"
+      runtime:
+        type: "sqlite"
+      user:
+        type: "sqlite"
+    consent:
+      enabled: true
+      database:
+        type: "sqlite"
+
+  # One-time initialization job (compose `thunder-setup` running ./setup.sh).
+  setup:
+    enabled: true
+    env:
+      - name: THUNDER_ADMIN_USERNAME
+        value: "admin"
+      # Must match configuration.server.publicUrl. The bootstrap script registers
+      # the CONSOLE app's redirect URI as ${THUNDER_PUBLIC_URL}/console; if unset
+      # it falls back to an empty value and OAuth login fails with "Invalid
+      # redirect URI". Uncomment and set alongside publicUrl for real deployments.
+      # - name: THUNDER_PUBLIC_URL
+      #   value: "https://<your-domain>"
+    # Admin password is sourced from a Secret, not stored in values. Create it in
+    # the release namespace before installing:
+    #   kubectl create secret generic thunder-admin-credentials \
+    #     --namespace silver --from-literal=password='<your-password>'
+    secretEnv:
+      - name: THUNDER_ADMIN_PASSWORD
+        secretName: thunder-admin-credentials
+        secretKey: password
+        optional: false
+
+  # Bootstrap scripts from scripts/thunder, delivered via an external ConfigMap
+  # (Pattern 2). Listing files mounts only these via subPath, preserving the
+  # image's default bootstrap scripts (e.g. common.sh, which 01/02 source).
+  bootstrap:
+    configMap:
+      name: "thunder-bootstrap"
+      files:
+        - 01-default-resources.sh
+        - 02-sample-resources.sh

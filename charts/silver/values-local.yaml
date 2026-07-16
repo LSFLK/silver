@@ -1,0 +1,44 @@
+# Local minikube bring-up for Thunder only, reachable via
+#   kubectl port-forward svc/silver-thunder-service 8090:8090
+# and a browser at https://localhost:8090/console.
+#
+# No cert-manager, no mail services. TLS off so the umbrella skips Certificate
+# objects; Thunder still serves HTTPS on 8090 with its bundled self-signed cert.
+global:
+  domain: localhost
+  tls:
+    enabled: false
+
+opendkim:
+  enabled: false
+postfix:
+  enabled: false
+
+thunder:
+  enabled: true
+  configuration:
+    server:
+      # Drives the base URL the console/gate SPAs call from the browser.
+      publicUrl: "https://localhost:8090"
+    gateClient:
+      hostname: "localhost"
+      port: 8090
+      scheme: "https"
+  setup:
+    env:
+      - name: THUNDER_ADMIN_USERNAME
+        value: "admin"
+      # Must match server.publicUrl — the bootstrap script registers the CONSOLE
+      # app's allowed redirect URI as ${THUNDER_PUBLIC_URL}/console. If this and
+      # publicUrl disagree, OAuth fails with "Invalid redirect URI".
+      - name: THUNDER_PUBLIC_URL
+        value: "https://localhost:8090"
+    # Admin password is sourced from a Secret, not stored in values. Create it
+    # before installing:
+    #   kubectl create secret generic thunder-admin-credentials \
+    #     --namespace silver --from-literal=password='<your-password>'
+    secretEnv:
+      - name: THUNDER_ADMIN_PASSWORD
+        secretName: thunder-admin-credentials
+        secretKey: password
+        optional: false
