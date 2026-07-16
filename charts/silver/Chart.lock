@@ -20,5 +20,8 @@ dependencies:
 - name: raven
   repository: file://charts/raven
   version: 0.1.0
-digest: sha256:59d5440450b550ebf7f1c0fa4eae262d29836ad4a0925ad3e310b2d304d29cb5
-generated: "2026-07-16T10:26:18.998303+05:30"
+- name: thunder
+  repository: oci://ghcr.io/asgardeo/helm-charts
+  version: 0.32.0
+digest: sha256:c2d4f08ddd201dba1702fdd4288914d3ccd61a1879dd5b2ff3a6c268746f9aa0
+generated: "2026-07-16T15:04:05.686793+05:30"
