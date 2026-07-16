@@ -83,6 +83,12 @@ thunder:
     size: 1Gi
 
   configuration:
+    # Public URL the console/gate SPAs are served from and call back to.
+    # Required for non-local deployments — set it to your externally reachable
+    # URL and keep setup.env THUNDER_PUBLIC_URL (below) in sync, otherwise the
+    # CONSOLE app's redirect URI won't match and OAuth login fails.
+    # server:
+    #   publicUrl: "https://<your-domain>"
     database:
       config:
         type: "sqlite"
@@ -101,6 +107,12 @@ thunder:
     env:
       - name: THUNDER_ADMIN_USERNAME
         value: "admin"
+      # Must match configuration.server.publicUrl. The bootstrap script registers
+      # the CONSOLE app's redirect URI as ${THUNDER_PUBLIC_URL}/console; if unset
+      # it falls back to an empty value and OAuth login fails with "Invalid
+      # redirect URI". Uncomment and set alongside publicUrl for real deployments.
+      # - name: THUNDER_PUBLIC_URL
+      #   value: "https://<your-domain>"
     # Admin password is sourced from a Secret, not stored in values. Create it in
     # the release namespace before installing:
     #   kubectl create secret generic thunder-admin-credentials \

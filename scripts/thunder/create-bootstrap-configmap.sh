@@ -34,7 +34,10 @@ for f in "${FILES[@]}"; do
   FROM_FILE_ARGS+=(--from-file="${f}=${SCRIPT_DIR}/${f}")
 done
 
-kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
+# Best-effort namespace creation. Ignore failures (already exists, or the caller
+# only has namespace-scoped permissions) — if the namespace is truly missing the
+# ConfigMap creation below fails with a clear error anyway.
+kubectl create namespace "${NAMESPACE}" 2>/dev/null || true
 
 # --dry-run|apply so the command is idempotent (safe to re-run to update scripts).
 kubectl create configmap "${CONFIGMAP_NAME}" \
