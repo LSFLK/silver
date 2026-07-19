@@ -1,4 +1,4 @@
-# Silver
+# OpenGovMail
 **_Modern Collaborative Email Platform_**
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
@@ -6,10 +6,10 @@
 ![Security Scan](https://img.shields.io/github/actions/workflow/status/LSFLK/silver/trivy-fs.yml?label=security)
 ![Last Commit](https://img.shields.io/github/last-commit/LSFLK/silver)
 
-**Silver** aims to build a new kind of email and communication system that can work at a government scale. The goal is to make email faster, smarter, and easier to manage while keeping it secure and reliable. The platform will evolve in two stages: Version 1.0 delivers reliable, standards-compliant email, while Version 2.0 reimagines communication with modern collaboration at its core.
+**OpenGovMail** aims to build a new kind of email and communication system that can work at a government scale. The goal is to make email faster, smarter, and easier to manage while keeping it secure and reliable. The platform will evolve in two stages: Version 1.0 delivers reliable, standards-compliant email, while Version 2.0 reimagines communication with modern collaboration at its core.
 
 <p align="center">
-  •   <a href="#why-silver">Why Silver?</a> •
+  •   <a href="#why-OpenGovMail">Why OpenGovMail?</a> •
   <a href="#key-features">Key Features</a> •
   <a href="#getting-started">Getting Started</a> •
   <a href="#open-source-components">Open Source Components</a> •
@@ -17,14 +17,14 @@
   <a href="#license">License</a> •
 </p>
 
-## Why Silver?
-Silver is designed to be secure, reliable, and easy to manage. It runs entirely on your own hardware, giving you full control over your data and ensuring privacy. The system is lightweight and efficient, performing well even on minimal hardware, which makes it easy to deploy in a variety of environments. Each user has a single, unified identity, so an email address and user identity are seamlessly connected. You can bring your own identity provider or use Thunder to organize your users and map your organization hierarchically.
+## Why OpenGovMail?
+OpenGovMail is designed to be secure, reliable, and easy to manage. It runs entirely on your own hardware, giving you full control over your data and ensuring privacy. The system is lightweight and efficient, performing well even on minimal hardware, which makes it easy to deploy in a variety of environments. Each user has a single, unified identity, so an email address and user identity are seamlessly connected. You can bring your own identity provider or use Thunder to organize your users and map your organization hierarchically.
 
-External firewalls are not required to filter emails, and attachments are stored separately in blob storage to save space and improve overall system performance. Silver also includes built-in observability, allowing administrators to monitor activity, detect issues early, and maintain smooth operation.
+External firewalls are not required to filter emails, and attachments are stored separately in blob storage to save space and improve overall system performance. OpenGovMail also includes built-in observability, allowing administrators to monitor activity, detect issues early, and maintain smooth operation.
 
 ## Key Features
 
-Silver offers powerful capabilities that set it apart from traditional email solutions:
+OpenGovMail offers powerful capabilities that set it apart from traditional email solutions:
 
 | Feature | Status |
 |---------|--------|
@@ -75,15 +75,15 @@ You will need to add a few records to your DNS control panel.
 > PTR records are usually set through your hosting provider. 
 
 ### Server Setup
--  Use the below command to clone the Silver Repo and navigate to the silver folder.
+-  Use the below command to clone the OpenGovMail Repo and navigate to the OpenGovMail folder.
 
 ```bash
-git clone https://github.com/LSFLK/silver.git
-cd silver
+git clone https://github.com/OpenGovMail/OpenGovMail.git
+cd OpenGovMail
 ```
 
 ### Configuration
-- Open [`silver.yaml`](https://github.com/LSFLK/silver/blob/main/conf/silver.yaml) with a text editor.
+- Open [`silver.yaml`](https://github.com/OpenGovMail/OpenGovMail/blob/main/conf/silver.yaml) with a text editor.
 
 - Enter your domain name.
 
@@ -94,7 +94,7 @@ cp services/.env.example services/.env
 nano services/.env
 ```
 
-- Follow the manual setup instructions in the [SeaweedFS README](https://github.com/LSFLK/silver/blob/main/services/seaweedfs/README.md) to create the `.env` and `s3-config.json` files.
+- Follow the manual setup instructions in the [SeaweedFS README](https://github.com/OpenGovMail/OpenGovMail/blob/main/services/seaweedfs/README.md) to create the `.env` and `s3-config.json` files.
 
 - Run `bash scripts/setup/setup.sh` to set up the configs.
 
@@ -111,7 +111,7 @@ nano services/.env
 
 ### Adding users
 
-Users in Silver are provisioned through the [Thunder ID](https://github.com/thunder-id/thunderid) console that ships with the platform. Sign in to the console at `https://<your-domain>:8090/console` with your admin credentials.
+Users in OpenGovMail are provisioned through the [Thunder ID](https://github.com/thunder-id/thunderid) console that ships with the platform. Sign in to the console at `https://<your-domain>:8090/console` with your admin credentials.
 
 For the full walkthrough — creating a user schema, assigning it to an organization unit, and adding users via direct password or invitation link — see [Adding Users](docs/Adding-Users.md).
 
@@ -128,7 +128,7 @@ For the full walkthrough — creating a user schema, assigning it to an organiza
 
 ## Open Source Components
 
-### Email Flow in Silver
+### Email Flow in OpenGovMail
 
 <table>
 <tr>
@@ -149,7 +149,7 @@ For the full walkthrough — creating a user schema, assigning it to an organiza
 </tr>
 </table>
 
-Silver is built using open-source software.
+OpenGovMail is built using open-source software.
 
 - [Postfix](https://www.postfix.org/) - Handles sending and receiving email.
 - [Raven](https://github.com/lsflk/raven) - Handles SASL authentication, LMTP, and IMAP server for email retrieval.
@@ -160,8 +160,8 @@ Silver is built using open-source software.
 
 ## Contributing
 
-Thank you for wanting to contribute to our project. Please see [CONTRIBUTING.md](https://github.com/LSFLK/silver/blob/main/docs/CONTRIBUTING.md) for more details.
+Thank you for wanting to contribute to our project. Please see [CONTRIBUTING.md](https://github.com/OpenGovMail/OpenGovMail/blob/main/docs/CONTRIBUTING.md) for more details.
 
 ## License 
 
-Distributed under the Apache 2.0 License. See [LICENSE](https://github.com/LSFLK/silver/blob/main/LICENSE) for more information.
+Distributed under the Apache 2.0 License. See [LICENSE](https://github.com/OpenGovMail/OpenGovMail/blob/main/LICENSE) for more information.
